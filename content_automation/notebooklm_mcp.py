@@ -43,11 +43,25 @@ class NotebookLMMCPClient:
         elif notebook_id:
             args["notebook_id"] = notebook_id
 
-        logger.info("Calling NotebookLM MCP ask_question, timeout=%ss", self.timeout_seconds)
-        payload = self.call_tool("ask_question", args)
-        data = extract_mcp_text_json(payload)
-        if not data.get("success"):
-            raise NotebookLMMCPError(str(data.get("error") or data))
+        last_error: NotebookLMMCPError | None = None
+        for attempt in range(1, 4):
+            logger.info("Calling NotebookLM MCP ask_question, timeout=%ss, attempt=%s/3", self.timeout_seconds, attempt)
+            try:
+                payload = self.call_tool("ask_question", args)
+                data = extract_mcp_text_json(payload)
+                if not data.get("success"):
+                    raise NotebookLMMCPError(str(data.get("error") or data))
+                break
+            except NotebookLMMCPError as exc:
+                last_error = exc
+                if attempt >= 3 or not _is_retriable_notebooklm_error(str(exc)):
+                    raise
+                wait_seconds = 5 * attempt
+                logger.warning("NotebookLM MCP transient error, retrying in %ss: %s", wait_seconds, exc)
+                time.sleep(wait_seconds)
+        else:
+            raise last_error or NotebookLMMCPError("NotebookLM MCP failed")
+
         result = data.get("data") if isinstance(data.get("data"), dict) else {}
         answer = str(result.get("answer") or "").strip()
         if not answer:
@@ -150,6 +164,19 @@ def _read_available_stderr(proc: subprocess.Popen[str]) -> str:
             break
         chunks.append(line)
     return "".join(chunks)
+
+
+def _is_retriable_notebooklm_error(message: str) -> bool:
+    text = message.lower()
+    markers = (
+        "could not find notebooklm chat input",
+        "waiting for chat input",
+        "notebook page has loaded",
+        "target page",
+        "browser has been closed",
+        "execution context was destroyed",
+    )
+    return any(marker in text for marker in markers)
 
 
 def extract_mcp_text_json(payload: dict[str, Any]) -> dict[str, Any]:
