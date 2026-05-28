@@ -18,6 +18,7 @@ from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .storage import ScriptRecord, Storage
+from .video_overlay import VideoOverlayError, apply_overlay, download_video
 
 
 logging.basicConfig(level=logging.INFO)
@@ -48,6 +49,7 @@ dp = Dispatcher()
 APPROVED_BANK_TARGET = 5
 REFILL_BATCH_SIZE = 10
 PENDING_SETTING_EDITS: dict[str, str] = {}
+PENDING_OVERLAY_UPLOADS: dict[str, str] = {}
 HEYGEN_AVATAR_CACHE: dict[str, list[HeyGenAvatar]] = {}
 ELEVENLABS_VOICE_CACHE: dict[str, list[ElevenLabsVoice]] = {}
 CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
@@ -308,6 +310,7 @@ def get_author_style(user_id: str) -> str | None:
 
 def clear_pending_edit(user_id: str) -> None:
     PENDING_SETTING_EDITS.pop(user_id, None)
+    PENDING_OVERLAY_UPLOADS.pop(user_id, None)
 
 
 def get_offer_context(user_id: str) -> str:
@@ -316,6 +319,46 @@ def get_offer_context(user_id: str) -> str:
 
 def get_cta_mix(user_id: str) -> str:
     return storage.get_setting(user_id, "cta_mix") or DEFAULT_CTA_MIX
+
+
+def format_label(format: str) -> str:
+    return "YouTube" if format == "youtube" else "Shorts"
+
+
+def get_overlay_path(user_id: str, format: str) -> Path | None:
+    value = storage.get_setting(user_id, f"{format}_overlay_path")
+    return Path(value) if value else None
+
+
+def set_overlay_path(user_id: str, format: str, path: Path) -> None:
+    storage.set_setting(user_id, f"{format}_overlay_path", str(path))
+
+
+def get_overlay_start_percent(user_id: str, format: str) -> int:
+    value = storage.get_setting(user_id, f"{format}_overlay_start_percent")
+    if not value:
+        return 70
+    try:
+        return max(0, min(100, int(value)))
+    except ValueError:
+        return 70
+
+
+def set_overlay_start_percent(user_id: str, format: str, value: str) -> int:
+    try:
+        percent = int(value.strip().replace("%", ""))
+    except ValueError as exc:
+        raise ValueError("Отправь число от 0 до 100, например 70") from exc
+    if percent < 0 or percent > 100:
+        raise ValueError("Процент должен быть от 0 до 100")
+    storage.set_setting(user_id, f"{format}_overlay_start_percent", str(percent))
+    return percent
+
+
+def overlay_directory(user_id: str) -> Path:
+    path = settings.data_dir / "overlays" / user_id
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def get_active_elevenlabs_voice_id(user_id: str) -> str | None:
@@ -533,6 +576,34 @@ def voice_keyboard(index: int, total: int, voice: ElevenLabsVoice) -> InlineKeyb
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def overlay_keyboard(format: str) -> InlineKeyboardMarkup:
+    label = format_label(format)
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [button(f"🖼 Загрузить плашку {label}", callback_data=f"overlay:upload:{format}", style="primary")],
+            [button(f"⏱ Процент появления {label}", callback_data=f"overlay:percent:{format}")],
+            [button(f"👀 Показать плашку {label}", callback_data=f"overlay:show:{format}")],
+            [button("⚙️ Настройки", callback_data="main:settings", style="secondary")],
+        ]
+    )
+
+
+def overlay_summary(user_id: str, format: str) -> str:
+    label = format_label(format)
+    overlay_path = get_overlay_path(user_id, format)
+    exists = bool(overlay_path and overlay_path.exists())
+    percent = get_overlay_start_percent(user_id, format)
+    path_text = str(overlay_path) if overlay_path else "не загружена"
+    return "\n".join(
+        [
+            f"Плашка {label}:",
+            f"Файл: {'✅ есть' if exists else 'не загружена'}",
+            f"Путь: {path_text}",
+            f"Появление: с {percent}% хронометража до конца видео",
+        ]
+    )
+
+
 async def show_heygen_avatar(chat_id: int, user_id: str, *, thread_id: int | None, index: int = 0) -> None:
     avatars = await get_heygen_avatars(user_id)
     if not avatars:
@@ -594,6 +665,44 @@ async def send_generated_video(chat_id: int, thread_id: int | None, video_url: s
         await send_to_chat_thread(chat_id, f"{caption}\n\n{video_url}", thread_id=thread_id)
 
 
+async def process_overlay_if_configured(user_id: str, record: ScriptRecord, video_url: str) -> Path | None:
+    overlay_path = get_overlay_path(user_id, record.format)
+    if not overlay_path or not overlay_path.exists():
+        return None
+    start_percent = get_overlay_start_percent(user_id, record.format)
+    input_path = settings.video_output_directory / f"heygen_{record.id}.mp4"
+    output_path = settings.video_output_directory / f"final_{record.id}.mp4"
+    await download_video(video_url, input_path)
+    result = await asyncio.to_thread(
+        apply_overlay,
+        video_path=input_path,
+        overlay_path=overlay_path,
+        output_path=output_path,
+        start_percent=start_percent,
+    )
+    logger.info(
+        "Overlay applied to script %s: start %.2fs / duration %.2fs",
+        record.id,
+        result.start_seconds,
+        result.duration_seconds,
+    )
+    return result.output_path
+
+
+async def send_final_video(chat_id: int, thread_id: int | None, user_id: str, record: ScriptRecord, video_url: str) -> None:
+    caption = f"🎬 Готовый ролик\nСценарий #{record.id}: {record.title}"
+    try:
+        final_path = await process_overlay_if_configured(user_id, record, video_url)
+    except VideoOverlayError as exc:
+        logger.exception("Failed to apply overlay")
+        await send_to_chat_thread(chat_id, f"⚠️ Плашку не наложил: {exc}\nОтправляю оригинальный HeyGen video.", thread_id=thread_id)
+        final_path = None
+    if final_path and final_path.exists():
+        await bot.send_video(chat_id, FSInputFile(final_path), caption=caption, message_thread_id=thread_id)
+        return
+    await send_generated_video(chat_id, thread_id, video_url, caption)
+
+
 async def create_and_send_video(chat_id: int, thread_id: int | None, user_id: str, record: ScriptRecord, audio_path: str) -> None:
     path = Path(audio_path)
     if not path.exists() or not path.is_file():
@@ -622,7 +731,7 @@ async def create_and_send_video(chat_id: int, thread_id: int | None, user_id: st
     if not ready.video_url:
         raise HeyGenError(f"HeyGen не вернул ссылку на видео: {ready.raw}")
     await status_msg.edit_text("✅ Видео готово. Отправляю в эту тему.")
-    await send_generated_video(chat_id, thread_id, ready.video_url, f"🎬 Готовый ролик\nСценарий #{record.id}: {record.title}")
+    await send_final_video(chat_id, thread_id, user_id, record, ready.video_url)
 
 
 async def produce_media_for_approved_script(chat_id: int, thread_id: int | None, user_id: str, record: ScriptRecord) -> None:
@@ -665,6 +774,8 @@ def settings_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [button("🎭 Аватар HeyGen", callback_data="settings:heygen_avatars", style="primary")],
             [button("🎙 Голос ElevenLabs", callback_data="settings:elevenlabs_voices", style="primary")],
+            [button("🖼 Плашка Shorts", callback_data="settings:overlay:short")],
+            [button("🖥 Плашка YouTube", callback_data="settings:overlay:youtube")],
             [button("🎯 Контекст оффера", callback_data="settings:edit:offer_context")],
             [button("🗣 Голос автора", callback_data="settings:edit:author_style")],
             [button("🧲 Микс CTA", callback_data="settings:edit:cta_mix")],
@@ -700,6 +811,8 @@ def format_current_settings(user_id: str) -> str:
             f"База NotebookLM:\n{notebook}",
             f"HeyGen avatar:\n{avatar_name}\n{avatar_id}",
             f"ElevenLabs voice:\n{voice_name}\n{voice_id}",
+            overlay_summary(user_id, "short"),
+            overlay_summary(user_id, "youtube"),
             f"Микс CTA:\n{cta_mix}",
             f"Голос автора:\n{author_style}",
             f"Контекст оффера:\n{offer_context}",
@@ -884,6 +997,39 @@ async def set_style(message: Message) -> None:
     await answer_in_same_thread(message, "✅ Стиль автора сохранен. Теперь сценарии будут писаться в этом голосе.")
 
 
+@dp.message(lambda message: message.from_user and str(message.from_user.id) in PENDING_OVERLAY_UPLOADS)
+async def handle_overlay_upload(message: Message) -> None:
+    user_id = activate_from_message(message)
+    format = PENDING_OVERLAY_UPLOADS.pop(user_id)
+    label = format_label(format)
+    photo = message.photo[-1] if message.photo else None
+    document = message.document
+    if not photo and not document:
+        await answer_in_same_thread(message, f"Отправь картинку для плашки {label}: PNG/JPG/WebP файлом или фото.")
+        PENDING_OVERLAY_UPLOADS[user_id] = format
+        return
+
+    file_id = photo.file_id if photo else document.file_id
+    file_name = document.file_name if document and document.file_name else f"{format}_overlay.jpg"
+    suffix = Path(file_name).suffix.lower() or ".jpg"
+    if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
+        await answer_in_same_thread(message, "Плашка должна быть картинкой: PNG, JPG или WebP.")
+        return
+
+    destination = overlay_directory(user_id) / f"{format}_overlay{suffix}"
+    file = await bot.get_file(file_id)
+    if not file.file_path:
+        await answer_in_same_thread(message, "Telegram не вернул путь к файлу. Попробуй отправить картинку еще раз.")
+        return
+    await bot.download_file(file.file_path, destination)
+    set_overlay_path(user_id, format, destination)
+    await answer_in_same_thread(
+        message,
+        f"✅ Плашка {label} сохранена.\n{overlay_summary(user_id, format)}",
+        reply_markup=overlay_keyboard(format),
+    )
+
+
 @dp.message(F.text, lambda message: str(message.from_user.id) in PENDING_SETTING_EDITS and not (message.text or "").startswith("/"))
 async def handle_pending_setting_edit(message: Message) -> None:
     user_id = activate_from_message(message)
@@ -891,6 +1037,19 @@ async def handle_pending_setting_edit(message: Message) -> None:
     value = (message.text or "").strip()
     if not value:
         await answer_in_same_thread(message, "Пустое значение не сохранил. Нажми кнопку настройки еще раз.")
+        return
+    if key.startswith("overlay_percent:"):
+        format = key.split(":", 1)[1]
+        try:
+            percent = set_overlay_start_percent(user_id, format, value)
+        except ValueError as exc:
+            await answer_in_same_thread(message, str(exc), reply_markup=overlay_keyboard(format))
+            return
+        await answer_in_same_thread(
+            message,
+            f"✅ Плашка {format_label(format)} будет появляться с {percent}% видео.",
+            reply_markup=overlay_keyboard(format),
+        )
         return
     storage.set_setting(user_id, key, value)
     labels = {
@@ -976,6 +1135,15 @@ async def settings_callback(callback: CallbackQuery) -> None:
                 thread_id=message_thread_id(callback.message),
                 reply_markup=settings_keyboard(),
             )
+        return
+    if len(parts) == 3 and parts[1] == "overlay" and parts[2] in {"short", "youtube"}:
+        await callback.answer()
+        await send_to_chat_thread(
+            callback.message.chat.id,
+            overlay_summary(user_id, parts[2]),
+            thread_id=message_thread_id(callback.message),
+            reply_markup=overlay_keyboard(parts[2]),
+        )
         return
     if len(parts) != 3 or parts[1] != "edit":
         await callback.answer("Некорректная команда", show_alert=True)
@@ -1094,6 +1262,60 @@ async def eleven_voice_callback(callback: CallbackQuery) -> None:
     if action == "show":
         await callback.answer()
         await show_elevenlabs_voice(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message), index=index)
+        return
+    await callback.answer("Некорректное действие", show_alert=True)
+
+
+@dp.callback_query(F.data.startswith("overlay:"))
+async def overlay_callback(callback: CallbackQuery) -> None:
+    parts = (callback.data or "").split(":")
+    user_id = activate_from_callback(callback)
+    if len(parts) != 3 or parts[2] not in {"short", "youtube"}:
+        await callback.answer("Некорректная команда", show_alert=True)
+        return
+    action = parts[1]
+    format = parts[2]
+    label = format_label(format)
+    if action == "upload":
+        PENDING_OVERLAY_UPLOADS[user_id] = format
+        PENDING_SETTING_EDITS.pop(user_id, None)
+        await callback.answer("Отправь картинку")
+        await send_to_chat_thread(
+            callback.message.chat.id,
+            f"Отправь плашку для {label} одним сообщением: PNG/JPG/WebP файлом или фото.\n\n"
+            "Лучше использовать PNG с прозрачностью и размером под формат видео.",
+            thread_id=message_thread_id(callback.message),
+        )
+        return
+    if action == "percent":
+        PENDING_SETTING_EDITS[user_id] = f"overlay_percent:{format}"
+        PENDING_OVERLAY_UPLOADS.pop(user_id, None)
+        await callback.answer("Отправь процент")
+        await send_to_chat_thread(
+            callback.message.chat.id,
+            f"Отправь процент появления плашки {label}: число от 0 до 100.\n\n"
+            "Например, 70 означает, что плашка появится с 70% хронометража и останется до конца.",
+            thread_id=message_thread_id(callback.message),
+        )
+        return
+    if action == "show":
+        await callback.answer()
+        overlay_path = get_overlay_path(user_id, format)
+        if overlay_path and overlay_path.exists():
+            await bot.send_photo(
+                callback.message.chat.id,
+                FSInputFile(overlay_path),
+                caption=overlay_summary(user_id, format),
+                message_thread_id=message_thread_id(callback.message),
+                reply_markup=overlay_keyboard(format),
+            )
+        else:
+            await send_to_chat_thread(
+                callback.message.chat.id,
+                overlay_summary(user_id, format),
+                thread_id=message_thread_id(callback.message),
+                reply_markup=overlay_keyboard(format),
+            )
         return
     await callback.answer("Некорректное действие", show_alert=True)
 

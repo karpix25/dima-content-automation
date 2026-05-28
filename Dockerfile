@@ -15,6 +15,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+        ffmpeg \
         fluxbox \
         git \
         novnc \
@@ -39,7 +40,7 @@ COPY content_automation ./content_automation
 COPY scripts ./scripts
 COPY README.md ./
 
-RUN mkdir -p /app/.data /app/outputs/elevenlabs
+RUN mkdir -p /app/.data /app/outputs/elevenlabs /app/outputs/videos
 RUN chmod +x scripts/entrypoint.sh scripts/notebooklm_auth_mode.sh
 
 EXPOSE 6080

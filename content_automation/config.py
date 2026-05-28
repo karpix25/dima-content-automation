@@ -24,6 +24,7 @@ class Settings:
     elevenlabs_style: float
     elevenlabs_language: str
     elevenlabs_output_directory: Path
+    video_output_directory: Path
     heygen_api_key: str | None
     heygen_api_base_url: str
     heygen_upload_base_url: str
@@ -65,6 +66,8 @@ def load_settings() -> Settings:
     data_dir.mkdir(parents=True, exist_ok=True)
     elevenlabs_output_directory = Path(os.getenv("ELEVENLABS_OUTPUT_DIRECTORY", "outputs/elevenlabs")).expanduser()
     elevenlabs_output_directory.mkdir(parents=True, exist_ok=True)
+    video_output_directory = Path(os.getenv("VIDEO_OUTPUT_DIRECTORY", "outputs/videos")).expanduser()
+    video_output_directory.mkdir(parents=True, exist_ok=True)
 
     return Settings(
         telegram_bot_token=token,
@@ -82,6 +85,7 @@ def load_settings() -> Settings:
         elevenlabs_style=get_float_env("ELEVENLABS_STYLE", 0.0),
         elevenlabs_language=(os.getenv("ELEVENLABS_LANGUAGE") or "en").strip(),
         elevenlabs_output_directory=elevenlabs_output_directory,
+        video_output_directory=video_output_directory,
         heygen_api_key=(os.getenv("HEYGEN_API_KEY") or "").strip() or None,
         heygen_api_base_url=(os.getenv("HEYGEN_API_BASE_URL") or "https://api.heygen.com").strip().rstrip("/"),
         heygen_upload_base_url=(os.getenv("HEYGEN_UPLOAD_BASE_URL") or "https://upload.heygen.com").strip().rstrip("/"),

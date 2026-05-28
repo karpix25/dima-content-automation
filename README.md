@@ -9,6 +9,7 @@ Telegram-бот для контент-автоматизации:
 - хранит банк одобренных сценариев для дальнейшего производства видео;
 - после апрува озвучивает текст через ElevenLabs, отправляет аудио в активный HeyGen avatar и присылает готовый ролик в ту же группу/тему Telegram;
 - дает Telegram-кнопки выбора HeyGen avatar с preview и ElevenLabs voice с preview;
+- накладывает локально сохраненную плашку на финальное видео через `ffmpeg`;
 - перед генерацией передает NotebookLM последние темы/хуки и фильтрует похожие повторы перед сохранением;
 - дает кнопки настройки контекста оффера, микса CTA, голоса автора и NotebookLM-базы.
 
@@ -33,6 +34,7 @@ APP_MODE=bot
 ELEVENLABS_API_KEY=...
 ELEVENLABS_MCP_OUTPUT_MODE=files
 ELEVENLABS_OUTPUT_DIRECTORY=outputs/elevenlabs
+VIDEO_OUTPUT_DIRECTORY=outputs/videos
 ELEVENLABS_VOICE_ID=
 ELEVENLABS_VOICE_NAME=Dima Kubrak 1
 ELEVENLABS_MODEL_ID=eleven_multilingual_v2
@@ -91,6 +93,19 @@ HEYGEN_API_KEY=...
 
 Через `/settings` открой `🎭 Аватар HeyGen`. Бот покажет avatars с preview-картинкой или ссылкой на preview video, навигацией и кнопкой `Активировать`. Активный avatar используется для всех следующих одобренных short-сценариев.
 
+## Плашки на видео
+
+Через `/settings` можно отдельно настроить:
+
+```text
+Плашка Shorts
+Плашка YouTube
+```
+
+Бот принимает PNG/JPG/WebP файлом или фото и хранит плашку локально на сервере в `DATA_DIR/overlays`. Для каждой плашки задается процент появления: например, `70` значит, что плашка появится с 70% хронометража и останется до конца видео.
+
+После HeyGen бот скачивает mp4 в `VIDEO_OUTPUT_DIRECTORY`, накладывает плашку через `ffmpeg` и отправляет финальный mp4 в Telegram.
+
 ## Запуск
 
 ```bash
@@ -118,6 +133,7 @@ DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=/app/.data
 ELEVENLABS_API_KEY=...
 ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs
+VIDEO_OUTPUT_DIRECTORY=/app/outputs/videos
 HEYGEN_API_KEY=...
 ```
 
@@ -188,6 +204,8 @@ APP_MODE=bot
 ```text
 Аватар HeyGen
 Голос ElevenLabs
+Плашка Shorts
+Плашка YouTube
 Контекст оффера
 Голос автора
 Микс CTA
@@ -198,5 +216,7 @@ APP_MODE=bot
 CTA не вставляется фиксированным шаблоном. Контекст оффера и микс CTA передаются в NotebookLM, чтобы он писал CTA под конкретный сценарий:
 
 ```text
-50% none, 35% soft, 15% direct
+50% none, 50% soft, 0% direct
 ```
+
+Прямой CTA сейчас отключен: бот не должен просить apply/book a call.

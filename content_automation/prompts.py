@@ -12,10 +12,10 @@ We sell a high-ticket Amazon growth mentorship for existing Amazon sellers.
 Entry price starts at $1400.
 The offer helps sellers improve cash flow, PPC efficiency, product economics, scaling systems, operations, and marketplace expansion.
 The CTA should never sound generic, pushy, or pasted on. It must fit the specific pain, belief shift, or opportunity in the script.
-Use apply/book-call language only for direct CTA scripts.
+Do not use direct CTA, apply, book-call, or sales-call language for now.
 """
 
-DEFAULT_CTA_MIX = "50% none, 35% soft, 15% direct"
+DEFAULT_CTA_MIX = "50% none, 50% soft, 0% direct"
 
 
 def build_short_scripts_prompt(
@@ -73,7 +73,7 @@ CTA strategy:
 - Use this CTA mix across the batch: {cta_distribution}.
 - "none" means end on a strong insight or belief shift with no pitch.
 - "soft" means organically connect the script's problem to the offer context.
-- "direct" means ask the right viewer to apply/book a call, but only when it fits the topic.
+- "direct" is disabled for now. Do not ask viewers to apply, book a call, DM, or buy.
 - Never paste the same CTA across scripts. Generate a CTA that is specific to each script's angle.
 
 Task:
@@ -101,7 +101,7 @@ Schema:
     "hook": "one short trigger line for the first seconds",
     "trigger": "main emotional/business trigger",
     "voiceover": "full conversational English voiceover, 30-60 seconds",
-    "cta_type": "none | soft | direct",
+    "cta_type": "none | soft",
     "cta_reason": "why this CTA level fits this specific script",
     "cta": "organic CTA written specifically for this script, or empty string for none",
     "why_it_works": "why this will resonate with an Amazon seller",
@@ -159,7 +159,7 @@ Alex Hormozi-style funnel logic:
 CTA strategy:
 - Use this CTA mix guidance for the video's CTA placement: {cta_distribution}.
 - Do not paste a generic CTA. Write CTA moments that fit the specific topic and offer context.
-- If the topic does not earn a direct CTA, use a soft CTA or end on a strong belief shift.
+- Direct CTA is disabled for now. Use a soft CTA or end on a strong belief shift.
 
 Task:
 Using this NotebookLM knowledge base, write 1 YouTube script up to 15 minutes.
@@ -173,7 +173,7 @@ Schema:
     "hook": "first 15 seconds hook",
     "trigger": "main trigger",
     "voiceover": "full English script with approximate timing and conversational delivery",
-    "cta_type": "none | soft | direct",
+    "cta_type": "none | soft",
     "cta_reason": "why this CTA level fits this video",
     "cta": "organic CTA moments for the middle/end, or empty string for none",
     "why_it_works": "why this warms up the high-ticket audience",
