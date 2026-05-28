@@ -27,14 +27,11 @@ RUN apt-get update \
         xvfb \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt package.json package-lock.json ./
+COPY requirements.txt ./
 
 RUN python3 -m venv /opt/venv \
     && python -m pip install --upgrade pip \
     && pip install -r requirements.txt
-
-RUN npm ci \
-    && npm cache clean --force
 
 COPY content_automation ./content_automation
 COPY scripts ./scripts
