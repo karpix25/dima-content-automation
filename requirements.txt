@@ -1,3 +1,4 @@
-aiogram>=3.7,<4
+aiogram>=3.25,<4
 python-dotenv>=1.0,<2
 elevenlabs-mcp==0.9.1
+httpx>=0.28,<1

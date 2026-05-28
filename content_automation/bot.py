@@ -11,7 +11,9 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from .config import load_settings
+from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
+from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
 from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
@@ -29,12 +31,25 @@ elevenlabs = ElevenLabsMCPClient(
     command=settings.elevenlabs_mcp_command,
     output_directory=settings.elevenlabs_output_directory,
 )
+elevenlabs_api = ElevenLabsAPIClient(api_key=settings.elevenlabs_api_key)
+heygen = HeyGenClient(
+    api_key=settings.heygen_api_key,
+    api_base_url=settings.heygen_api_base_url,
+    upload_base_url=settings.heygen_upload_base_url,
+    aspect_ratio=settings.heygen_aspect_ratio,
+    resolution=settings.heygen_resolution,
+    output_format=settings.heygen_output_format,
+    poll_seconds=settings.heygen_video_poll_seconds,
+    timeout_seconds=settings.heygen_video_timeout_seconds,
+)
 bot = Bot(settings.telegram_bot_token)
 dp = Dispatcher()
 
 APPROVED_BANK_TARGET = 5
 REFILL_BATCH_SIZE = 10
 PENDING_SETTING_EDITS: dict[str, str] = {}
+HEYGEN_AVATAR_CACHE: dict[str, list[HeyGenAvatar]] = {}
+ELEVENLABS_VOICE_CACHE: dict[str, list[ElevenLabsVoice]] = {}
 CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
 WORD_RE = re.compile(r"[a-z0-9]+")
 
@@ -102,8 +117,8 @@ async def send_to_chat_thread(
 def script_keyboard(script_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Принять", callback_data=f"script:approve:{script_id}")],
-            [InlineKeyboardButton(text="🚫 Отклонить", callback_data=f"script:reject:{script_id}")],
+            [button("✅ Принять", callback_data=f"script:approve:{script_id}", style="success")],
+            [button("🚫 Отклонить", callback_data=f"script:reject:{script_id}", style="danger")],
         ]
     )
 
@@ -303,6 +318,43 @@ def get_cta_mix(user_id: str) -> str:
     return storage.get_setting(user_id, "cta_mix") or DEFAULT_CTA_MIX
 
 
+def get_active_elevenlabs_voice_id(user_id: str) -> str | None:
+    return storage.get_setting(user_id, "elevenlabs_voice_id") or settings.elevenlabs_voice_id
+
+
+def get_active_elevenlabs_voice_name(user_id: str) -> str:
+    return storage.get_setting(user_id, "elevenlabs_voice_name") or settings.elevenlabs_voice_name
+
+
+def set_active_elevenlabs_voice(user_id: str, voice: ElevenLabsVoice) -> None:
+    storage.set_setting(user_id, "elevenlabs_voice_id", voice.id)
+    storage.set_setting(user_id, "elevenlabs_voice_name", voice.name)
+
+
+def get_active_heygen_avatar_id(user_id: str) -> str | None:
+    return storage.get_setting(user_id, "heygen_avatar_id")
+
+
+def get_active_heygen_avatar_name(user_id: str) -> str | None:
+    return storage.get_setting(user_id, "heygen_avatar_name")
+
+
+def set_active_heygen_avatar(user_id: str, avatar: HeyGenAvatar) -> None:
+    storage.set_setting(user_id, "heygen_avatar_id", avatar.id)
+    storage.set_setting(user_id, "heygen_avatar_name", avatar.name)
+
+
+def button(text: str, *, callback_data: str | None = None, url: str | None = None, style: str | None = None) -> InlineKeyboardButton:
+    kwargs: dict[str, str] = {"text": text}
+    if callback_data:
+        kwargs["callback_data"] = callback_data
+    if url:
+        kwargs["url"] = url
+    if style:
+        kwargs["style"] = style
+    return InlineKeyboardButton(**kwargs)
+
+
 async def generate_scripts_for_user(
     user_id: str,
     count: int,
@@ -337,6 +389,13 @@ async def generate_scripts_for_user(
 
     items: list[dict[str, object]] = []
     for attempt in range(3):
+        logger.info(
+            "Generating %s %s script(s) with NotebookLM for user %s, attempt %s/3",
+            count,
+            format,
+            user_id,
+            attempt + 1,
+        )
         request_prompt = prompt
         if attempt:
             request_prompt = "\n\n".join(
@@ -346,6 +405,7 @@ async def generate_scripts_for_user(
                 ]
             )
         result = await asyncio.to_thread(notebooklm.ask, request_prompt, notebook_url=notebook_ref_to_url(notebook_ref))
+        logger.info("NotebookLM returned %s characters for user %s", len(result.answer), user_id)
         payload = extract_json(result.answer)
         for item in as_script_list(payload):
             if script_payload_has_cyrillic(item):
@@ -359,6 +419,7 @@ async def generate_scripts_for_user(
     if not items:
         raise ValueError("NotebookLM не вернул новые английские сценарии в JSON. Попробуй /refill еще раз.")
 
+    logger.info("Saving %s generated %s script(s) for user %s", len(items), format, user_id)
     return [storage.add_script(user_id, format, item) for item in items]
 
 
@@ -393,11 +454,12 @@ def format_bank_status(user_id: str) -> str:
     )
 
 
-async def generate_voiceover_audio(record: ScriptRecord) -> str:
+async def generate_voiceover_audio(record: ScriptRecord, user_id: str) -> str:
     result = await asyncio.to_thread(
         elevenlabs.text_to_speech,
         text=record.voiceover,
-        voice_name=settings.elevenlabs_voice_name,
+        voice_name=get_active_elevenlabs_voice_name(user_id),
+        voice_id=get_active_elevenlabs_voice_id(user_id),
         model_id=settings.elevenlabs_model_id,
         speed=settings.elevenlabs_speed,
         stability=settings.elevenlabs_stability,
@@ -421,14 +483,195 @@ async def send_generated_audio(chat_id: int, thread_id: int | None, audio_path: 
     )
 
 
+async def get_heygen_avatars(user_id: str, *, refresh: bool = False) -> list[HeyGenAvatar]:
+    if not heygen.is_configured():
+        raise HeyGenError("HEYGEN_API_KEY не задан")
+    if refresh or user_id not in HEYGEN_AVATAR_CACHE:
+        HEYGEN_AVATAR_CACHE[user_id] = await heygen.list_avatar_looks()
+    return HEYGEN_AVATAR_CACHE[user_id]
+
+
+async def get_elevenlabs_voices(user_id: str, *, refresh: bool = False) -> list[ElevenLabsVoice]:
+    if not elevenlabs_api.is_configured():
+        raise ElevenLabsAPIError("ELEVENLABS_API_KEY не задан")
+    if refresh or user_id not in ELEVENLABS_VOICE_CACHE:
+        ELEVENLABS_VOICE_CACHE[user_id] = await elevenlabs_api.list_voices()
+    return ELEVENLABS_VOICE_CACHE[user_id]
+
+
+def nav_index(index: int, total: int) -> int:
+    if total <= 0:
+        return 0
+    return index % total
+
+
+def avatar_keyboard(index: int, total: int, avatar: HeyGenAvatar) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [button("✅ Активировать", callback_data=f"heygen_avatar:set:{index}", style="success")],
+        [
+            button("⬅️", callback_data=f"heygen_avatar:show:{nav_index(index - 1, total)}", style="secondary"),
+            button(f"{index + 1}/{total}", callback_data="noop", style="secondary"),
+            button("➡️", callback_data=f"heygen_avatar:show:{nav_index(index + 1, total)}", style="secondary"),
+        ],
+    ]
+    if avatar.preview_video_url:
+        rows.append([button("▶️ Preview video", url=avatar.preview_video_url, style="primary")])
+    rows.append([button("⚙️ Настройки", callback_data="main:settings", style="secondary")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def voice_keyboard(index: int, total: int, voice: ElevenLabsVoice) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = [
+        [button("✅ Активировать", callback_data=f"eleven_voice:set:{index}", style="success")],
+        [
+            button("⬅️", callback_data=f"eleven_voice:show:{nav_index(index - 1, total)}", style="secondary"),
+            button(f"{index + 1}/{total}", callback_data="noop", style="secondary"),
+            button("➡️", callback_data=f"eleven_voice:show:{nav_index(index + 1, total)}", style="secondary"),
+        ],
+    ]
+    if voice.preview_url:
+        rows.append([button("▶️ Preview audio", url=voice.preview_url, style="primary")])
+    rows.append([button("⚙️ Настройки", callback_data="main:settings", style="secondary")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def show_heygen_avatar(chat_id: int, user_id: str, *, thread_id: int | None, index: int = 0) -> None:
+    avatars = await get_heygen_avatars(user_id)
+    if not avatars:
+        await send_to_chat_thread(chat_id, "HeyGen не вернул аватаров.", thread_id=thread_id, reply_markup=settings_keyboard())
+        return
+    index = nav_index(index, len(avatars))
+    avatar = avatars[index]
+    active_marker = "✅ Активный" if avatar.id == get_active_heygen_avatar_id(user_id) else "Не активен"
+    caption = "\n".join(
+        [
+            f"🎭 HeyGen avatar {index + 1}/{len(avatars)}",
+            f"{active_marker}",
+            f"Имя: {avatar.name}",
+            f"ID: {avatar.id}",
+        ]
+    )
+    if avatar.preview_image_url:
+        await bot.send_photo(
+            chat_id,
+            avatar.preview_image_url,
+            caption=caption,
+            message_thread_id=thread_id,
+            reply_markup=avatar_keyboard(index, len(avatars), avatar),
+        )
+    else:
+        await send_to_chat_thread(
+            chat_id,
+            caption,
+            thread_id=thread_id,
+            reply_markup=avatar_keyboard(index, len(avatars), avatar),
+        )
+
+
+async def show_elevenlabs_voice(chat_id: int, user_id: str, *, thread_id: int | None, index: int = 0) -> None:
+    voices = await get_elevenlabs_voices(user_id)
+    if not voices:
+        await send_to_chat_thread(chat_id, "ElevenLabs не вернул голосов.", thread_id=thread_id, reply_markup=settings_keyboard())
+        return
+    index = nav_index(index, len(voices))
+    voice = voices[index]
+    active_marker = "✅ Активный" if voice.id == get_active_elevenlabs_voice_id(user_id) else "Не активен"
+    text = "\n".join(
+        [
+            f"🎙 ElevenLabs voice {index + 1}/{len(voices)}",
+            f"{active_marker}",
+            f"Имя: {voice.name}",
+            f"ID: {voice.id}",
+            f"Категория: {voice.category or 'не указана'}",
+        ]
+    )
+    await send_to_chat_thread(chat_id, text, thread_id=thread_id, reply_markup=voice_keyboard(index, len(voices), voice))
+
+
+async def send_generated_video(chat_id: int, thread_id: int | None, video_url: str, caption: str) -> None:
+    try:
+        await bot.send_video(chat_id, video_url, caption=caption, message_thread_id=thread_id)
+    except Exception:
+        logger.exception("Telegram failed to send HeyGen video by URL")
+        await send_to_chat_thread(chat_id, f"{caption}\n\n{video_url}", thread_id=thread_id)
+
+
+async def create_and_send_video(chat_id: int, thread_id: int | None, user_id: str, record: ScriptRecord, audio_path: str) -> None:
+    path = Path(audio_path)
+    if not path.exists() or not path.is_file():
+        await send_to_chat_thread(chat_id, f"✅ Озвучка создана:\n{audio_path}\n\n⚠️ HeyGen не получил файл аудио.", thread_id=thread_id)
+        return
+    avatar_id = get_active_heygen_avatar_id(user_id)
+    avatar_name = get_active_heygen_avatar_name(user_id) or avatar_id
+    if not heygen.is_configured():
+        await send_generated_audio(chat_id, thread_id, audio_path)
+        await send_to_chat_thread(chat_id, "⚠️ HEYGEN_API_KEY не задан, поэтому отправил только озвучку.", thread_id=thread_id)
+        return
+    if not avatar_id:
+        await send_generated_audio(chat_id, thread_id, audio_path)
+        await send_to_chat_thread(chat_id, "⚠️ HeyGen avatar не выбран. Открой /settings → 🎭 Аватар HeyGen.", thread_id=thread_id)
+        return
+
+    status_msg = await send_to_chat_thread(
+        chat_id,
+        f"🎭 Отправляю озвучку в HeyGen.\nАватар: {avatar_name}\nЭто может занять несколько минут.",
+        thread_id=thread_id,
+    )
+    asset_id = await heygen.upload_audio_file(path)
+    created = await heygen.create_video_from_audio(avatar_id=avatar_id, audio_asset_id=asset_id, title=record.title)
+    await status_msg.edit_text(f"🎬 HeyGen принял задачу: {created.video_id}\nЖду готовый ролик...")
+    ready = await heygen.wait_for_video(created.video_id)
+    if not ready.video_url:
+        raise HeyGenError(f"HeyGen не вернул ссылку на видео: {ready.raw}")
+    await status_msg.edit_text("✅ Видео готово. Отправляю в эту тему.")
+    await send_generated_video(chat_id, thread_id, ready.video_url, f"🎬 Готовый ролик\nСценарий #{record.id}: {record.title}")
+
+
+async def produce_media_for_approved_script(chat_id: int, thread_id: int | None, user_id: str, record: ScriptRecord) -> None:
+    audio_path = ""
+    try:
+        status_msg = await send_to_chat_thread(
+            chat_id,
+            f"✅ Сценарий #{record.id} принят.\n🎙 Создаю озвучку ElevenLabs...",
+            thread_id=thread_id,
+        )
+        audio_path = await generate_voiceover_audio(record, user_id)
+        await status_msg.edit_text(f"✅ Озвучка сценария #{record.id} готова.\n🎭 Готовлю видео через HeyGen...")
+        await create_and_send_video(chat_id, thread_id, user_id, record, audio_path)
+    except ElevenLabsMCPError as exc:
+        await send_to_chat_thread(
+            chat_id,
+            f"✅ Сценарий #{record.id} принят.\n⚠️ Озвучку пока не создал: {exc}",
+            thread_id=thread_id,
+        )
+    except HeyGenError as exc:
+        logger.exception("Failed to create HeyGen video")
+        if audio_path:
+            await send_generated_audio(chat_id, thread_id, audio_path)
+        await send_to_chat_thread(
+            chat_id,
+            f"✅ Сценарий #{record.id} принят.\n⚠️ Видео HeyGen пока не создал: {exc}",
+            thread_id=thread_id,
+        )
+    except Exception as exc:
+        logger.exception("Failed to produce approved script media")
+        await send_to_chat_thread(
+            chat_id,
+            f"✅ Сценарий #{record.id} принят.\n⚠️ Не удалось создать видео: {exc}",
+            thread_id=thread_id,
+        )
+
+
 def settings_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🎯 Контекст оффера", callback_data="settings:edit:offer_context")],
-            [InlineKeyboardButton(text="🗣 Голос автора", callback_data="settings:edit:author_style")],
-            [InlineKeyboardButton(text="🧲 Микс CTA", callback_data="settings:edit:cta_mix")],
-            [InlineKeyboardButton(text="📚 База NotebookLM", callback_data="settings:edit:notebook_id")],
-            [InlineKeyboardButton(text="👀 Показать текущие", callback_data="settings:show")],
+            [button("🎭 Аватар HeyGen", callback_data="settings:heygen_avatars", style="primary")],
+            [button("🎙 Голос ElevenLabs", callback_data="settings:elevenlabs_voices", style="primary")],
+            [button("🎯 Контекст оффера", callback_data="settings:edit:offer_context")],
+            [button("🗣 Голос автора", callback_data="settings:edit:author_style")],
+            [button("🧲 Микс CTA", callback_data="settings:edit:cta_mix")],
+            [button("📚 База NotebookLM", callback_data="settings:edit:notebook_id")],
+            [button("👀 Показать текущие", callback_data="settings:show")],
         ]
     )
 
@@ -436,10 +679,10 @@ def settings_keyboard() -> InlineKeyboardMarkup:
 def main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Пополнить банк", callback_data="main:refill")],
-            [InlineKeyboardButton(text="🧾 Проверить очередь", callback_data="main:review")],
-            [InlineKeyboardButton(text="🏦 Статус банка", callback_data="main:bank")],
-            [InlineKeyboardButton(text="⚙️ Настройки", callback_data="main:settings")],
+            [button("🔄 Пополнить банк", callback_data="main:refill", style="primary")],
+            [button("🧾 Проверить очередь", callback_data="main:review")],
+            [button("🏦 Статус банка", callback_data="main:bank")],
+            [button("⚙️ Настройки", callback_data="main:settings")],
         ]
     )
 
@@ -449,10 +692,16 @@ def format_current_settings(user_id: str) -> str:
     author_style = get_author_style(user_id) or "по умолчанию"
     offer_context = get_offer_context(user_id)
     cta_mix = get_cta_mix(user_id)
+    voice_name = get_active_elevenlabs_voice_name(user_id)
+    voice_id = get_active_elevenlabs_voice_id(user_id) or "не задан"
+    avatar_name = get_active_heygen_avatar_name(user_id) or "не выбран"
+    avatar_id = get_active_heygen_avatar_id(user_id) or "не задан"
     return "\n\n".join(
         [
             "Текущие настройки контента:",
             f"База NotebookLM:\n{notebook}",
+            f"HeyGen avatar:\n{avatar_name}\n{avatar_id}",
+            f"ElevenLabs voice:\n{voice_name}\n{voice_id}",
             f"Микс CTA:\n{cta_mix}",
             f"Голос автора:\n{author_style}",
             f"Контекст оффера:\n{offer_context}",
@@ -562,6 +811,11 @@ async def refill_if_needed(
         thread_id=thread_id,
     )
     try:
+        logger.info("Starting script bank refill for user %s: approved=%s pending=%s", user_id, approved, pending)
+        await status_msg.edit_text(
+            "⏳ Отправил запрос в NotebookLM.\n"
+            "Обычно это занимает 1-4 минуты. Если NotebookLM зависнет, покажу ошибку по timeout."
+        )
         await generate_scripts_for_user(user_id, REFILL_BATCH_SIZE, format="short", topic_hint=topic_hint)
     except Exception as exc:
         logger.exception("Failed to refill script bank")
@@ -584,7 +838,7 @@ async def start(message: Message) -> None:
                 "Команды:",
                 "/set_notebook <id> - подключить NotebookLM-базу",
                 "/set_style <описание стиля> - сохранить голос автора",
-                "/settings - настройки оффера, CTA, стиля и NotebookLM",
+                "/settings - настройки HeyGen, ElevenLabs, оффера, CTA, стиля и NotebookLM",
                 "/bank - статус банка сценариев",
                 "/refill - пополнить банк, если одобрено 5 или меньше",
                 "/review - открыть очередь сценариев на проверку",
@@ -701,6 +955,30 @@ async def settings_callback(callback: CallbackQuery) -> None:
             reply_markup=settings_keyboard(),
         )
         return
+    if len(parts) >= 2 and parts[1] == "heygen_avatars":
+        await callback.answer("Загружаю аватары")
+        try:
+            await show_heygen_avatar(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message))
+        except HeyGenError as exc:
+            await send_to_chat_thread(
+                callback.message.chat.id,
+                f"⚠️ Не удалось получить HeyGen avatars: {exc}",
+                thread_id=message_thread_id(callback.message),
+                reply_markup=settings_keyboard(),
+            )
+        return
+    if len(parts) >= 2 and parts[1] == "elevenlabs_voices":
+        await callback.answer("Загружаю голоса")
+        try:
+            await show_elevenlabs_voice(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message))
+        except ElevenLabsAPIError as exc:
+            await send_to_chat_thread(
+                callback.message.chat.id,
+                f"⚠️ Не удалось получить ElevenLabs voices: {exc}",
+                thread_id=message_thread_id(callback.message),
+                reply_markup=settings_keyboard(),
+            )
+        return
     if len(parts) != 3 or parts[1] != "edit":
         await callback.answer("Некорректная команда", show_alert=True)
         return
@@ -735,6 +1013,91 @@ async def settings_callback(callback: CallbackQuery) -> None:
     }
     await callback.answer("Отправь значение следующим сообщением")
     await send_to_chat_thread(callback.message.chat.id, prompts[key], thread_id=message_thread_id(callback.message))
+
+
+@dp.callback_query(F.data == "noop")
+async def noop_callback(callback: CallbackQuery) -> None:
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("heygen_avatar:"))
+async def heygen_avatar_callback(callback: CallbackQuery) -> None:
+    parts = (callback.data or "").split(":")
+    user_id = activate_from_callback(callback)
+    if len(parts) != 3:
+        await callback.answer("Некорректная команда", show_alert=True)
+        return
+    action = parts[1]
+    try:
+        index = int(parts[2])
+    except ValueError:
+        await callback.answer("Некорректный номер", show_alert=True)
+        return
+    try:
+        avatars = await get_heygen_avatars(user_id)
+    except HeyGenError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+    if not avatars:
+        await callback.answer("Аватары не найдены", show_alert=True)
+        return
+    index = nav_index(index, len(avatars))
+    avatar = avatars[index]
+    if action == "set":
+        set_active_heygen_avatar(user_id, avatar)
+        await callback.answer("Аватар активирован")
+        await send_to_chat_thread(
+            callback.message.chat.id,
+            f"✅ Активный HeyGen avatar:\n{avatar.name}\n{avatar.id}",
+            thread_id=message_thread_id(callback.message),
+            reply_markup=settings_keyboard(),
+        )
+        return
+    if action == "show":
+        await callback.answer()
+        await show_heygen_avatar(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message), index=index)
+        return
+    await callback.answer("Некорректное действие", show_alert=True)
+
+
+@dp.callback_query(F.data.startswith("eleven_voice:"))
+async def eleven_voice_callback(callback: CallbackQuery) -> None:
+    parts = (callback.data or "").split(":")
+    user_id = activate_from_callback(callback)
+    if len(parts) != 3:
+        await callback.answer("Некорректная команда", show_alert=True)
+        return
+    action = parts[1]
+    try:
+        index = int(parts[2])
+    except ValueError:
+        await callback.answer("Некорректный номер", show_alert=True)
+        return
+    try:
+        voices = await get_elevenlabs_voices(user_id)
+    except ElevenLabsAPIError as exc:
+        await callback.answer(str(exc), show_alert=True)
+        return
+    if not voices:
+        await callback.answer("Голоса не найдены", show_alert=True)
+        return
+    index = nav_index(index, len(voices))
+    voice = voices[index]
+    if action == "set":
+        set_active_elevenlabs_voice(user_id, voice)
+        await callback.answer("Голос активирован")
+        await send_to_chat_thread(
+            callback.message.chat.id,
+            f"✅ Активный ElevenLabs voice:\n{voice.name}\n{voice.id}",
+            thread_id=message_thread_id(callback.message),
+            reply_markup=settings_keyboard(),
+        )
+        return
+    if action == "show":
+        await callback.answer()
+        await show_elevenlabs_voice(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message), index=index)
+        return
+    await callback.answer("Некорректное действие", show_alert=True)
 
 
 @dp.message(Command("status"))
@@ -819,22 +1182,14 @@ async def script_review(callback: CallbackQuery) -> None:
         updated = storage.update_script_status(user_id, script_id, "approved")
         await callback.answer("Принято")
         if updated and updated.format == "short":
-            try:
-                audio_path = await generate_voiceover_audio(updated)
-                await send_generated_audio(callback.message.chat.id, message_thread_id(callback.message), audio_path)
-            except ElevenLabsMCPError as exc:
-                await send_to_chat_thread(
+            asyncio.create_task(
+                produce_media_for_approved_script(
                     callback.message.chat.id,
-                    f"✅ Сценарий принят.\n⚠️ Озвучку пока не создал: {exc}",
-                    thread_id=message_thread_id(callback.message),
+                    message_thread_id(callback.message),
+                    user_id,
+                    updated,
                 )
-            except Exception as exc:
-                logger.exception("Failed to generate ElevenLabs voiceover")
-                await send_to_chat_thread(
-                    callback.message.chat.id,
-                    f"✅ Сценарий принят.\n⚠️ Не удалось создать озвучку: {exc}",
-                    thread_id=message_thread_id(callback.message),
-                )
+            )
             advance_review_progress(user_id)
             await edit_to_next_review_card(callback, user_id)
             return

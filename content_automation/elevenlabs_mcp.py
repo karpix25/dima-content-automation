@@ -41,7 +41,8 @@ class ElevenLabsMCPClient:
         self,
         *,
         text: str,
-        voice_name: str,
+        voice_name: str | None,
+        voice_id: str | None = None,
         model_id: str,
         speed: float,
         stability: float,
@@ -56,7 +57,6 @@ class ElevenLabsMCPClient:
 
         arguments = {
             "text": text.strip(),
-            "voice_name": voice_name,
             "model_id": model_id,
             "speed": speed,
             "stability": stability,
@@ -66,6 +66,12 @@ class ElevenLabsMCPClient:
             "language": language,
             "output_format": "mp3_44100_128",
         }
+        if voice_id:
+            arguments["voice_id"] = voice_id
+        elif voice_name:
+            arguments["voice_name"] = voice_name
+        else:
+            raise ElevenLabsMCPError("Не задан voice_id или voice_name для ElevenLabs")
         if self.output_directory:
             self.output_directory.mkdir(parents=True, exist_ok=True)
             arguments["output_directory"] = str(self.output_directory)

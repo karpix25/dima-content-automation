@@ -7,6 +7,8 @@ Telegram-бот для контент-автоматизации:
 - использует high-ticket воронку в духе Alex Hormozi;
 - отправляет сценарии в Telegram на принятие или отклонение;
 - хранит банк одобренных сценариев для дальнейшего производства видео;
+- после апрува озвучивает текст через ElevenLabs, отправляет аудио в активный HeyGen avatar и присылает готовый ролик в ту же группу/тему Telegram;
+- дает Telegram-кнопки выбора HeyGen avatar с preview и ElevenLabs voice с preview;
 - перед генерацией передает NotebookLM последние темы/хуки и фильтрует похожие повторы перед сохранением;
 - дает кнопки настройки контекста оффера, микса CTA, голоса автора и NotebookLM-базы.
 
@@ -31,6 +33,7 @@ APP_MODE=bot
 ELEVENLABS_API_KEY=...
 ELEVENLABS_MCP_OUTPUT_MODE=files
 ELEVENLABS_OUTPUT_DIRECTORY=outputs/elevenlabs
+ELEVENLABS_VOICE_ID=
 ELEVENLABS_VOICE_NAME=Dima Kubrak 1
 ELEVENLABS_MODEL_ID=eleven_multilingual_v2
 ELEVENLABS_SPEED=1.05
@@ -38,6 +41,14 @@ ELEVENLABS_STABILITY=0.90
 ELEVENLABS_SIMILARITY_BOOST=0.97
 ELEVENLABS_STYLE=0.0
 ELEVENLABS_LANGUAGE=en
+HEYGEN_API_KEY=...
+HEYGEN_API_BASE_URL=https://api.heygen.com
+HEYGEN_UPLOAD_BASE_URL=https://upload.heygen.com
+HEYGEN_ASPECT_RATIO=9:16
+HEYGEN_RESOLUTION=720p
+HEYGEN_OUTPUT_FORMAT=mp4
+HEYGEN_VIDEO_POLL_SECONDS=15
+HEYGEN_VIDEO_TIMEOUT_SECONDS=900
 ```
 
 NotebookLM MCP должен быть авторизован. При первом запуске авторизации:
@@ -66,7 +77,19 @@ python scripts/elevenlabs_mcp_config.py
 
 Она использует сервер из `.venv` и сохраняет сгенерированные файлы в `outputs/elevenlabs`.
 
-После нажатия `Принять` бот отправляет в ElevenLabs только поле `voiceover`, создает mp3 и присылает аудио в ту же тему Telegram.
+После нажатия `Принять` бот отправляет в ElevenLabs только поле `voiceover`, создает mp3, затем передает этот файл в активный HeyGen avatar. Когда ролик готов, бот присылает видео в ту же группу и тему Telegram. Если HeyGen не настроен или avatar не выбран, бот присылает только озвучку и пишет, чего не хватает.
+
+Через `/settings` можно открыть список голосов ElevenLabs, прослушать preview и активировать нужный voice. При наличии `ELEVENLABS_VOICE_ID` он используется как дефолт.
+
+## HeyGen
+
+Для работы нужен API key HeyGen:
+
+```text
+HEYGEN_API_KEY=...
+```
+
+Через `/settings` открой `🎭 Аватар HeyGen`. Бот покажет avatars с preview-картинкой или ссылкой на preview video, навигацией и кнопкой `Активировать`. Активный avatar используется для всех следующих одобренных short-сценариев.
 
 ## Запуск
 
@@ -95,6 +118,7 @@ DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=/app/.data
 ELEVENLABS_API_KEY=...
 ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs
+HEYGEN_API_KEY=...
 ```
 
 Для постоянного хранения базы и аудио в Coolify стоит добавить volumes:
@@ -162,6 +186,8 @@ APP_MODE=bot
 Используй `/settings` в Telegram. Бот покажет кнопки:
 
 ```text
+Аватар HeyGen
+Голос ElevenLabs
 Контекст оффера
 Голос автора
 Микс CTA
