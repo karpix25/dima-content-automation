@@ -350,8 +350,6 @@ def button(text: str, *, callback_data: str | None = None, url: str | None = Non
         kwargs["callback_data"] = callback_data
     if url:
         kwargs["url"] = url
-    if style:
-        kwargs["style"] = style
     return InlineKeyboardButton(**kwargs)
 
 
