@@ -1,0 +1,116 @@
+# Бот апрува контента из NotebookLM
+
+Telegram-бот для контент-автоматизации:
+
+- берет сценарии из NotebookLM через `notebooklm-mcp@latest`;
+- пишет в стиле автора;
+- использует high-ticket воронку в духе Alex Hormozi;
+- отправляет сценарии в Telegram на принятие или отклонение;
+- хранит банк одобренных сценариев для дальнейшего производства видео;
+- перед генерацией передает NotebookLM последние темы/хуки и фильтрует похожие повторы перед сохранением;
+- дает кнопки настройки контекста оффера, микса CTA, голоса автора и NotebookLM-базы.
+
+## Установка
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Заполни `.env`:
+
+```text
+TELEGRAM_BOT_TOKEN=...
+NOTEBOOKLM_CLI_COMMAND=notebooklm
+NOTEBOOKLM_MCP_COMMAND=npx notebooklm-mcp@latest
+DEFAULT_NOTEBOOK_ID=...
+DATA_DIR=.data
+ELEVENLABS_API_KEY=...
+ELEVENLABS_MCP_OUTPUT_MODE=files
+ELEVENLABS_OUTPUT_DIRECTORY=outputs/elevenlabs
+ELEVENLABS_VOICE_NAME=Dima Kubrak 1
+ELEVENLABS_MODEL_ID=eleven_multilingual_v2
+ELEVENLABS_SPEED=1.05
+ELEVENLABS_STABILITY=0.90
+ELEVENLABS_SIMILARITY_BOOST=0.97
+ELEVENLABS_STYLE=0.0
+ELEVENLABS_LANGUAGE=en
+```
+
+NotebookLM MCP должен быть авторизован. При первом запуске авторизации:
+
+```bash
+npx notebooklm-mcp@latest
+```
+
+Затем используйте MCP-инструмент `setup_auth`, либо заранее авторизуйте профиль через браузерную настройку. В этом проекте MCP уже проверен с выбранной базой.
+
+## ElevenLabs MCP
+
+Официальный MCP-сервер ElevenLabs установлен как Python-пакет `elevenlabs-mcp`.
+
+Для работы нужен API key ElevenLabs:
+
+```text
+ELEVENLABS_API_KEY=...
+```
+
+Локальную MCP-конфигурацию можно вывести так:
+
+```bash
+python scripts/elevenlabs_mcp_config.py
+```
+
+Она использует сервер из `.venv` и сохраняет сгенерированные файлы в `outputs/elevenlabs`.
+
+После нажатия `Принять` бот отправляет в ElevenLabs только поле `voiceover`, создает mp3 и присылает аудио в ту же тему Telegram.
+
+## Запуск
+
+```bash
+python -m content_automation.bot
+```
+
+## Команды Telegram
+
+```text
+/set_notebook <id или https://notebooklm.google.com/notebook/...>
+/set_style <описание разговорного стиля автора>
+/settings
+/bank
+/refill
+/review
+/daily_scripts
+/daily_scripts фокус: PPC и cash flow
+/youtube_script
+/status
+```
+
+## Логика банка сценариев
+
+1. `/refill` держит банк одобренных сценариев выше минимального запаса в 5 сценариев.
+2. Если одобренных 5 или меньше и очередь на проверку пустая, бот просит NotebookLM создать 10 новых кандидатов.
+3. `/review` открывает одну карточку проверки с прогрессом вроде `Сценарий 1/10`.
+4. `Принять` переносит сценарий в банк одобренных и обновляет эту же карточку на следующий сценарий.
+5. `Отклонить` убирает сценарий из очереди и обновляет эту же карточку на следующий сценарий.
+6. Следующий этап автоматизации должен брать одобренные сценарии для видео и помечать их как использованные.
+
+## Настройки оффера и CTA
+
+Используй `/settings` в Telegram. Бот покажет кнопки:
+
+```text
+Контекст оффера
+Голос автора
+Микс CTA
+База NotebookLM
+Показать текущие
+```
+
+CTA не вставляется фиксированным шаблоном. Контекст оффера и микс CTA передаются в NotebookLM, чтобы он писал CTA под конкретный сценарий:
+
+```text
+50% none, 35% soft, 15% direct
+```
