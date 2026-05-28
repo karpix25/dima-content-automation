@@ -13,6 +13,7 @@ class Settings:
     notebooklm_cli_command: str
     notebooklm_mcp_command: str
     notebooklm_mcp_timeout_seconds: int
+    notebooklm_short_batch_size: int
     default_notebook_id: str | None
     elevenlabs_api_key: str | None
     elevenlabs_mcp_command: str | None
@@ -91,6 +92,7 @@ def load_settings() -> Settings:
         notebooklm_cli_command=(os.getenv("NOTEBOOKLM_CLI_COMMAND") or "notebooklm").strip(),
         notebooklm_mcp_command=normalize_notebooklm_mcp_command(os.getenv("NOTEBOOKLM_MCP_COMMAND")),
         notebooklm_mcp_timeout_seconds=get_int_env("NOTEBOOKLM_MCP_TIMEOUT_SECONDS", 900),
+        notebooklm_short_batch_size=max(1, get_int_env("NOTEBOOKLM_SHORT_BATCH_SIZE", 1)),
         default_notebook_id=(os.getenv("DEFAULT_NOTEBOOK_ID") or "").strip() or None,
         elevenlabs_api_key=(os.getenv("ELEVENLABS_API_KEY") or "").strip() or None,
         elevenlabs_mcp_command=(os.getenv("ELEVENLABS_MCP_SERVER_COMMAND") or "").strip() or None,

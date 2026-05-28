@@ -53,7 +53,6 @@ dp = Dispatcher()
 
 APPROVED_BANK_TARGET = 5
 REFILL_BATCH_SIZE = 10
-SHORT_NOTEBOOKLM_BATCH_SIZE = 4
 PENDING_SETTING_EDITS: dict[str, str] = {}
 PENDING_OVERLAY_UPLOADS: dict[str, str] = {}
 HEYGEN_AVATAR_CACHE: dict[str, list[HeyGenAvatar]] = {}
@@ -485,7 +484,7 @@ async def generate_scripts_for_user(
         items: list[dict[str, object]] = []
         existing_records = storage.list_recent_scripts(user_id, format=format, limit=60)
         while len(items) < count:
-            batch_count = min(SHORT_NOTEBOOKLM_BATCH_SIZE, count - len(items))
+            batch_count = min(settings.notebooklm_short_batch_size, count - len(items))
             exclusion_context = "\n".join(
                 part
                 for part in [

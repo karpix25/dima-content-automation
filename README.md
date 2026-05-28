@@ -29,6 +29,7 @@ TELEGRAM_BOT_TOKEN=...
 NOTEBOOKLM_CLI_COMMAND=notebooklm
 NOTEBOOKLM_MCP_COMMAND=npx --yes notebooklm-mcp@latest
 NOTEBOOKLM_MCP_TIMEOUT_SECONDS=900
+NOTEBOOKLM_SHORT_BATCH_SIZE=1
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=.data
 APP_MODE=bot
@@ -150,6 +151,7 @@ docker compose up --build
 TELEGRAM_BOT_TOKEN=...
 NOTEBOOKLM_MCP_COMMAND=npx --yes notebooklm-mcp@latest
 NOTEBOOKLM_MCP_TIMEOUT_SECONDS=900
+NOTEBOOKLM_SHORT_BATCH_SIZE=1
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=/app/.data
 ELEVENLABS_API_KEY=...
@@ -158,6 +160,14 @@ VIDEO_OUTPUT_DIRECTORY=/app/outputs/videos
 VIDEO_KEEP_DAYS=14
 HEYGEN_API_KEY=...
 ```
+
+На VPS надежнее держать:
+
+```text
+NOTEBOOKLM_SHORT_BATCH_SIZE=1
+```
+
+Так бот делает 10 маленьких запросов вместо одного тяжелого JSON-ответа. Если NotebookLM на сервере работает стабильно, можно поднять до `2` или `4`.
 
 Для постоянного хранения базы и аудио в Coolify стоит добавить volumes:
 
