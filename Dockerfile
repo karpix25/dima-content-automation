@@ -1,9 +1,11 @@
-FROM python:3.12-slim-bookworm
+FROM node:20-bookworm-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH" \
     DATA_DIR=/app/.data \
     ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs
 
@@ -14,13 +16,15 @@ RUN apt-get update \
         ca-certificates \
         curl \
         git \
-        nodejs \
-        npm \
+        python3 \
+        python3-pip \
+        python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt package.json package-lock.json ./
 
-RUN python -m pip install --upgrade pip \
+RUN python3 -m venv /opt/venv \
+    && python -m pip install --upgrade pip \
     && pip install -r requirements.txt
 
 RUN npm ci \
