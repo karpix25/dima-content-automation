@@ -168,6 +168,8 @@ def _read_available_stderr(proc: subprocess.Popen[str]) -> str:
 
 def _is_retriable_notebooklm_error(message: str) -> bool:
     text = message.lower()
+    if text.startswith("mcp response timed out"):
+        return False
     markers = (
         "could not find notebooklm chat input",
         "waiting for chat input",

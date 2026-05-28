@@ -53,6 +53,7 @@ dp = Dispatcher()
 
 APPROVED_BANK_TARGET = 5
 REFILL_BATCH_SIZE = 10
+SHORT_NOTEBOOKLM_BATCH_SIZE = 4
 PENDING_SETTING_EDITS: dict[str, str] = {}
 PENDING_OVERLAY_UPLOADS: dict[str, str] = {}
 HEYGEN_AVATAR_CACHE: dict[str, list[HeyGenAvatar]] = {}
@@ -268,6 +269,16 @@ def build_exclusion_context(records: list[ScriptRecord], *, limit: int = 30) -> 
     return "\n".join(lines)
 
 
+def build_payload_exclusion_context(payloads: list[dict[str, object]], *, limit: int = 30) -> str:
+    lines: list[str] = []
+    for payload in payloads[:limit]:
+        title = payload_text(payload, "title")
+        hook = payload_text(payload, "hook")
+        if title or hook:
+            lines.append(f"- Title: {title}; Hook: {hook}")
+    return "\n".join(lines)
+
+
 def reject_cyrillic_pending_scripts(user_id: str) -> int:
     rejected = 0
     while True:
@@ -454,8 +465,6 @@ async def generate_scripts_for_user(
     style = get_author_style(user_id)
     offer_context = get_offer_context(user_id)
     cta_mix = get_cta_mix(user_id)
-    existing_records = storage.list_recent_scripts(user_id, format=format, limit=60)
-    exclusion_context = build_exclusion_context(existing_records) if format == "short" else ""
     if format == "youtube":
         prompt = build_youtube_script_prompt(
             style,
@@ -463,16 +472,66 @@ async def generate_scripts_for_user(
             cta_mix=cta_mix,
             topic_hint=topic_hint,
         )
-    else:
-        prompt = build_short_scripts_prompt(
+        items = await ask_notebooklm_for_scripts(
+            user_id=user_id,
+            notebook_ref=notebook_ref,
+            prompt=prompt,
             count=count,
-            author_style=style,
-            offer_context=offer_context,
-            cta_mix=cta_mix,
-            topic_hint=topic_hint,
-            exclusion_context=exclusion_context,
+            format=format,
+            existing_records=[],
+            accepted_payloads=[],
         )
+    else:
+        items: list[dict[str, object]] = []
+        existing_records = storage.list_recent_scripts(user_id, format=format, limit=60)
+        while len(items) < count:
+            batch_count = min(SHORT_NOTEBOOKLM_BATCH_SIZE, count - len(items))
+            exclusion_context = "\n".join(
+                part
+                for part in [
+                    build_exclusion_context(existing_records),
+                    build_payload_exclusion_context(items),
+                ]
+                if part
+            )
+            prompt = build_short_scripts_prompt(
+                count=batch_count,
+                author_style=style,
+                offer_context=offer_context,
+                cta_mix=cta_mix,
+                topic_hint=topic_hint,
+                exclusion_context=exclusion_context,
+            )
+            new_items = await ask_notebooklm_for_scripts(
+                user_id=user_id,
+                notebook_ref=notebook_ref,
+                prompt=prompt,
+                count=batch_count,
+                format=format,
+                existing_records=existing_records,
+                accepted_payloads=items,
+            )
+            if not new_items:
+                break
+            items.extend(new_items)
+    items = items[:count]
+    if not items:
+        raise ValueError("NotebookLM не вернул новые английские сценарии в JSON. Попробуй /refill еще раз.")
 
+    logger.info("Saving %s generated %s script(s) for user %s", len(items), format, user_id)
+    return [storage.add_script(user_id, format, item) for item in items]
+
+
+async def ask_notebooklm_for_scripts(
+    *,
+    user_id: str,
+    notebook_ref: str,
+    prompt: str,
+    count: int,
+    format: str,
+    existing_records: list[ScriptRecord],
+    accepted_payloads: list[dict[str, object]],
+) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
     for attempt in range(3):
         logger.info(
@@ -496,17 +555,12 @@ async def generate_scripts_for_user(
         for item in as_script_list(payload):
             if script_payload_has_cyrillic(item):
                 continue
-            if format == "short" and script_payload_is_duplicate(item, existing_records, items):
+            if format == "short" and script_payload_is_duplicate(item, existing_records, accepted_payloads + items):
                 continue
             items.append(item)
         if len(items) >= count:
             break
-    items = items[:count]
-    if not items:
-        raise ValueError("NotebookLM не вернул новые английские сценарии в JSON. Попробуй /refill еще раз.")
-
-    logger.info("Saving %s generated %s script(s) for user %s", len(items), format, user_id)
-    return [storage.add_script(user_id, format, item) for item in items]
+    return items[:count]
 
 
 async def send_scripts(
