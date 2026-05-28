@@ -35,6 +35,7 @@ ELEVENLABS_API_KEY=...
 ELEVENLABS_MCP_OUTPUT_MODE=files
 ELEVENLABS_OUTPUT_DIRECTORY=outputs/elevenlabs
 VIDEO_OUTPUT_DIRECTORY=outputs/videos
+VIDEO_KEEP_DAYS=14
 ELEVENLABS_VOICE_ID=
 ELEVENLABS_VOICE_NAME=Dima Kubrak 1
 ELEVENLABS_MODEL_ID=eleven_multilingual_v2
@@ -104,7 +105,15 @@ HEYGEN_API_KEY=...
 
 Бот принимает PNG/JPG/WebP файлом или фото и хранит плашку локально на сервере в `DATA_DIR/overlays`. Для каждой плашки задается процент появления: например, `70` значит, что плашка появится с 70% хронометража и останется до конца видео.
 
-После HeyGen бот скачивает mp4 в `VIDEO_OUTPUT_DIRECTORY`, накладывает плашку через `ffmpeg` и отправляет финальный mp4 в Telegram.
+После HeyGen бот скачивает mp4 в `VIDEO_OUTPUT_DIRECTORY`, накладывает плашку через `ffmpeg` и отправляет финальный mp4 в Telegram как файл/document, чтобы Telegram не пережимал качество как обычное video.
+
+Локальные видео чистятся автоматически. По умолчанию:
+
+```text
+VIDEO_KEEP_DAYS=14
+```
+
+Оригинал HeyGen удаляется сразу после успешного наложения плашки, финальные mp4 хранятся локально до 14 дней.
 
 ## Запуск
 
@@ -134,6 +143,7 @@ DATA_DIR=/app/.data
 ELEVENLABS_API_KEY=...
 ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs
 VIDEO_OUTPUT_DIRECTORY=/app/outputs/videos
+VIDEO_KEEP_DAYS=14
 HEYGEN_API_KEY=...
 ```
 

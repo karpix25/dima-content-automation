@@ -18,7 +18,7 @@ from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .storage import ScriptRecord, Storage
-from .video_overlay import VideoOverlayError, apply_overlay, download_video
+from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
 
 
 logging.basicConfig(level=logging.INFO)
@@ -659,9 +659,9 @@ async def show_elevenlabs_voice(chat_id: int, user_id: str, *, thread_id: int | 
 
 async def send_generated_video(chat_id: int, thread_id: int | None, video_url: str, caption: str) -> None:
     try:
-        await bot.send_video(chat_id, video_url, caption=caption, message_thread_id=thread_id)
+        await bot.send_document(chat_id, video_url, caption=caption, message_thread_id=thread_id)
     except Exception:
-        logger.exception("Telegram failed to send HeyGen video by URL")
+        logger.exception("Telegram failed to send HeyGen video document by URL")
         await send_to_chat_thread(chat_id, f"{caption}\n\n{video_url}", thread_id=thread_id)
 
 
@@ -686,19 +686,32 @@ async def process_overlay_if_configured(user_id: str, record: ScriptRecord, vide
         result.start_seconds,
         result.duration_seconds,
     )
+    remove_file(input_path)
     return result.output_path
 
 
 async def send_final_video(chat_id: int, thread_id: int | None, user_id: str, record: ScriptRecord, video_url: str) -> None:
     caption = f"🎬 Готовый ролик\nСценарий #{record.id}: {record.title}"
+    cleaned = cleanup_old_videos(settings.video_output_directory, keep_days=settings.video_keep_days)
+    if cleaned:
+        logger.info("Cleaned %s old video files from %s", cleaned, settings.video_output_directory)
     try:
         final_path = await process_overlay_if_configured(user_id, record, video_url)
     except VideoOverlayError as exc:
         logger.exception("Failed to apply overlay")
         await send_to_chat_thread(chat_id, f"⚠️ Плашку не наложил: {exc}\nОтправляю оригинальный HeyGen video.", thread_id=thread_id)
         final_path = None
+    if not final_path:
+        final_path = settings.video_output_directory / f"final_{record.id}.mp4"
+        try:
+            await download_video(video_url, final_path)
+        except VideoOverlayError as exc:
+            logger.exception("Failed to download HeyGen video")
+            await send_to_chat_thread(chat_id, f"⚠️ Не удалось скачать видео файлом: {exc}\nОтправляю ссылку.", thread_id=thread_id)
+            await send_generated_video(chat_id, thread_id, video_url, caption)
+            return
     if final_path and final_path.exists():
-        await bot.send_video(chat_id, FSInputFile(final_path), caption=caption, message_thread_id=thread_id)
+        await bot.send_document(chat_id, FSInputFile(final_path), caption=caption, message_thread_id=thread_id)
         return
     await send_generated_video(chat_id, thread_id, video_url, caption)
 
@@ -1437,6 +1450,9 @@ def command_tail(text: str | None) -> str | None:
 
 
 async def main() -> None:
+    cleaned = cleanup_old_videos(settings.video_output_directory, keep_days=settings.video_keep_days)
+    if cleaned:
+        logger.info("Cleaned %s old video files from %s on startup", cleaned, settings.video_output_directory)
     await dp.start_polling(bot)
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -120,3 +121,27 @@ def apply_overlay(
         duration_seconds=duration,
         start_seconds=start_seconds,
     )
+
+
+def cleanup_old_videos(directory: Path, *, keep_days: int) -> int:
+    if keep_days <= 0 or not directory.exists():
+        return 0
+    cutoff = time.time() - keep_days * 24 * 60 * 60
+    removed = 0
+    for path in directory.glob("*.mp4"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed += 1
+        except OSError:
+            continue
+    return removed
+
+
+def remove_file(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        raise VideoOverlayError(f"Не удалось удалить временный файл {path}: {exc}") from exc

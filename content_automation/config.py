@@ -25,6 +25,7 @@ class Settings:
     elevenlabs_language: str
     elevenlabs_output_directory: Path
     video_output_directory: Path
+    video_keep_days: int
     heygen_api_key: str | None
     heygen_api_base_url: str
     heygen_upload_base_url: str
@@ -93,6 +94,7 @@ def load_settings() -> Settings:
         elevenlabs_language=(os.getenv("ELEVENLABS_LANGUAGE") or "en").strip(),
         elevenlabs_output_directory=elevenlabs_output_directory,
         video_output_directory=video_output_directory,
+        video_keep_days=get_int_env("VIDEO_KEEP_DAYS", 14),
         heygen_api_key=(os.getenv("HEYGEN_API_KEY") or "").strip() or None,
         heygen_api_base_url=(os.getenv("HEYGEN_API_BASE_URL") or "https://api.heygen.com").strip().rstrip("/"),
         heygen_upload_base_url=(os.getenv("HEYGEN_UPLOAD_BASE_URL") or "https://upload.heygen.com").strip().rstrip("/"),
