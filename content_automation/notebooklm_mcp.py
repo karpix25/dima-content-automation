@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import select
+import signal
 import shlex
 import subprocess
 import time
@@ -77,6 +79,7 @@ class NotebookLMMCPClient:
             stderr=subprocess.PIPE,
             text=True,
             bufsize=1,
+            start_new_session=True,
         )
         try:
             logger.info("Started NotebookLM MCP command: %s", self.command)
@@ -104,11 +107,7 @@ class NotebookLMMCPClient:
             logger.info("NotebookLM MCP tool %s completed in %.1fs", name, time.monotonic() - started)
             return response
         finally:
-            proc.terminate()
-            try:
-                proc.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            _terminate_process_tree(proc)
 
     @staticmethod
     def _send(proc: subprocess.Popen[str], payload: dict[str, Any]) -> None:
@@ -164,6 +163,32 @@ def _read_available_stderr(proc: subprocess.Popen[str]) -> str:
             break
         chunks.append(line)
     return "".join(chunks)
+
+
+def _terminate_process_tree(proc: subprocess.Popen[str]) -> None:
+    if proc.poll() is not None:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    except OSError:
+        proc.terminate()
+    try:
+        proc.wait(timeout=5)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    except OSError:
+        proc.kill()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        logger.warning("NotebookLM MCP process group did not exit after SIGKILL: pid=%s", proc.pid)
 
 
 def _is_retriable_notebooklm_error(message: str) -> bool:

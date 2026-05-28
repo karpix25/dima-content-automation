@@ -32,80 +32,33 @@ def build_short_scripts_prompt(
     hint = f"\nAdditional user focus: {topic_hint.strip()}\n" if topic_hint else ""
     exclusions = f"\nAlready used ideas to avoid:\n{exclusion_context.strip()}\n" if exclusion_context else ""
     return f"""
-You are a content strategist and scriptwriter for a high-ticket education product.
+Write {count} fresh short vertical-video script(s) from this NotebookLM knowledge base.
 
-OUTPUT LANGUAGE:
-- Write all content in English.
-- Keep the language natural and spoken, not translated-sounding.
-- Do not use Russian, Cyrillic, or bilingual phrasing in any JSON value.
-- If the NotebookLM sources or author voice examples are in Russian, extract the meaning and rewrite it in natural spoken English.
-- The final viewer-facing hook, trigger, voiceover, CTA, title, and explanations must all be English.
+Language: English only. No Russian/Cyrillic in any value.
+Audience: Amazon sellers who already sell and want growth, profit, systems, and control. Not beginners.
+Offer context: high-ticket Amazon growth course/mentorship, entry from 1400 USD.
+Author voice: {style}
+CTA guidance: {cta_distribution}. Direct CTA is disabled. No "book a call", "apply", "DM me", or "buy now".
+Hormozi logic: make the viewer feel a valuable gap between chaotic selling and a better operating system.
 
-Product:
-- course / mentorship for growing an Amazon business;
-- entry price starts at 1400 USD;
-- content goal: warm up the audience through trust, insight, and awareness of systemic problems.
-
-Target audience:
-- they already sell on Amazon;
-- they understand FBA, listings, PPC, margins, inventory, competition, and reviews;
-- they want growth, systems, controlled profit, and scale;
-- do not write for beginners.
-
-Author voice:
-{style}
-
-Important: preserve the author's cadence, directness, and conversational style, but do not preserve the language if the style notes are not in English. The output must still be English.
-
-Current offer context:
-{offer}
-
-Alex Hormozi-style funnel logic:
-- show the dream outcome: growth, profit, control, predictability;
-- increase perceived likelihood: explain why a system improves the chance of success;
-- reduce perceived time delay: show the first practical shift they can make quickly;
-- reduce effort/sacrifice: make it clear the seller is not lazy, they lack a system;
-- create a value gap: show the cost of chaotic decisions and the value of mentorship/course;
-- sell softly: no guaranteed-income claims, no hype, no aggressive guru tone.
-
-CTA strategy:
-- Not every script needs a CTA.
-- Use this CTA mix across the batch: {cta_distribution}.
-- "none" means end on a strong insight or belief shift with no pitch.
-- "soft" means organically connect the script's problem to the offer context.
-- "direct" is disabled for now. Do not ask viewers to apply, book a call, DM, or buy.
-- Never paste the same CTA across scripts. Generate a CTA that is specific to each script's angle.
-
-Task:
-Using this NotebookLM knowledge base, write {count} short scripts for vertical videos.
-Each voiceover should be 30-60 seconds.
+Each voiceover must be 30-60 seconds, conversational, practical, and specific.
+Use a different pain/mechanism for each script: cash flow, PPC, margin leaks, inventory, reviews, operations, scaling, or team systems.
 {hint}
 {exclusions}
-Make the angles different:
-- money, margin, or cash flow;
-- scaling, systems, or operations;
-- a hidden mistake Amazon sellers often miss.
+Avoid repeated topics, metaphors, hook structures, and problem framing.
 
-Freshness rules:
-- Do not reuse the same topic, metaphor, hook structure, or problem framing from the already used ideas.
-- Do not make small rewrites of old scripts.
-- Prefer a new specific pain, new business mechanism, new mistake, or new operational angle for each script.
-- Each script in this batch must also be meaningfully different from the other scripts in the same batch.
-
-Return only valid JSON. No Markdown. No prose outside JSON.
-Schema:
+Return ONLY valid JSON, no Markdown, with this exact compact schema:
 [
   {{
-    "title": "topic",
-    "angle": "content angle",
-    "hook": "one short trigger line for the first seconds",
-    "trigger": "main emotional/business trigger",
-    "voiceover": "full conversational English voiceover, 30-60 seconds",
-    "cta_type": "none | soft",
-    "cta_reason": "why this CTA level fits this specific script",
-    "cta": "organic CTA written specifically for this script, or empty string for none",
-    "why_it_works": "why this will resonate with an Amazon seller",
-    "source_basis": "which ideas from the knowledge base support this script"
+    "title": "short topic",
+    "angle": "specific angle",
+    "hook": "first line",
+    "trigger": "core pain",
+    "voiceover": "spoken English script",
+    "cta_type": "none or soft",
+    "cta": "specific soft CTA or empty string",
+    "why_it_works": "",
+    "source_basis": ""
   }}
 ]
 """.strip()
