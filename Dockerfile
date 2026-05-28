@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim
+FROM mcr.microsoft.com/playwright:v1.60.0-noble
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -33,7 +33,6 @@ RUN python3 -m venv /opt/venv \
     && pip install -r requirements.txt
 
 RUN npm ci \
-    && npx playwright install --with-deps chromium \
     && npm cache clean --force
 
 COPY content_automation ./content_automation
