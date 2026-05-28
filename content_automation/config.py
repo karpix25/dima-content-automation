@@ -12,6 +12,7 @@ class Settings:
     telegram_bot_token: str
     notebooklm_cli_command: str
     notebooklm_mcp_command: str
+    notebooklm_mcp_timeout_seconds: int
     default_notebook_id: str | None
     elevenlabs_api_key: str | None
     elevenlabs_mcp_command: str | None
@@ -81,6 +82,7 @@ def load_settings() -> Settings:
         telegram_bot_token=token,
         notebooklm_cli_command=(os.getenv("NOTEBOOKLM_CLI_COMMAND") or "notebooklm").strip(),
         notebooklm_mcp_command=normalize_notebooklm_mcp_command(os.getenv("NOTEBOOKLM_MCP_COMMAND")),
+        notebooklm_mcp_timeout_seconds=get_int_env("NOTEBOOKLM_MCP_TIMEOUT_SECONDS", 900),
         default_notebook_id=(os.getenv("DEFAULT_NOTEBOOK_ID") or "").strip() or None,
         elevenlabs_api_key=(os.getenv("ELEVENLABS_API_KEY") or "").strip() or None,
         elevenlabs_mcp_command=(os.getenv("ELEVENLABS_MCP_SERVER_COMMAND") or "").strip() or None,

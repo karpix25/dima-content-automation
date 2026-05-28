@@ -26,7 +26,10 @@ logger = logging.getLogger(__name__)
 
 settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
-notebooklm = NotebookLMMCPClient(command=settings.notebooklm_mcp_command)
+notebooklm = NotebookLMMCPClient(
+    command=settings.notebooklm_mcp_command,
+    timeout_seconds=settings.notebooklm_mcp_timeout_seconds,
+)
 elevenlabs = ElevenLabsMCPClient(
     api_key=settings.elevenlabs_api_key,
     command=settings.elevenlabs_mcp_command,
@@ -938,7 +941,7 @@ async def refill_if_needed(
         logger.info("Starting script bank refill for user %s: approved=%s pending=%s", user_id, approved, pending)
         await status_msg.edit_text(
             "⏳ Отправил запрос в NotebookLM.\n"
-            "Обычно это занимает 1-4 минуты. Если NotebookLM зависнет, покажу ошибку по timeout."
+            "Обычно это занимает 1-4 минуты, но для большой пачки жду до 15 минут."
         )
         await generate_scripts_for_user(user_id, REFILL_BATCH_SIZE, format="short", topic_hint=topic_hint)
     except Exception as exc:

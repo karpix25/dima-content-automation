@@ -27,7 +27,8 @@ cp .env.example .env
 ```text
 TELEGRAM_BOT_TOKEN=...
 NOTEBOOKLM_CLI_COMMAND=notebooklm
-NOTEBOOKLM_MCP_COMMAND=npx notebooklm-mcp@latest
+NOTEBOOKLM_MCP_COMMAND=npx --yes notebooklm-mcp@latest
+NOTEBOOKLM_MCP_TIMEOUT_SECONDS=900
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=.data
 APP_MODE=bot
@@ -137,7 +138,8 @@ docker compose up --build
 
 ```text
 TELEGRAM_BOT_TOKEN=...
-NOTEBOOKLM_MCP_COMMAND=npx notebooklm-mcp@latest
+NOTEBOOKLM_MCP_COMMAND=npx --yes notebooklm-mcp@latest
+NOTEBOOKLM_MCP_TIMEOUT_SECONDS=900
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=/app/.data
 ELEVENLABS_API_KEY=...
