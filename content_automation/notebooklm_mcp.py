@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import select
 import shlex
 import subprocess
 import time
@@ -10,6 +12,9 @@ from typing import Any
 
 class NotebookLMMCPError(RuntimeError):
     pass
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -38,6 +43,7 @@ class NotebookLMMCPClient:
         elif notebook_id:
             args["notebook_id"] = notebook_id
 
+        logger.info("Calling NotebookLM MCP ask_question, timeout=%ss", self.timeout_seconds)
         payload = self.call_tool("ask_question", args)
         data = extract_mcp_text_json(payload)
         if not data.get("success"):
@@ -49,6 +55,7 @@ class NotebookLMMCPClient:
         return MCPAskResult(answer=answer, session_id=result.get("session_id"), raw=data)
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        started = time.monotonic()
         proc = subprocess.Popen(
             shlex.split(self.command),
             stdin=subprocess.PIPE,
@@ -58,6 +65,7 @@ class NotebookLMMCPClient:
             bufsize=1,
         )
         try:
+            logger.info("Started NotebookLM MCP command: %s", self.command)
             self._send(proc, {
                 "jsonrpc": "2.0",
                 "id": 1,
@@ -79,6 +87,7 @@ class NotebookLMMCPClient:
             response = self._read_response(proc, 2, timeout=self.timeout_seconds)
             if "error" in response:
                 raise NotebookLMMCPError(json.dumps(response["error"], ensure_ascii=False))
+            logger.info("NotebookLM MCP tool %s completed in %.1fs", name, time.monotonic() - started)
             return response
         finally:
             proc.terminate()
@@ -100,6 +109,13 @@ class NotebookLMMCPClient:
             raise NotebookLMMCPError("MCP stdout is not available")
         deadline = time.time() + timeout
         while time.time() < deadline:
+            remaining = deadline - time.time()
+            readable, _, _ = select.select([proc.stdout], [], [], min(0.25, max(0.0, remaining)))
+            if not readable:
+                if proc.poll() is not None:
+                    stderr = proc.stderr.read() if proc.stderr else ""
+                    raise NotebookLMMCPError(f"MCP exited early: {stderr[-2000:]}")
+                continue
             line = proc.stdout.readline()
             if not line:
                 if proc.poll() is not None:
