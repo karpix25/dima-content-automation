@@ -25,7 +25,7 @@ class MCPAskResult:
 
 
 class NotebookLMMCPClient:
-    def __init__(self, command: str = "npx notebooklm-mcp@latest", timeout_seconds: int = 240):
+    def __init__(self, command: str = "npx --yes notebooklm-mcp@latest", timeout_seconds: int = 240):
         self.command = command
         self.timeout_seconds = timeout_seconds
 
@@ -113,13 +113,13 @@ class NotebookLMMCPClient:
             readable, _, _ = select.select([proc.stdout], [], [], min(0.25, max(0.0, remaining)))
             if not readable:
                 if proc.poll() is not None:
-                    stderr = proc.stderr.read() if proc.stderr else ""
+                    stderr = _read_available_stderr(proc)
                     raise NotebookLMMCPError(f"MCP exited early: {stderr[-2000:]}")
                 continue
             line = proc.stdout.readline()
             if not line:
                 if proc.poll() is not None:
-                    stderr = proc.stderr.read() if proc.stderr else ""
+                    stderr = _read_available_stderr(proc)
                     raise NotebookLMMCPError(f"MCP exited early: {stderr[-2000:]}")
                 time.sleep(0.05)
                 continue
@@ -132,7 +132,24 @@ class NotebookLMMCPClient:
                 continue
             if payload.get("id") == target_id:
                 return payload
-        raise NotebookLMMCPError(f"MCP response timed out for id={target_id}")
+        stderr = _read_available_stderr(proc)
+        suffix = f": {stderr[-2000:]}" if stderr else ""
+        raise NotebookLMMCPError(f"MCP response timed out for id={target_id}{suffix}")
+
+
+def _read_available_stderr(proc: subprocess.Popen[str]) -> str:
+    if proc.stderr is None:
+        return ""
+    chunks: list[str] = []
+    while True:
+        readable, _, _ = select.select([proc.stderr], [], [], 0)
+        if not readable:
+            break
+        line = proc.stderr.readline()
+        if not line:
+            break
+        chunks.append(line)
+    return "".join(chunks)
 
 
 def extract_mcp_text_json(payload: dict[str, Any]) -> dict[str, Any]:

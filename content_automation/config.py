@@ -56,6 +56,13 @@ def get_int_env(name: str, default: int) -> int:
         return default
 
 
+def normalize_notebooklm_mcp_command(value: str | None) -> str:
+    command = (value or "").strip() or "npx --yes notebooklm-mcp@latest"
+    if command == "npx notebooklm-mcp@latest":
+        return "npx --yes notebooklm-mcp@latest"
+    return command
+
+
 def load_settings() -> Settings:
     load_dotenv()
     token = (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
@@ -72,7 +79,7 @@ def load_settings() -> Settings:
     return Settings(
         telegram_bot_token=token,
         notebooklm_cli_command=(os.getenv("NOTEBOOKLM_CLI_COMMAND") or "notebooklm").strip(),
-        notebooklm_mcp_command=(os.getenv("NOTEBOOKLM_MCP_COMMAND") or "npx notebooklm-mcp@latest").strip(),
+        notebooklm_mcp_command=normalize_notebooklm_mcp_command(os.getenv("NOTEBOOKLM_MCP_COMMAND")),
         default_notebook_id=(os.getenv("DEFAULT_NOTEBOOK_ID") or "").strip() or None,
         elevenlabs_api_key=(os.getenv("ELEVENLABS_API_KEY") or "").strip() or None,
         elevenlabs_mcp_command=(os.getenv("ELEVENLABS_MCP_SERVER_COMMAND") or "").strip() or None,

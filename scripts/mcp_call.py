@@ -15,7 +15,7 @@ def main() -> int:
     tool_name = sys.argv[1]
     arguments = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
 
-    command = os.getenv("NOTEBOOKLM_MCP_COMMAND", "npx notebooklm-mcp@latest")
+    command = os.getenv("NOTEBOOKLM_MCP_COMMAND", "npx --yes notebooklm-mcp@latest")
     proc = subprocess.Popen(
         shlex.split(command),
         stdin=subprocess.PIPE,
