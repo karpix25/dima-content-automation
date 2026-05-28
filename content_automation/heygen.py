@@ -42,6 +42,7 @@ class HeyGenClient:
         output_format: str = "mp4",
         poll_seconds: int = 15,
         timeout_seconds: int = 900,
+        private_avatars_only: bool = True,
     ):
         self.api_key = api_key
         self.api_base_url = api_base_url.rstrip("/")
@@ -51,6 +52,7 @@ class HeyGenClient:
         self.output_format = output_format
         self.poll_seconds = poll_seconds
         self.timeout_seconds = timeout_seconds
+        self.private_avatars_only = private_avatars_only
 
     def is_configured(self) -> bool:
         return bool(self.api_key)
@@ -61,8 +63,13 @@ class HeyGenClient:
         return {"x-api-key": self.api_key, "accept": "application/json"}
 
     async def list_avatar_looks(self, *, limit: int = 50) -> list[HeyGenAvatar]:
+        params = {"ownership": "private"} if self.private_avatars_only else None
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.get(f"{self.api_base_url}/v3/avatars/looks", headers=self.headers())
+            response = await client.get(
+                f"{self.api_base_url}/v3/avatars/looks",
+                headers=self.headers(),
+                params=params,
+            )
         if response.status_code >= 400:
             fallback = await self.list_avatars_v2(limit=limit)
             if fallback:
@@ -73,6 +80,8 @@ class HeyGenClient:
         items = _extract_items(payload, "avatar_looks", "looks", "avatars", "items")
         avatars: list[HeyGenAvatar] = []
         for item in items[:limit]:
+            if self.private_avatars_only and not _is_private_avatar(item, trusted_private_endpoint=True):
+                continue
             avatar = _parse_avatar(item)
             if avatar:
                 avatars.append(avatar)
@@ -82,17 +91,22 @@ class HeyGenClient:
         fallback = await self.list_avatars_v2(limit=limit)
         if fallback:
             return fallback
+        if self.private_avatars_only:
+            raise HeyGenError("HeyGen не вернул приватных аватаров. Проверь, что в аккаунте есть свои AI avatars и API key от этого аккаунта.")
         raise HeyGenError("HeyGen вернул пустой список аватаров")
 
     async def list_avatars_v2(self, *, limit: int = 50) -> list[HeyGenAvatar]:
+        params = {"avatar_type": "custom"} if self.private_avatars_only else None
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.get(f"{self.api_base_url}/v2/avatars", headers=self.headers())
+            response = await client.get(f"{self.api_base_url}/v2/avatars", headers=self.headers(), params=params)
         if response.status_code >= 400:
             return []
         payload = response.json()
         items = _extract_items(payload, "avatars", "avatar_list", "items")
         avatars: list[HeyGenAvatar] = []
         for item in items[:limit]:
+            if self.private_avatars_only and not _is_private_avatar(item, trusted_private_endpoint=False):
+                continue
             avatar = _parse_avatar(item)
             if avatar:
                 avatars.append(avatar)
@@ -229,6 +243,21 @@ def _parse_avatar(item: dict[str, Any]) -> HeyGenAvatar | None:
         preview_video_url=_first_text(item, ("preview_video_url",), ("preview_video",), ("video_url",)),
         raw=item,
     )
+
+
+def _is_private_avatar(item: dict[str, Any], *, trusted_private_endpoint: bool) -> bool:
+    if item.get("is_public") is True or item.get("public") is True:
+        return False
+    ownership = str(
+        item.get("ownership")
+        or item.get("avatar_type")
+        or item.get("type")
+        or item.get("source")
+        or ""
+    ).strip().lower()
+    if ownership:
+        return ownership in {"private", "custom", "user", "personal", "digital_twin", "photo_avatar"}
+    return trusted_private_endpoint
 
 
 def _first_text(payload: Any, *paths: tuple[str, ...]) -> str | None:

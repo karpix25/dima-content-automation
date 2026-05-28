@@ -7,8 +7,9 @@ import re
 from pathlib import Path
 
 from aiogram import Bot, Dispatcher, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Message
 
 from .config import load_settings
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
@@ -45,6 +46,7 @@ heygen = HeyGenClient(
     output_format=settings.heygen_output_format,
     poll_seconds=settings.heygen_video_poll_seconds,
     timeout_seconds=settings.heygen_video_timeout_seconds,
+    private_avatars_only=settings.heygen_private_avatars_only,
 )
 bot = Bot(settings.telegram_bot_token)
 dp = Dispatcher()
@@ -564,6 +566,18 @@ def avatar_keyboard(index: int, total: int, avatar: HeyGenAvatar) -> InlineKeybo
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def format_avatar_card(avatar: HeyGenAvatar, user_id: str, index: int, total: int) -> str:
+    active_marker = "✅ Активный" if avatar.id == get_active_heygen_avatar_id(user_id) else "Не активен"
+    return "\n".join(
+        [
+            f"🎭 HeyGen avatar {index + 1}/{total}",
+            f"{active_marker}",
+            f"Имя: {avatar.name}",
+            f"ID: {avatar.id}",
+        ]
+    )
+
+
 def voice_keyboard(index: int, total: int, voice: ElevenLabsVoice) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [button("✅ Активировать", callback_data=f"eleven_voice:set:{index}", style="success")],
@@ -607,36 +621,51 @@ def overlay_summary(user_id: str, format: str) -> str:
     )
 
 
-async def show_heygen_avatar(chat_id: int, user_id: str, *, thread_id: int | None, index: int = 0) -> None:
+async def show_heygen_avatar(
+    chat_id: int,
+    user_id: str,
+    *,
+    thread_id: int | None,
+    index: int = 0,
+    message: Message | None = None,
+    edit: bool = False,
+) -> None:
     avatars = await get_heygen_avatars(user_id)
     if not avatars:
         await send_to_chat_thread(chat_id, "HeyGen не вернул аватаров.", thread_id=thread_id, reply_markup=settings_keyboard())
         return
     index = nav_index(index, len(avatars))
     avatar = avatars[index]
-    active_marker = "✅ Активный" if avatar.id == get_active_heygen_avatar_id(user_id) else "Не активен"
-    caption = "\n".join(
-        [
-            f"🎭 HeyGen avatar {index + 1}/{len(avatars)}",
-            f"{active_marker}",
-            f"Имя: {avatar.name}",
-            f"ID: {avatar.id}",
-        ]
-    )
+    caption = format_avatar_card(avatar, user_id, index, len(avatars))
+    reply_markup = avatar_keyboard(index, len(avatars), avatar)
+    if edit and message:
+        try:
+            if avatar.preview_image_url:
+                await message.edit_media(
+                    media=InputMediaPhoto(media=avatar.preview_image_url, caption=caption),
+                    reply_markup=reply_markup,
+                )
+            else:
+                await message.edit_text(caption, reply_markup=reply_markup)
+            return
+        except TelegramBadRequest as exc:
+            if "message is not modified" in str(exc).lower():
+                return
+            logger.warning("Failed to edit HeyGen avatar card, sending a new one: %s", exc)
     if avatar.preview_image_url:
         await bot.send_photo(
             chat_id,
             avatar.preview_image_url,
             caption=caption,
             message_thread_id=thread_id,
-            reply_markup=avatar_keyboard(index, len(avatars), avatar),
+            reply_markup=reply_markup,
         )
     else:
         await send_to_chat_thread(
             chat_id,
             caption,
             thread_id=thread_id,
-            reply_markup=avatar_keyboard(index, len(avatars), avatar),
+            reply_markup=reply_markup,
         )
 
 
@@ -1228,16 +1257,25 @@ async def heygen_avatar_callback(callback: CallbackQuery) -> None:
     if action == "set":
         set_active_heygen_avatar(user_id, avatar)
         await callback.answer("Аватар активирован")
-        await send_to_chat_thread(
+        await show_heygen_avatar(
             callback.message.chat.id,
-            f"✅ Активный HeyGen avatar:\n{avatar.name}\n{avatar.id}",
+            user_id,
             thread_id=message_thread_id(callback.message),
-            reply_markup=settings_keyboard(),
+            index=index,
+            message=callback.message,
+            edit=True,
         )
         return
     if action == "show":
         await callback.answer()
-        await show_heygen_avatar(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message), index=index)
+        await show_heygen_avatar(
+            callback.message.chat.id,
+            user_id,
+            thread_id=message_thread_id(callback.message),
+            index=index,
+            message=callback.message,
+            edit=True,
+        )
         return
     await callback.answer("Некорректное действие", show_alert=True)
 

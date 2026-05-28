@@ -30,6 +30,7 @@ class Settings:
     heygen_api_key: str | None
     heygen_api_base_url: str
     heygen_upload_base_url: str
+    heygen_private_avatars_only: bool
     heygen_aspect_ratio: str
     heygen_resolution: str
     heygen_output_format: str
@@ -56,6 +57,13 @@ def get_int_env(name: str, default: int) -> int:
         return int(raw)
     except ValueError:
         return default
+
+
+def get_bool_env(name: str, default: bool) -> bool:
+    raw = (os.getenv(name) or "").strip().lower()
+    if not raw:
+        return default
+    return raw in {"1", "true", "yes", "y", "on"}
 
 
 def normalize_notebooklm_mcp_command(value: str | None) -> str:
@@ -100,6 +108,7 @@ def load_settings() -> Settings:
         heygen_api_key=(os.getenv("HEYGEN_API_KEY") or "").strip() or None,
         heygen_api_base_url=(os.getenv("HEYGEN_API_BASE_URL") or "https://api.heygen.com").strip().rstrip("/"),
         heygen_upload_base_url=(os.getenv("HEYGEN_UPLOAD_BASE_URL") or "https://upload.heygen.com").strip().rstrip("/"),
+        heygen_private_avatars_only=get_bool_env("HEYGEN_PRIVATE_AVATARS_ONLY", True),
         heygen_aspect_ratio=(os.getenv("HEYGEN_ASPECT_RATIO") or "9:16").strip(),
         heygen_resolution=(os.getenv("HEYGEN_RESOLUTION") or "720p").strip(),
         heygen_output_format=(os.getenv("HEYGEN_OUTPUT_FORMAT") or "mp4").strip(),

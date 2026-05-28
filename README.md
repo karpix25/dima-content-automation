@@ -48,6 +48,7 @@ ELEVENLABS_LANGUAGE=en
 HEYGEN_API_KEY=...
 HEYGEN_API_BASE_URL=https://api.heygen.com
 HEYGEN_UPLOAD_BASE_URL=https://upload.heygen.com
+HEYGEN_PRIVATE_AVATARS_ONLY=true
 HEYGEN_ASPECT_RATIO=9:16
 HEYGEN_RESOLUTION=720p
 HEYGEN_OUTPUT_FORMAT=mp4
@@ -91,9 +92,18 @@ python scripts/elevenlabs_mcp_config.py
 
 ```text
 HEYGEN_API_KEY=...
+HEYGEN_PRIVATE_AVATARS_ONLY=true
 ```
 
 Через `/settings` открой `🎭 Аватар HeyGen`. Бот покажет avatars с preview-картинкой или ссылкой на preview video, навигацией и кнопкой `Активировать`. Активный avatar используется для всех следующих одобренных short-сценариев.
+
+По умолчанию бот запрашивает только приватные avatars аккаунта:
+
+```text
+HEYGEN_PRIVATE_AVATARS_ONLY=true
+```
+
+Навигация по avatars редактирует одну и ту же Telegram-карточку, чтобы не засорять группу.
 
 ## Плашки на видео
 
