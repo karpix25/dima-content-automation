@@ -121,6 +121,46 @@ async def send_to_chat_thread(
     )
 
 
+async def edit_or_send_text(
+    chat_id: int,
+    text: str,
+    *,
+    thread_id: int | None = None,
+    message: Message | None = None,
+    edit: bool = False,
+    reply_markup: InlineKeyboardMarkup | None = None,
+    disable_web_page_preview: bool | None = None,
+) -> Message:
+    if edit and message:
+        try:
+            if message.photo or message.video or message.document or message.audio:
+                if len(text) <= 1024:
+                    await message.edit_caption(caption=text, reply_markup=reply_markup)
+                    return message
+            else:
+                await message.edit_text(
+                    text,
+                    reply_markup=reply_markup,
+                    disable_web_page_preview=disable_web_page_preview,
+                )
+                return message
+        except TelegramBadRequest as exc:
+            if "message is not modified" in str(exc).lower():
+                return message
+            logger.warning("Failed to edit Telegram message, sending a new one: %s", exc)
+            try:
+                await message.delete()
+            except TelegramBadRequest:
+                pass
+    return await send_to_chat_thread(
+        chat_id,
+        text,
+        thread_id=thread_id,
+        reply_markup=reply_markup,
+        disable_web_page_preview=disable_web_page_preview,
+    )
+
+
 def script_keyboard(script_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -469,18 +509,31 @@ async def generate_scripts_for_user(
     return [storage.add_script(user_id, format, item) for item in items]
 
 
-async def send_scripts(chat_id: int, records: list[ScriptRecord], *, thread_id: int | None = None) -> None:
+async def send_scripts(
+    chat_id: int,
+    records: list[ScriptRecord],
+    *,
+    thread_id: int | None = None,
+    message: Message | None = None,
+    edit: bool = False,
+) -> None:
+    first_chunk = True
     for record in records:
         chunks = split_telegram_text(format_script_message(record))
         for index, chunk in enumerate(chunks):
             is_last = index == len(chunks) - 1
-            await send_to_chat_thread(
+            sent = await edit_or_send_text(
                 chat_id,
                 chunk,
                 thread_id=thread_id,
+                message=message if first_chunk else None,
+                edit=edit and first_chunk,
                 reply_markup=script_keyboard(record.id) if is_last else None,
                 disable_web_page_preview=True,
             )
+            if first_chunk:
+                message = sent
+                first_chunk = False
 
 
 def format_bank_status(user_id: str) -> str:
@@ -632,7 +685,14 @@ async def show_heygen_avatar(
 ) -> None:
     avatars = await get_heygen_avatars(user_id)
     if not avatars:
-        await send_to_chat_thread(chat_id, "HeyGen не вернул аватаров.", thread_id=thread_id, reply_markup=settings_keyboard())
+        await edit_or_send_text(
+            chat_id,
+            "HeyGen не вернул аватаров.",
+            thread_id=thread_id,
+            message=message,
+            edit=edit,
+            reply_markup=settings_keyboard(),
+        )
         return
     index = nav_index(index, len(avatars))
     avatar = avatars[index]
@@ -652,6 +712,10 @@ async def show_heygen_avatar(
             if "message is not modified" in str(exc).lower():
                 return
             logger.warning("Failed to edit HeyGen avatar card, sending a new one: %s", exc)
+            try:
+                await message.delete()
+            except TelegramBadRequest:
+                pass
     if avatar.preview_image_url:
         await bot.send_photo(
             chat_id,
@@ -669,24 +733,49 @@ async def show_heygen_avatar(
         )
 
 
-async def show_elevenlabs_voice(chat_id: int, user_id: str, *, thread_id: int | None, index: int = 0) -> None:
-    voices = await get_elevenlabs_voices(user_id)
-    if not voices:
-        await send_to_chat_thread(chat_id, "ElevenLabs не вернул голосов.", thread_id=thread_id, reply_markup=settings_keyboard())
-        return
-    index = nav_index(index, len(voices))
-    voice = voices[index]
+def format_voice_card(voice: ElevenLabsVoice, user_id: str, index: int, total: int) -> str:
     active_marker = "✅ Активный" if voice.id == get_active_elevenlabs_voice_id(user_id) else "Не активен"
-    text = "\n".join(
+    return "\n".join(
         [
-            f"🎙 ElevenLabs voice {index + 1}/{len(voices)}",
+            f"🎙 ElevenLabs voice {index + 1}/{total}",
             f"{active_marker}",
             f"Имя: {voice.name}",
             f"ID: {voice.id}",
             f"Категория: {voice.category or 'не указана'}",
         ]
     )
-    await send_to_chat_thread(chat_id, text, thread_id=thread_id, reply_markup=voice_keyboard(index, len(voices), voice))
+
+
+async def show_elevenlabs_voice(
+    chat_id: int,
+    user_id: str,
+    *,
+    thread_id: int | None,
+    index: int = 0,
+    message: Message | None = None,
+    edit: bool = False,
+) -> None:
+    voices = await get_elevenlabs_voices(user_id)
+    if not voices:
+        await edit_or_send_text(
+            chat_id,
+            "ElevenLabs не вернул голосов.",
+            thread_id=thread_id,
+            message=message,
+            edit=edit,
+            reply_markup=settings_keyboard(),
+        )
+        return
+    index = nav_index(index, len(voices))
+    voice = voices[index]
+    await edit_or_send_text(
+        chat_id,
+        format_voice_card(voice, user_id, index, len(voices)),
+        thread_id=thread_id,
+        message=message,
+        edit=edit,
+        reply_markup=voice_keyboard(index, len(voices), voice),
+    )
 
 
 async def send_generated_video(chat_id: int, thread_id: int | None, video_url: str, caption: str) -> None:
@@ -865,21 +954,42 @@ def format_current_settings(user_id: str) -> str:
     )
 
 
-async def start_review_session(chat_id: int, user_id: str, *, thread_id: int | None = None) -> int:
+async def start_review_session(
+    chat_id: int,
+    user_id: str,
+    *,
+    thread_id: int | None = None,
+    message: Message | None = None,
+    edit: bool = False,
+) -> int:
     removed = reject_cyrillic_pending_scripts(user_id)
     pending = storage.count_scripts(user_id, format="short", status="pending")
     if pending == 0:
         if removed:
-            await send_to_chat_thread(chat_id, f"Убрал русские сценарии из очереди: {removed}. Запусти /refill для новой английской пачки.", thread_id=thread_id)
+            await edit_or_send_text(
+                chat_id,
+                f"Убрал русские сценарии из очереди: {removed}. Запусти /refill для новой английской пачки.",
+                thread_id=thread_id,
+                message=message,
+                edit=edit,
+            )
             return 0
-        await send_to_chat_thread(chat_id, "Нет сценариев на ревью. Запусти /refill, чтобы создать новую пачку.", thread_id=thread_id)
+        await edit_or_send_text(
+            chat_id,
+            "Нет сценариев на ревью. Запусти /refill, чтобы создать новую пачку.",
+            thread_id=thread_id,
+            message=message,
+            edit=edit,
+        )
         return 0
     set_review_session(user_id, pending)
     record = storage.list_scripts(user_id, format="short", status="pending", limit=1)[0]
-    await send_to_chat_thread(
+    await edit_or_send_text(
         chat_id,
         format_review_message(record, user_id),
         thread_id=thread_id,
+        message=message,
+        edit=edit,
         reply_markup=script_keyboard(record.id),
         disable_web_page_preview=True,
     )
@@ -933,21 +1043,25 @@ async def refill_if_needed(
     user_id: str,
     *,
     thread_id: int | None = None,
+    message: Message | None = None,
+    edit: bool = False,
     force: bool = False,
     topic_hint: str | None = None,
 ) -> None:
     approved = storage.count_scripts(user_id, format="short", status="approved")
     pending = storage.count_scripts(user_id, format="short", status="pending")
     if not force and pending > 0:
-        await send_to_chat_thread(
+        status_msg = await edit_or_send_text(
             chat_id,
             f"Уже есть сценарии на проверке: {pending}. Открываю очередь.",
             thread_id=thread_id,
+            message=message,
+            edit=edit,
         )
-        await start_review_session(chat_id, user_id, thread_id=thread_id)
+        await start_review_session(chat_id, user_id, thread_id=thread_id, message=status_msg, edit=True)
         return
     if not force and approved > APPROVED_BANK_TARGET:
-        await send_to_chat_thread(
+        await edit_or_send_text(
             chat_id,
             "\n".join(
                 [
@@ -958,13 +1072,17 @@ async def refill_if_needed(
                 ]
             ),
             thread_id=thread_id,
+            message=message,
+            edit=edit,
         )
         return
 
-    status_msg = await send_to_chat_thread(
+    status_msg = await edit_or_send_text(
         chat_id,
         f"⏳ Банк одобренных: {approved}/{APPROVED_BANK_TARGET}. Генерирую пачку из {REFILL_BATCH_SIZE} сценариев...",
         thread_id=thread_id,
+        message=message,
+        edit=edit,
     )
     try:
         logger.info("Starting script bank refill for user %s: approved=%s pending=%s", user_id, approved, pending)
@@ -978,7 +1096,7 @@ async def refill_if_needed(
         await status_msg.edit_text(f"❌ Не удалось пополнить банк сценариев: {exc}")
         return
     await status_msg.edit_text("✅ Новая пачка сценариев готова.")
-    await start_review_session(chat_id, user_id, thread_id=thread_id)
+    await start_review_session(chat_id, user_id, thread_id=thread_id, message=status_msg, edit=True)
 
 
 @dp.message(Command("start", "help"))
@@ -1121,26 +1239,42 @@ async def main_callback(callback: CallbackQuery) -> None:
     user_id = activate_from_callback(callback)
     await callback.answer()
     if action == "settings":
-        await send_to_chat_thread(
+        await edit_or_send_text(
             callback.message.chat.id,
             "Что настраиваем? Эти данные попадут в запрос к NotebookLM, чтобы CTA писался органично под оффер.",
             thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
             reply_markup=settings_keyboard(),
         )
         return
     if action == "bank":
-        await send_to_chat_thread(
+        await edit_or_send_text(
             callback.message.chat.id,
             format_bank_status(user_id),
             thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
             reply_markup=main_keyboard(),
         )
         return
     if action == "review":
-        await start_review_session(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message))
+        await start_review_session(
+            callback.message.chat.id,
+            user_id,
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+        )
         return
     if action == "refill":
-        await refill_if_needed(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message))
+        await refill_if_needed(
+            callback.message.chat.id,
+            user_id,
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+        )
         return
 
 
@@ -1150,43 +1284,63 @@ async def settings_callback(callback: CallbackQuery) -> None:
     user_id = activate_from_callback(callback)
     if len(parts) >= 2 and parts[1] == "show":
         await callback.answer()
-        await send_to_chat_thread(
+        await edit_or_send_text(
             callback.message.chat.id,
             format_current_settings(user_id),
             thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
             reply_markup=settings_keyboard(),
         )
         return
     if len(parts) >= 2 and parts[1] == "heygen_avatars":
         await callback.answer("Загружаю аватары")
         try:
-            await show_heygen_avatar(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message))
+            await show_heygen_avatar(
+                callback.message.chat.id,
+                user_id,
+                thread_id=message_thread_id(callback.message),
+                message=callback.message,
+                edit=True,
+            )
         except HeyGenError as exc:
-            await send_to_chat_thread(
+            await edit_or_send_text(
                 callback.message.chat.id,
                 f"⚠️ Не удалось получить HeyGen avatars: {exc}",
                 thread_id=message_thread_id(callback.message),
+                message=callback.message,
+                edit=True,
                 reply_markup=settings_keyboard(),
             )
         return
     if len(parts) >= 2 and parts[1] == "elevenlabs_voices":
         await callback.answer("Загружаю голоса")
         try:
-            await show_elevenlabs_voice(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message))
+            await show_elevenlabs_voice(
+                callback.message.chat.id,
+                user_id,
+                thread_id=message_thread_id(callback.message),
+                message=callback.message,
+                edit=True,
+            )
         except ElevenLabsAPIError as exc:
-            await send_to_chat_thread(
+            await edit_or_send_text(
                 callback.message.chat.id,
                 f"⚠️ Не удалось получить ElevenLabs voices: {exc}",
                 thread_id=message_thread_id(callback.message),
+                message=callback.message,
+                edit=True,
                 reply_markup=settings_keyboard(),
             )
         return
     if len(parts) == 3 and parts[1] == "overlay" and parts[2] in {"short", "youtube"}:
         await callback.answer()
-        await send_to_chat_thread(
+        await edit_or_send_text(
             callback.message.chat.id,
             overlay_summary(user_id, parts[2]),
             thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
             reply_markup=overlay_keyboard(parts[2]),
         )
         return
@@ -1223,7 +1377,13 @@ async def settings_callback(callback: CallbackQuery) -> None:
         ),
     }
     await callback.answer("Отправь значение следующим сообщением")
-    await send_to_chat_thread(callback.message.chat.id, prompts[key], thread_id=message_thread_id(callback.message))
+    await edit_or_send_text(
+        callback.message.chat.id,
+        prompts[key],
+        thread_id=message_thread_id(callback.message),
+        message=callback.message,
+        edit=True,
+    )
 
 
 @dp.callback_query(F.data == "noop")
@@ -1306,16 +1466,25 @@ async def eleven_voice_callback(callback: CallbackQuery) -> None:
     if action == "set":
         set_active_elevenlabs_voice(user_id, voice)
         await callback.answer("Голос активирован")
-        await send_to_chat_thread(
+        await show_elevenlabs_voice(
             callback.message.chat.id,
-            f"✅ Активный ElevenLabs voice:\n{voice.name}\n{voice.id}",
+            user_id,
             thread_id=message_thread_id(callback.message),
-            reply_markup=settings_keyboard(),
+            index=index,
+            message=callback.message,
+            edit=True,
         )
         return
     if action == "show":
         await callback.answer()
-        await show_elevenlabs_voice(callback.message.chat.id, user_id, thread_id=message_thread_id(callback.message), index=index)
+        await show_elevenlabs_voice(
+            callback.message.chat.id,
+            user_id,
+            thread_id=message_thread_id(callback.message),
+            index=index,
+            message=callback.message,
+            edit=True,
+        )
         return
     await callback.answer("Некорректное действие", show_alert=True)
 
@@ -1334,42 +1503,61 @@ async def overlay_callback(callback: CallbackQuery) -> None:
         PENDING_OVERLAY_UPLOADS[user_id] = format
         PENDING_SETTING_EDITS.pop(user_id, None)
         await callback.answer("Отправь картинку")
-        await send_to_chat_thread(
+        await edit_or_send_text(
             callback.message.chat.id,
             f"Отправь плашку для {label} одним сообщением: PNG/JPG/WebP файлом или фото.\n\n"
             "Лучше использовать PNG с прозрачностью и размером под формат видео.",
             thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
         )
         return
     if action == "percent":
         PENDING_SETTING_EDITS[user_id] = f"overlay_percent:{format}"
         PENDING_OVERLAY_UPLOADS.pop(user_id, None)
         await callback.answer("Отправь процент")
-        await send_to_chat_thread(
+        await edit_or_send_text(
             callback.message.chat.id,
             f"Отправь процент появления плашки {label}: число от 0 до 100.\n\n"
             "Например, 70 означает, что плашка появится с 70% хронометража и останется до конца.",
             thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
         )
         return
     if action == "show":
         await callback.answer()
         overlay_path = get_overlay_path(user_id, format)
+        summary = overlay_summary(user_id, format)
         if overlay_path and overlay_path.exists():
-            await bot.send_photo(
-                callback.message.chat.id,
-                FSInputFile(overlay_path),
-                caption=overlay_summary(user_id, format),
-                message_thread_id=message_thread_id(callback.message),
-                reply_markup=overlay_keyboard(format),
-            )
-        else:
-            await send_to_chat_thread(
-                callback.message.chat.id,
-                overlay_summary(user_id, format),
-                thread_id=message_thread_id(callback.message),
-                reply_markup=overlay_keyboard(format),
-            )
+            try:
+                await callback.message.edit_media(
+                    media=InputMediaPhoto(media=FSInputFile(overlay_path), caption=summary),
+                    reply_markup=overlay_keyboard(format),
+                )
+            except TelegramBadRequest as exc:
+                if "message is not modified" not in str(exc).lower():
+                    logger.warning("Failed to edit overlay preview, sending a new one: %s", exc)
+                    try:
+                        await callback.message.delete()
+                    except TelegramBadRequest:
+                        pass
+                    await bot.send_photo(
+                        callback.message.chat.id,
+                        FSInputFile(overlay_path),
+                        caption=summary,
+                        message_thread_id=message_thread_id(callback.message),
+                        reply_markup=overlay_keyboard(format),
+                    )
+            return
+        await edit_or_send_text(
+            callback.message.chat.id,
+            summary,
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+            reply_markup=overlay_keyboard(format),
+        )
         return
     await callback.answer("Некорректное действие", show_alert=True)
 
@@ -1428,8 +1616,13 @@ async def youtube_script(message: Message) -> None:
         await status_msg.edit_text(f"❌ Не удалось сгенерировать YouTube-сценарий: {exc}")
         return
 
-    await status_msg.edit_text("✅ YouTube-сценарий готов. Отправляю на апрув.")
-    await send_scripts(message.chat.id, records, thread_id=message_thread_id(message))
+    await send_scripts(
+        message.chat.id,
+        records,
+        thread_id=message_thread_id(message),
+        message=status_msg,
+        edit=True,
+    )
 
 
 @dp.callback_query(F.data.startswith("script:"))
