@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shlex
 import subprocess
 import sys
 import time
@@ -13,8 +15,9 @@ def main() -> int:
     tool_name = sys.argv[1]
     arguments = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
 
+    command = os.getenv("NOTEBOOKLM_MCP_COMMAND", "npx notebooklm-mcp@latest")
     proc = subprocess.Popen(
-        ["npx", "notebooklm-mcp@latest"],
+        shlex.split(command),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

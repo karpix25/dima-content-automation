@@ -27,6 +27,7 @@ NOTEBOOKLM_CLI_COMMAND=notebooklm
 NOTEBOOKLM_MCP_COMMAND=npx notebooklm-mcp@latest
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=.data
+APP_MODE=bot
 ELEVENLABS_API_KEY=...
 ELEVENLABS_MCP_OUTPUT_MODE=files
 ELEVENLABS_OUTPUT_DIRECTORY=outputs/elevenlabs
@@ -104,6 +105,33 @@ ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs
 ```
 
 Важно: NotebookLM MCP использует браузерную авторизацию. На сервере может понадобиться отдельно пройти/перенести авторизацию NotebookLM для контейнера.
+
+### Авторизация NotebookLM на сервере
+
+Для первого Google login включи временный auth-mode:
+
+```text
+APP_MODE=notebooklm-auth
+```
+
+В Coolify нужно открыть порт:
+
+```text
+6080
+```
+
+После деплоя открой noVNC URL, залогинься в Google/NotebookLM в браузере внутри контейнера, затем верни:
+
+```text
+APP_MODE=bot
+```
+
+и сделай redeploy. Профиль сохранится в volume:
+
+```text
+/root/.config/notebooklm-mcp
+/root/.local/share/notebooklm-mcp
+```
 
 ## Команды Telegram
 

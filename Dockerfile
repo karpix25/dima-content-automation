@@ -15,10 +15,15 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+        fluxbox \
         git \
+        novnc \
         python3 \
         python3-pip \
         python3-venv \
+        websockify \
+        x11vnc \
+        xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt package.json package-lock.json ./
@@ -36,5 +41,8 @@ COPY scripts ./scripts
 COPY README.md ./
 
 RUN mkdir -p /app/.data /app/outputs/elevenlabs
+RUN chmod +x scripts/entrypoint.sh scripts/notebooklm_auth_mode.sh
 
-CMD ["python", "-m", "content_automation.bot"]
+EXPOSE 6080
+
+CMD ["bash", "scripts/entrypoint.sh"]
