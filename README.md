@@ -73,6 +73,38 @@ python scripts/elevenlabs_mcp_config.py
 python -m content_automation.bot
 ```
 
+## Docker / Coolify
+
+Для Coolify лучше выбирать build pack `Dockerfile`.
+
+Приложение работает как Telegram worker через polling, поэтому HTTP-порт ему не нужен.
+
+Локально можно проверить так:
+
+```bash
+docker compose up --build
+```
+
+В Coolify добавь переменные окружения из `.env.example`. Минимально нужны:
+
+```text
+TELEGRAM_BOT_TOKEN=...
+NOTEBOOKLM_MCP_COMMAND=npx notebooklm-mcp@latest
+DEFAULT_NOTEBOOK_ID=...
+DATA_DIR=/app/.data
+ELEVENLABS_API_KEY=...
+ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs
+```
+
+Для постоянного хранения базы и аудио в Coolify стоит добавить volumes:
+
+```text
+/app/.data
+/app/outputs
+```
+
+Важно: NotebookLM MCP использует браузерную авторизацию. На сервере может понадобиться отдельно пройти/перенести авторизацию NotebookLM для контейнера.
+
 ## Команды Telegram
 
 ```text
