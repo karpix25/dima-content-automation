@@ -2,4 +2,4 @@ aiogram>=3.25,<4
 python-dotenv>=1.0,<2
 elevenlabs-mcp==0.9.1
 httpx>=0.28,<1
-notebooklm-py>=0.5,<0.6
+notebooklm-py[browser]>=0.5,<0.6

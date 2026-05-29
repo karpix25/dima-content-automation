@@ -37,7 +37,7 @@ COPY scripts ./scripts
 COPY README.md ./
 
 RUN mkdir -p /app/.data /app/outputs/elevenlabs /app/outputs/videos
-RUN chmod +x scripts/entrypoint.sh scripts/notebooklm_auth_mode.sh
+RUN chmod +x scripts/entrypoint.sh scripts/notebooklm_auth_mode.sh scripts/notebooklm_py_auth_mode.sh
 
 EXPOSE 6080
 

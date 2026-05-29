@@ -30,7 +30,7 @@ NOTEBOOKLM_CLI_COMMAND=notebooklm
 NOTEBOOKLM_BACKEND=mcp
 NOTEBOOKLM_MCP_COMMAND=npx --yes notebooklm-mcp@latest
 NOTEBOOKLM_MCP_TIMEOUT_SECONDS=900
-NOTEBOOKLM_PY_STORAGE_PATH=/root/.local/share/notebooklm-mcp/browser_state/state.json
+NOTEBOOKLM_PY_STORAGE_PATH=/app/.data/notebooklm-py/storage_state.json
 NOTEBOOKLM_SHORT_BATCH_SIZE=1
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=.data
@@ -154,7 +154,7 @@ TELEGRAM_BOT_TOKEN=...
 NOTEBOOKLM_BACKEND=mcp
 NOTEBOOKLM_MCP_COMMAND=npx --yes notebooklm-mcp@latest
 NOTEBOOKLM_MCP_TIMEOUT_SECONDS=900
-NOTEBOOKLM_PY_STORAGE_PATH=/root/.local/share/notebooklm-mcp/browser_state/state.json
+NOTEBOOKLM_PY_STORAGE_PATH=/app/.data/notebooklm-py/storage_state.json
 NOTEBOOKLM_SHORT_BATCH_SIZE=1
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=/app/.data
@@ -177,10 +177,10 @@ NOTEBOOKLM_SHORT_BATCH_SIZE=1
 
 ```text
 NOTEBOOKLM_BACKEND=py
-NOTEBOOKLM_PY_STORAGE_PATH=/root/.local/share/notebooklm-mcp/browser_state/state.json
+NOTEBOOKLM_PY_STORAGE_PATH=/app/.data/notebooklm-py/storage_state.json
 ```
 
-Этот режим использует `notebooklm-py` и переиспользует уже сохраненную Google-авторизацию от noVNC/MCP. Если Google изменит внутренние NotebookLM RPC, верни `NOTEBOOKLM_BACKEND=mcp`.
+Этот режим использует `notebooklm-py` и отдельный сохраненный Google storage state. Если Google изменит внутренние NotebookLM RPC, верни `NOTEBOOKLM_BACKEND=mcp`.
 Для `py` режима в `DEFAULT_NOTEBOOK_ID` или `/set_notebook` используй реальный URL NotebookLM или UUID из URL, а не локальный alias из MCP-библиотеки.
 
 Для постоянного хранения базы и аудио в Coolify стоит добавить volumes:
@@ -194,12 +194,28 @@ NOTEBOOKLM_PY_STORAGE_PATH=/root/.local/share/notebooklm-mcp/browser_state/state
 
 ### Авторизация NotebookLM на сервере
 
-Для первого Google login включи временный auth-mode:
+Для первого Google login через старый MCP включи временный auth-mode:
 
 ```text
 APP_MODE=notebooklm-auth
 INSTALL_AUTH_TOOLS=true
 ```
+
+Для первого Google login через `notebooklm-py` включи:
+
+```text
+APP_MODE=notebooklm-py-auth
+INSTALL_AUTH_TOOLS=true
+NOTEBOOKLM_PY_STORAGE_PATH=/app/.data/notebooklm-py/storage_state.json
+```
+
+После запуска открой noVNC URL и в Coolify Terminal выполни команду, которую покажет контейнер:
+
+```text
+DISPLAY=:99 notebooklm --storage "/app/.data/notebooklm-py/storage_state.json" login
+```
+
+Залогинься в браузере noVNC. Когда NotebookLM откроется, вернись в терминал и нажми Enter, чтобы сохранить session.
 
 В Coolify нужно открыть порт:
 
