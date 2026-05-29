@@ -198,6 +198,7 @@ NOTEBOOKLM_PY_STORAGE_PATH=/root/.local/share/notebooklm-mcp/browser_state/state
 
 ```text
 APP_MODE=notebooklm-auth
+INSTALL_AUTH_TOOLS=true
 ```
 
 В Coolify нужно открыть порт:
