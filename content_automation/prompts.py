@@ -18,6 +18,13 @@ Do not use direct CTA, apply, book-call, or sales-call language for now.
 DEFAULT_CTA_MIX = "50% none, 50% soft, 0% direct"
 
 
+def _short_prompt_value(value: str | None, limit: int) -> str:
+    text = " ".join((value or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
+
+
 def build_short_scripts_prompt(
     count: int,
     author_style: str | None,
@@ -26,37 +33,27 @@ def build_short_scripts_prompt(
     topic_hint: str | None = None,
     exclusion_context: str | None = None,
 ) -> str:
-    style = (author_style or DEFAULT_AUTHOR_STYLE).strip()
-    offer = (offer_context or DEFAULT_OFFER_CONTEXT).strip()
-    cta_distribution = (cta_mix or DEFAULT_CTA_MIX).strip()
-    hint = f"\nAdditional user focus: {topic_hint.strip()}\n" if topic_hint else ""
-    exclusions = f"\nAlready used ideas to avoid:\n{exclusion_context.strip()}\n" if exclusion_context else ""
+    style = _short_prompt_value(author_style or DEFAULT_AUTHOR_STYLE, 260)
+    hint = _short_prompt_value(topic_hint, 160)
+    exclusions = _short_prompt_value(exclusion_context, 700)
+    hint_line = f"\nFocus: {hint}" if hint else ""
+    exclusions_line = f"\nAvoid repeating: {exclusions}" if exclusions else ""
     return f"""
-Write {count} fresh short vertical-video script(s) from this NotebookLM knowledge base.
+Return ONLY valid JSON. Use the NotebookLM sources.
+Write {count} English short vertical-video script(s) for existing Amazon sellers.
+Voice: {style}
+Offer: high-ticket Amazon growth mentorship, from 1400 USD. No direct CTA.
+Rules: no Cyrillic, no markdown, voiceover 80-120 words, practical and specific.{hint_line}{exclusions_line}
 
-Language: English only. No Russian/Cyrillic in any value.
-Audience: Amazon sellers who already sell and want growth, profit, systems, and control. Not beginners.
-Offer context: high-ticket Amazon growth course/mentorship, entry from 1400 USD.
-Author voice: {style}
-CTA guidance: {cta_distribution}. Direct CTA is disabled. No "book a call", "apply", "DM me", or "buy now".
-Hormozi logic: make the viewer feel a valuable gap between chaotic selling and a better operating system.
-
-Each voiceover must be 30-60 seconds, conversational, practical, and specific.
-Use a different pain/mechanism for each script: cash flow, PPC, margin leaks, inventory, reviews, operations, scaling, or team systems.
-{hint}
-{exclusions}
-Avoid repeated topics, metaphors, hook structures, and problem framing.
-
-Return ONLY valid JSON, no Markdown, with this exact compact schema:
 [
   {{
-    "title": "short topic",
-    "angle": "specific angle",
-    "hook": "first line",
-    "trigger": "core pain",
-    "voiceover": "spoken English script",
-    "cta_type": "none or soft",
-    "cta": "specific soft CTA or empty string",
+    "title": "",
+    "angle": "",
+    "hook": "",
+    "trigger": "",
+    "voiceover": "",
+    "cta_type": "none",
+    "cta": "",
     "why_it_works": "",
     "source_basis": ""
   }}
