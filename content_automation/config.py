@@ -11,8 +11,10 @@ from dotenv import load_dotenv
 class Settings:
     telegram_bot_token: str
     notebooklm_cli_command: str
+    notebooklm_backend: str
     notebooklm_mcp_command: str
     notebooklm_mcp_timeout_seconds: int
+    notebooklm_py_storage_path: Path | None
     notebooklm_short_batch_size: int
     default_notebook_id: str | None
     elevenlabs_api_key: str | None
@@ -74,6 +76,16 @@ def normalize_notebooklm_mcp_command(value: str | None) -> str:
     return command
 
 
+def normalize_notebooklm_backend(value: str | None) -> str:
+    backend = (value or "mcp").strip().lower()
+    return backend if backend in {"mcp", "py"} else "mcp"
+
+
+def get_optional_path_env(name: str) -> Path | None:
+    raw = (os.getenv(name) or "").strip()
+    return Path(raw).expanduser() if raw else None
+
+
 def load_settings() -> Settings:
     load_dotenv()
     token = (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
@@ -90,8 +102,10 @@ def load_settings() -> Settings:
     return Settings(
         telegram_bot_token=token,
         notebooklm_cli_command=(os.getenv("NOTEBOOKLM_CLI_COMMAND") or "notebooklm").strip(),
+        notebooklm_backend=normalize_notebooklm_backend(os.getenv("NOTEBOOKLM_BACKEND")),
         notebooklm_mcp_command=normalize_notebooklm_mcp_command(os.getenv("NOTEBOOKLM_MCP_COMMAND")),
         notebooklm_mcp_timeout_seconds=get_int_env("NOTEBOOKLM_MCP_TIMEOUT_SECONDS", 900),
+        notebooklm_py_storage_path=get_optional_path_env("NOTEBOOKLM_PY_STORAGE_PATH"),
         notebooklm_short_batch_size=max(1, get_int_env("NOTEBOOKLM_SHORT_BATCH_SIZE", 1)),
         default_notebook_id=(os.getenv("DEFAULT_NOTEBOOK_ID") or "").strip() or None,
         elevenlabs_api_key=(os.getenv("ELEVENLABS_API_KEY") or "").strip() or None,

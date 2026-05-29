@@ -27,8 +27,10 @@ cp .env.example .env
 ```text
 TELEGRAM_BOT_TOKEN=...
 NOTEBOOKLM_CLI_COMMAND=notebooklm
+NOTEBOOKLM_BACKEND=mcp
 NOTEBOOKLM_MCP_COMMAND=npx --yes notebooklm-mcp@latest
 NOTEBOOKLM_MCP_TIMEOUT_SECONDS=900
+NOTEBOOKLM_PY_STORAGE_PATH=/root/.local/share/notebooklm-mcp/browser_state/state.json
 NOTEBOOKLM_SHORT_BATCH_SIZE=1
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=.data
@@ -149,8 +151,10 @@ docker compose up --build
 
 ```text
 TELEGRAM_BOT_TOKEN=...
+NOTEBOOKLM_BACKEND=mcp
 NOTEBOOKLM_MCP_COMMAND=npx --yes notebooklm-mcp@latest
 NOTEBOOKLM_MCP_TIMEOUT_SECONDS=900
+NOTEBOOKLM_PY_STORAGE_PATH=/root/.local/share/notebooklm-mcp/browser_state/state.json
 NOTEBOOKLM_SHORT_BATCH_SIZE=1
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=/app/.data
@@ -168,6 +172,16 @@ NOTEBOOKLM_SHORT_BATCH_SIZE=1
 ```
 
 Так бот делает 10 маленьких запросов вместо одного тяжелого JSON-ответа. Если NotebookLM на сервере работает стабильно, можно поднять до `2` или `4`.
+
+Если хочешь заменить браузерный MCP на более прямой неофициальный Python-клиент NotebookLM, включи:
+
+```text
+NOTEBOOKLM_BACKEND=py
+NOTEBOOKLM_PY_STORAGE_PATH=/root/.local/share/notebooklm-mcp/browser_state/state.json
+```
+
+Этот режим использует `notebooklm-py` и переиспользует уже сохраненную Google-авторизацию от noVNC/MCP. Если Google изменит внутренние NotebookLM RPC, верни `NOTEBOOKLM_BACKEND=mcp`.
+Для `py` режима в `DEFAULT_NOTEBOOK_ID` или `/set_notebook` используй реальный URL NotebookLM или UUID из URL, а не локальный alias из MCP-библиотеки.
 
 Для постоянного хранения базы и аудио в Coolify стоит добавить volumes:
 

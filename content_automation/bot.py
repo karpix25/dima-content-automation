@@ -17,6 +17,7 @@ from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
 from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
+from .notebooklm_py import NotebookLMPyClient
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .storage import ScriptRecord, Storage
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
@@ -27,10 +28,16 @@ logger = logging.getLogger(__name__)
 
 settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
-notebooklm = NotebookLMMCPClient(
-    command=settings.notebooklm_mcp_command,
-    timeout_seconds=settings.notebooklm_mcp_timeout_seconds,
-)
+if settings.notebooklm_backend == "py":
+    notebooklm = NotebookLMPyClient(
+        storage_path=settings.notebooklm_py_storage_path,
+        timeout_seconds=settings.notebooklm_mcp_timeout_seconds,
+    )
+else:
+    notebooklm = NotebookLMMCPClient(
+        command=settings.notebooklm_mcp_command,
+        timeout_seconds=settings.notebooklm_mcp_timeout_seconds,
+    )
 elevenlabs = ElevenLabsMCPClient(
     api_key=settings.elevenlabs_api_key,
     command=settings.elevenlabs_mcp_command,
