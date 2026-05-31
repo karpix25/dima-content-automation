@@ -30,7 +30,12 @@ COPY requirements.txt ./
 
 RUN python3 -m venv /opt/venv \
     && python -m pip install --upgrade pip \
-    && pip install -r requirements.txt
+    && for attempt in 1 2 3; do \
+        pip install --timeout 120 --retries 10 -r requirements.txt && break; \
+        if [ "$attempt" = "3" ]; then exit 1; fi; \
+        echo "pip install failed, retrying in 10 seconds..."; \
+        sleep 10; \
+    done
 
 COPY content_automation ./content_automation
 COPY scripts ./scripts
