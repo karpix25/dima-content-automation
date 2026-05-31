@@ -1,0 +1,202 @@
+:root {
+  color-scheme: light;
+  --bg: #f1f2f6;
+  --panel: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --blue: #229ed9;
+  --green: #16a34a;
+  --gold: #d9a441;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.app {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(14px);
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 20px;
+}
+
+h2 {
+  font-size: 15px;
+}
+
+p,
+label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+main {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.section-head,
+.login-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+input,
+button {
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font: inherit;
+}
+
+input {
+  width: 100%;
+  padding: 0 10px;
+}
+
+button {
+  padding: 0 12px;
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+  font-weight: 700;
+}
+
+button:disabled {
+  opacity: 0.45;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.card p {
+  line-height: 1.45;
+}
+
+.formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.formats button {
+  height: 34px;
+  background: #111827;
+  border-color: #111827;
+  font-size: 12px;
+}
+
+.formats button.gold {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.formats button.green {
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.formats button.bundle {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+.job-card {
+  cursor: pointer;
+}
+
+.job-card:active {
+  transform: translateY(1px);
+}
+
+pre {
+  min-height: 180px;
+  margin: 12px 0 0;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #111827;
+  color: #f9fafb;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.compact .card {
+  padding: 10px;
+}
+
+.hidden {
+  display: none;
+}

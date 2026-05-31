@@ -140,6 +140,7 @@ python -m content_automation.bot
 Для Coolify лучше выбирать build pack `Dockerfile`.
 
 Приложение работает как Telegram worker через polling, поэтому HTTP-порт ему не нужен.
+В обычном режиме оно также поднимает mini app/API на `WEB_PORT` для Turan-форматов одобренных сценариев.
 
 Локально можно проверить так:
 
@@ -158,6 +159,8 @@ NOTEBOOKLM_PY_STORAGE_PATH=/app/.data/notebooklm-py/storage_state.json
 NOTEBOOKLM_SHORT_BATCH_SIZE=1
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=/app/.data
+WEB_PORT=8000
+MINIAPP_URL=https://your-miniapp-domain.example
 ELEVENLABS_API_KEY=...
 ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs
 VIDEO_OUTPUT_DIRECTORY=/app/outputs/videos
@@ -250,7 +253,52 @@ APP_MODE=bot
 /daily_scripts
 /daily_scripts фокус: PPC и cash flow
 /youtube_script
+/formats
+/formats <script_id>
 /status
+```
+
+## Mini app / Turan-форматы
+
+После `Принять` бот показывает кнопки Turan-форматов для одобренного текста из NotebookLM. Если задан `MINIAPP_URL`, в главном меню появится кнопка `Mini App`.
+
+Mini app/API поднимаются вместе с ботом:
+
+```text
+WEB_HOST=0.0.0.0
+WEB_PORT=8000
+MINIAPP_URL=https://<твой Coolify domain>
+TURAN_API_BASE_URL=https://<turan-api-domain>
+TURAN_API_TELEGRAM_ID=
+```
+
+Если `TURAN_API_BASE_URL` задан, mini app сразу отправляет созданные payloads в Turan `POST /tasks/{telegram_id}`. Если переменная пустая, job сохраняется локально и показывает готовый JSON для ручной отправки. `TURAN_API_TELEGRAM_ID` можно оставить пустым, тогда используется Telegram id пользователя mini app.
+
+API:
+
+```text
+GET /health
+GET /api/formats
+GET /api/scripts/approved?user_id=<telegram_id>
+POST /api/scripts/<script_id>/format-jobs
+GET /api/format-jobs?user_id=<telegram_id>
+```
+
+Каждый созданный job содержит `raw.turan_task_input` с входом под сценарный текст:
+
+```json
+{
+  "source_url": "notebooklm-script://123",
+  "type": "avatar_instagram",
+  "source_title": "Approved script title",
+  "factual_outline": "Hook/angle/source facts",
+  "script_text": "Approved NotebookLM voiceover",
+  "script_meta": {
+    "source": "notebooklm_approved_script",
+    "source_script_id": 123,
+    "format_key": "avatar_reels"
+  }
+}
 ```
 
 ## Логика банка сценариев
@@ -259,8 +307,12 @@ APP_MODE=bot
 2. Если одобренных 5 или меньше и очередь на проверку пустая, бот просит NotebookLM создать 10 новых кандидатов.
 3. `/review` открывает одну карточку проверки с прогрессом вроде `Сценарий 1/10`.
 4. `Принять` переносит сценарий в банк одобренных и обновляет эту же карточку на следующий сценарий.
-5. `Отклонить` убирает сценарий из очереди и обновляет эту же карточку на следующий сценарий.
-6. Следующий этап автоматизации должен брать одобренные сценарии для видео и помечать их как использованные.
+5. После принятия бот показывает кнопки Turan-форматов: аватар Reels, золотой фон 5 сек., инфографика Reels, аватар YouTube.
+6. `/formats` повторно открывает Turan-форматы для последнего одобренного short-сценария, а `/formats <script_id>` — для конкретного сценария.
+7. `Отклонить` убирает сценарий из очереди и обновляет эту же карточку на следующий сценарий.
+8. Следующий этап автоматизации должен брать одобренные сценарии для видео и помечать их как использованные.
+
+Vizard в Turan остается отдельным URL/video workflow. NotebookLM text-source payloads идут в avatar/5s/infographic форматы и не меняют Vizard-ветку.
 
 ## Настройки оффера и CTA
 

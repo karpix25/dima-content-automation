@@ -9,4 +9,4 @@ if [[ "${APP_MODE:-bot}" == "notebooklm-py-auth" ]]; then
   exec bash scripts/notebooklm_py_auth_mode.sh
 fi
 
-exec python -m content_automation.bot
+exec bash scripts/run_app.sh

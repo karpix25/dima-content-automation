@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DIMA Content Formats</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div>
+          <h1>Formats</h1>
+          <p>NotebookLM approved scripts</p>
+        </div>
+        <span id="status-pill" class="pill">Loading</span>
+      </header>
+
+      <main>
+        <section id="login" class="panel hidden">
+          <label for="tg-id">Telegram ID</label>
+          <div class="login-row">
+            <input id="tg-id" inputmode="numeric" placeholder="123456789" />
+            <button id="save-user">Open</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>Approved</h2>
+            <button id="refresh">Refresh</button>
+          </div>
+          <div id="scripts" class="list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>Result</h2>
+            <button id="copy" disabled>Copy</button>
+          </div>
+          <pre id="output">Choose a script and format.</pre>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <h2>History</h2>
+          </div>
+          <div id="jobs" class="list compact"></div>
+        </section>
+      </main>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

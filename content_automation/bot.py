@@ -9,7 +9,7 @@ from pathlib import Path
 from aiogram import Bot, Dispatcher, F
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Message
+from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Message, WebAppInfo
 
 from .config import load_settings
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
@@ -20,6 +20,7 @@ from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .notebooklm_py import NotebookLMPyClient
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .storage import ScriptRecord, Storage
+from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
 
 
@@ -175,6 +176,15 @@ def script_keyboard(script_id: int) -> InlineKeyboardMarkup:
             [button("🚫 Отклонить", callback_data=f"script:reject:{script_id}", style="danger")],
         ]
     )
+
+
+def turan_formats_keyboard(script_id: int) -> InlineKeyboardMarkup:
+    rows = [
+        [button(item.label, callback_data=f"turan:format:{item.key}:{script_id}", style="primary")]
+        for item in list_turan_formats()
+    ]
+    rows.append([button("Все форматы", callback_data=f"turan:format:all:{script_id}", style="success")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def format_script_message(record: ScriptRecord) -> str:
@@ -360,6 +370,37 @@ def split_telegram_text(text: str, max_len: int = 3800) -> list[str]:
         chunks.append(remaining[:split_at].strip())
         remaining = remaining[split_at:].strip()
     return chunks
+
+
+async def send_turan_package(
+    chat_id: int,
+    thread_id: int | None,
+    user_id: str,
+    script_id: int,
+    format_key: str,
+) -> None:
+    record = storage.get_script(user_id, script_id)
+    if not record:
+        await send_to_chat_thread(chat_id, "Сценарий не найден.", thread_id=thread_id)
+        return
+    if record.status != "approved":
+        await send_to_chat_thread(chat_id, "Turan-форматы доступны только для одобренных сценариев.", thread_id=thread_id)
+        return
+
+    if format_key == "all":
+        package = build_all_turan_packages(record)
+        title = f"Готовые Turan-форматы для сценария #{record.id}"
+    else:
+        spec = get_turan_format(format_key)
+        if not spec:
+            await send_to_chat_thread(chat_id, "Неизвестный Turan-формат.", thread_id=thread_id)
+            return
+        package = build_turan_package(record, format_key)
+        title = f"{spec.label} для сценария #{record.id}"
+
+    chunks = split_telegram_text(f"{title}\n\n{package}")
+    for chunk in chunks:
+        await send_to_chat_thread(chat_id, chunk, thread_id=thread_id, disable_web_page_preview=True)
 
 
 def get_notebook_ref(user_id: str) -> str | None:
@@ -980,14 +1021,15 @@ def settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def main_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [button("🔄 Пополнить банк", callback_data="main:refill", style="primary")],
-            [button("🧾 Проверить очередь", callback_data="main:review")],
-            [button("🏦 Статус банка", callback_data="main:bank")],
-            [button("⚙️ Настройки", callback_data="main:settings")],
-        ]
-    )
+    rows = [
+        [button("🔄 Пополнить банк", callback_data="main:refill", style="primary")],
+        [button("🧾 Проверить очередь", callback_data="main:review")],
+        [button("🏦 Статус банка", callback_data="main:bank")],
+    ]
+    if settings.miniapp_url:
+        rows.append([InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=settings.miniapp_url))])
+    rows.append([button("⚙️ Настройки", callback_data="main:settings")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def format_current_settings(user_id: str) -> str:
@@ -1178,6 +1220,7 @@ async def start(message: Message) -> None:
                 "/review - открыть очередь сценариев на проверку",
                 "/daily_scripts - сгенерировать 10 и открыть очередь",
                 "/youtube_script - сгенерировать недельный YouTube-сценарий",
+                "/formats - собрать Turan-форматы из последнего одобренного сценария",
                 "/status - статус банка сценариев",
             ]
         ),
@@ -1685,6 +1728,65 @@ async def youtube_script(message: Message) -> None:
     )
 
 
+@dp.message(Command("formats"))
+async def turan_formats(message: Message) -> None:
+    user_id = activate_from_message(message)
+    clear_pending_edit(user_id)
+    tail = command_tail(message.text)
+
+    if tail:
+        try:
+            script_id = int(tail)
+        except ValueError:
+            await answer_in_same_thread(message, "Отправь так: /formats или /formats <script_id>")
+            return
+        record = storage.get_script(user_id, script_id)
+    else:
+        records = storage.list_scripts(user_id, format="short", status="approved", limit=100)
+        record = records[-1] if records else None
+
+    if not record:
+        await answer_in_same_thread(message, "Нет одобренного short-сценария. Сначала прими сценарий через /review.")
+        return
+    if record.status != "approved":
+        await answer_in_same_thread(message, "Turan-форматы можно собрать только из одобренного сценария.")
+        return
+
+    await answer_in_same_thread(
+        message,
+        f"Выбери Turan-формат для сценария #{record.id}:\n\n{record.hook}",
+        reply_markup=turan_formats_keyboard(record.id),
+        disable_web_page_preview=True,
+    )
+
+
+@dp.callback_query(F.data.startswith("turan:format:"))
+async def turan_format_callback(callback: CallbackQuery) -> None:
+    parts = (callback.data or "").split(":")
+    if len(parts) != 4:
+        await callback.answer("Некорректная команда", show_alert=True)
+        return
+    _, _, format_key, script_id_raw = parts
+    try:
+        script_id = int(script_id_raw)
+    except ValueError:
+        await callback.answer("Некорректный ID", show_alert=True)
+        return
+    if not callback.message:
+        await callback.answer("Нет сообщения для ответа", show_alert=True)
+        return
+
+    user_id = activate_from_callback(callback)
+    await callback.answer("Собираю формат")
+    await send_turan_package(
+        callback.message.chat.id,
+        message_thread_id(callback.message),
+        user_id,
+        script_id,
+        format_key,
+    )
+
+
 @dp.callback_query(F.data.startswith("script:"))
 async def script_review(callback: CallbackQuery) -> None:
     parts = (callback.data or "").split(":")
@@ -1709,6 +1811,14 @@ async def script_review(callback: CallbackQuery) -> None:
         updated = storage.update_script_status(user_id, script_id, "approved")
         await callback.answer("Принято")
         if updated and updated.format == "short":
+            if callback.message:
+                await send_to_chat_thread(
+                    callback.message.chat.id,
+                    f"Сценарий #{updated.id} принят. Можно собрать его в Turan-форматы:",
+                    thread_id=message_thread_id(callback.message),
+                    reply_markup=turan_formats_keyboard(updated.id),
+                    disable_web_page_preview=True,
+                )
             asyncio.create_task(
                 produce_media_for_approved_script(
                     callback.message.chat.id,

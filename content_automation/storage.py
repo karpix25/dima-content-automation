@@ -24,6 +24,24 @@ class ScriptRecord:
     raw: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class FormatJob:
+    id: int
+    user_id: str
+    script_id: int
+    format_key: str
+    task_type: str
+    title: str
+    status: str
+    output_text: str
+    external_task_id: str | None
+    output_url: str | None
+    error: str | None
+    raw: dict[str, Any]
+    created_at: str
+    updated_at: str
+
+
 class Storage:
     def __init__(self, db_path: Path):
         self.db_path = db_path
@@ -68,6 +86,35 @@ class Storage:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS format_jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    script_id INTEGER NOT NULL,
+                    format_key TEXT NOT NULL,
+                    task_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'ready',
+                    output_text TEXT NOT NULL,
+                    external_task_id TEXT,
+                    output_url TEXT,
+                    error TEXT,
+                    raw_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            self._add_column_if_missing(conn, "format_jobs", "external_task_id", "TEXT")
+            self._add_column_if_missing(conn, "format_jobs", "output_url", "TEXT")
+            self._add_column_if_missing(conn, "format_jobs", "error", "TEXT")
+
+    def _add_column_if_missing(self, conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+        rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        existing = {str(row["name"]) for row in rows}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     def get_setting(self, user_id: str, key: str) -> str | None:
         with self._connect() as conn:
@@ -197,6 +244,20 @@ class Storage:
             ).fetchall()
         return [row_to_script(row) for row in rows]
 
+    def list_approved_scripts(self, user_id: str, *, limit: int = 50) -> list[ScriptRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM scripts
+                WHERE user_id = ? AND format = 'short' AND status = 'approved'
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            ).fetchall()
+        return [row_to_script(row) for row in rows]
+
     def count_approved_today(self, user_id: str, format: str = "short") -> int:
         with self._connect() as conn:
             row = conn.execute(
@@ -209,6 +270,100 @@ class Storage:
                 (user_id, format),
             ).fetchone()
         return int(row["count"] or 0)
+
+    def add_format_job(
+        self,
+        user_id: str,
+        *,
+        script_id: int,
+        format_key: str,
+        task_type: str,
+        title: str,
+        output_text: str,
+        raw: dict[str, Any] | None = None,
+    ) -> FormatJob:
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO format_jobs (
+                    user_id, script_id, format_key, task_type, title, status, output_text, raw_json
+                )
+                VALUES (?, ?, ?, ?, ?, 'ready', ?, ?)
+                """,
+                (
+                    user_id,
+                    script_id,
+                    format_key,
+                    task_type,
+                    title,
+                    output_text,
+                    json.dumps(raw or {}, ensure_ascii=False),
+                ),
+            )
+            job_id = int(cursor.lastrowid)
+        job = self.get_format_job(user_id, job_id)
+        if not job:
+            raise RuntimeError("failed to load inserted format job")
+        return job
+
+    def update_format_job_delivery(
+        self,
+        user_id: str,
+        job_id: int,
+        *,
+        status: str,
+        external_task_id: str | None = None,
+        output_url: str | None = None,
+        error: str | None = None,
+        raw: dict[str, Any] | None = None,
+    ) -> FormatJob:
+        fields = [
+            "status = ?",
+            "external_task_id = ?",
+            "output_url = ?",
+            "error = ?",
+            "updated_at = CURRENT_TIMESTAMP",
+        ]
+        values: list[Any] = [status, external_task_id, output_url, error]
+        if raw is not None:
+            fields.append("raw_json = ?")
+            values.append(json.dumps(raw, ensure_ascii=False))
+        values.extend([user_id, job_id])
+        with self._connect() as conn:
+            conn.execute(
+                f"""
+                UPDATE format_jobs
+                SET {", ".join(fields)}
+                WHERE user_id = ? AND id = ?
+                """,
+                values,
+            )
+        job = self.get_format_job(user_id, job_id)
+        if not job:
+            raise RuntimeError("failed to load updated format job")
+        return job
+
+    def get_format_job(self, user_id: str, job_id: int) -> FormatJob | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM format_jobs WHERE user_id = ? AND id = ?",
+                (user_id, job_id),
+            ).fetchone()
+        return row_to_format_job(row) if row else None
+
+    def list_format_jobs(self, user_id: str, *, limit: int = 50) -> list[FormatJob]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM format_jobs
+                WHERE user_id = ?
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            ).fetchall()
+        return [row_to_format_job(row) for row in rows]
 
 
 def normalize_script_payload(payload: dict[str, Any]) -> dict[str, str]:
@@ -248,4 +403,23 @@ def row_to_script(row: sqlite3.Row) -> ScriptRecord:
         why_it_works=str(row["why_it_works"]),
         source_basis=str(row["source_basis"]),
         raw=json.loads(row["raw_json"] or "{}"),
+    )
+
+
+def row_to_format_job(row: sqlite3.Row) -> FormatJob:
+    return FormatJob(
+        id=int(row["id"]),
+        user_id=str(row["user_id"]),
+        script_id=int(row["script_id"]),
+        format_key=str(row["format_key"]),
+        task_type=str(row["task_type"]),
+        title=str(row["title"]),
+        status=str(row["status"]),
+        output_text=str(row["output_text"]),
+        external_task_id=str(row["external_task_id"]) if row["external_task_id"] else None,
+        output_url=str(row["output_url"]) if row["output_url"] else None,
+        error=str(row["error"]) if row["error"] else None,
+        raw=json.loads(row["raw_json"] or "{}"),
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
     )

@@ -40,6 +40,11 @@ class Settings:
     heygen_video_poll_seconds: int
     heygen_video_timeout_seconds: int
     data_dir: Path
+    miniapp_url: str | None
+    web_host: str
+    web_port: int
+    turan_api_base_url: str | None
+    turan_api_telegram_id: str | None
 
 
 def get_float_env(name: str, default: float) -> float:
@@ -131,4 +136,9 @@ def load_settings() -> Settings:
         heygen_video_poll_seconds=get_int_env("HEYGEN_VIDEO_POLL_SECONDS", 15),
         heygen_video_timeout_seconds=get_int_env("HEYGEN_VIDEO_TIMEOUT_SECONDS", 900),
         data_dir=data_dir,
+        miniapp_url=(os.getenv("MINIAPP_URL") or os.getenv("WEBAPP_URL") or "").strip() or None,
+        web_host=(os.getenv("WEB_HOST") or "0.0.0.0").strip(),
+        web_port=get_int_env("WEB_PORT", 8000),
+        turan_api_base_url=(os.getenv("TURAN_API_BASE_URL") or os.getenv("TURAN_API_URL") or "").strip().rstrip("/") or None,
+        turan_api_telegram_id=(os.getenv("TURAN_API_TELEGRAM_ID") or "").strip() or None,
     )
