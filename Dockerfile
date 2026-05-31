@@ -23,7 +23,7 @@ RUN apt-get update \
         python3 \
         python3-pip \
         python3-venv \
-        $(if [ "$INSTALL_AUTH_TOOLS" = "true" ]; then echo "fluxbox novnc websockify x11vnc xvfb"; fi) \
+        $(if [ "$INSTALL_AUTH_TOOLS" = "true" ]; then echo "fluxbox novnc websockify x11vnc xvfb x11-utils"; fi) \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
@@ -42,7 +42,7 @@ COPY scripts ./scripts
 COPY README.md ./
 
 RUN mkdir -p /app/.data /app/outputs/elevenlabs /app/outputs/videos
-RUN chmod +x scripts/entrypoint.sh scripts/notebooklm_auth_mode.sh scripts/notebooklm_py_auth_mode.sh
+RUN chmod +x scripts/entrypoint.sh scripts/notebooklm_auth_mode.sh scripts/notebooklm_py_auth_mode.sh scripts/novnc_display.sh
 
 EXPOSE 6080
 

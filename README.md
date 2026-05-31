@@ -201,6 +201,8 @@ APP_MODE=notebooklm-auth
 INSTALL_AUTH_TOOLS=true
 ```
 
+`INSTALL_AUTH_TOOLS=true` нужен именно при сборке образа. После изменения этой переменной пересобери контейнер, а не только перезапусти его.
+
 Для первого Google login через `notebooklm-py` включи:
 
 ```text

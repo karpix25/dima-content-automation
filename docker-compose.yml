@@ -1,6 +1,9 @@
 services:
   bot:
-    build: .
+    build:
+      context: .
+      args:
+        INSTALL_AUTH_TOOLS: ${INSTALL_AUTH_TOOLS:-false}
     env_file:
       - .env
     restart: unless-stopped
