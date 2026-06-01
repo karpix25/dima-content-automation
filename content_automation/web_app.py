@@ -460,7 +460,7 @@ def create_script_format_job(script_id: int, payload: CreateFormatJobIn) -> Form
                 external_task_id=result.telegram_message_id,
                 output_url=str(result.video_path),
                 output_text=(
-                    "✅ Золотой фон / инфографика 5 сек. создана и отправлена в Telegram.\n"
+                    "✅ Золотой фон / инфографика 5 сек. создана через Kie и отправлена в Telegram.\n"
                     f"Файл: {result.video_path}"
                 ),
             )

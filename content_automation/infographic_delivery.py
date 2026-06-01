@@ -10,13 +10,16 @@ import httpx
 from PIL import Image, ImageDraw, ImageFont
 
 from .config import Settings
+from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .storage import ScriptRecord
 
 
 @dataclass(frozen=True)
 class InfographicDeliveryResult:
+    image_path: Path
     video_path: Path
+    image_source: str
     telegram_message_id: str | None
 
 
@@ -26,22 +29,68 @@ def create_and_send_infographic_reels(
     user_id: str,
     settings: Settings,
     asset_store: MediaAssetStore,
+    kie_client: KieImageClient | None = None,
 ) -> InfographicDeliveryResult:
     output_dir = settings.video_output_directory / "infographic_reels"
     output_dir.mkdir(parents=True, exist_ok=True)
-    image_path = output_dir / f"gold_card_{record.id}.png"
+    image_path = output_dir / f"kie_gold_card_{record.id}.png"
     video_path = output_dir / f"gold_card_{record.id}.mp4"
 
-    render_gold_card(record, image_path)
+    client = kie_client or build_kie_client(settings)
+    generate_gold_card_with_kie(record=record, path=image_path, kie_client=client)
     audio_path = choose_audio_track(asset_store, user_id)
     render_five_second_video(image_path=image_path, video_path=video_path, audio_path=audio_path)
     message_id = send_video_to_telegram(
         token=settings.telegram_bot_token,
         chat_id=user_id,
         video_path=video_path,
-        caption=f"✅ Золотой фон / инфографика 5 сек.\nСценарий #{record.id}: {record.title or record.hook}",
+        caption=f"✅ Золотой фон / инфографика 5 сек. через Kie\nСценарий #{record.id}: {record.title or record.hook}",
     )
-    return InfographicDeliveryResult(video_path=video_path, telegram_message_id=message_id)
+    return InfographicDeliveryResult(
+        image_path=image_path,
+        video_path=video_path,
+        image_source="kie",
+        telegram_message_id=message_id,
+    )
+
+
+def build_kie_client(settings: Settings) -> KieImageClient:
+    return KieImageClient(
+        KieImageConfig(
+            api_key=settings.kie_api_key,
+            base_url=settings.kie_base_url,
+            model=settings.kie_image_model,
+            aspect_ratio=settings.kie_image_aspect_ratio,
+            resolution=settings.kie_image_resolution,
+            poll_timeout_seconds=settings.kie_poll_timeout_seconds,
+            poll_interval_seconds=settings.kie_poll_interval_seconds,
+            create_task_max_attempts=settings.kie_create_task_max_attempts,
+            create_task_retry_delay_seconds=settings.kie_create_task_retry_delay_seconds,
+        )
+    )
+
+
+def generate_gold_card_with_kie(*, record: ScriptRecord, path: Path, kie_client: KieImageClient) -> Path:
+    if not kie_client.is_configured():
+        raise RuntimeError("KIE_API_KEY не задан: формат 5 секунд должен генерировать карточку через Kie")
+    generated = kie_client.generate_image(prompt=gold_card_prompt(record), output_path=path)
+    if not generated or not generated.exists():
+        raise RuntimeError("Kie не вернул файл карточки для формата 5 секунд")
+    return generated
+
+
+def gold_card_prompt(record: ScriptRecord) -> str:
+    bullets = "; ".join(build_bullets(record)[:3])
+    return (
+        "Create a premium vertical 9:16 five-second business infographic card for Amazon sellers. "
+        "Use a rich gold background, sharp contrast, luxury founder-brand style, clean spacing, readable hierarchy. "
+        "No logos, no watermarks, no fake UI, no clutter. "
+        f"Main headline: {clean_text(record.hook or record.title)}. "
+        f"Subtitle/context: {clean_text(record.angle or record.trigger or record.source_basis)}. "
+        f"Supporting bullets: {bullets}. "
+        f"CTA: {clean_text(record.cta or 'Save this insight')}. "
+        "The final image must feel like a polished Turan-style Instagram/Reels business card."
+    )
 
 
 def render_gold_card(record: ScriptRecord, path: Path) -> None:
