@@ -21,6 +21,7 @@ const state = {
   fiveSecondSettings: null,
   tab: localStorage.getItem("dima_active_tab") || "formats",
   output: "",
+  creating: null,
 };
 
 const tabTitles = {
@@ -133,24 +134,41 @@ function renderScripts() {
       <p>${escapeHtml(script.hook)}</p>
       <div class="formats">
         ${state.formats.map((format) => `
-          <button class="${formatButtonClass(format.key)}"
+          <button class="${formatButtonClass(format.key, script.id)}"
             data-script="${script.id}" data-format="${format.key}">
-            ${escapeHtml(format.label)}
+            ${escapeHtml(formatButtonLabel(format, script.id))}
           </button>
         `).join("")}
-        <button class="bundle" data-script="${script.id}" data-format="all">Все форматы</button>
+        <button class="${formatButtonClass("all", script.id)}" data-script="${script.id}" data-format="all">
+          ${escapeHtml(formatButtonLabel({ key: "all", label: "Все форматы" }, script.id))}
+        </button>
       </div>
     </article>
   `).join("");
   root.querySelectorAll("button[data-script]").forEach((button) => {
-    button.addEventListener("click", () => createJob(button.dataset.script, button.dataset.format));
+    if (state.creating) button.disabled = true;
+    button.addEventListener("click", () => createJob(button.dataset.script, button.dataset.format).catch(showError));
   });
 }
 
-function formatButtonClass(formatKey) {
-  if (formatKey === "infographic_reels") return "gold";
-  if (formatKey === "avatar_horizontal") return "green";
-  return "";
+function formatButtonClass(formatKey, scriptId) {
+  const classes = [];
+  if (formatKey === "infographic_reels") classes.push("gold");
+  if (formatKey === "avatar_horizontal") classes.push("green");
+  if (formatKey === "all") classes.push("bundle");
+  if (isCreating(scriptId, formatKey)) classes.push("busy");
+  return classes.join(" ");
+}
+
+function formatButtonLabel(format, scriptId) {
+  if (isCreating(scriptId, format.key)) return "Создаю...";
+  return format.label;
+}
+
+function isCreating(scriptId, formatKey) {
+  return state.creating
+    && String(state.creating.scriptId) === String(scriptId)
+    && state.creating.formatKey === formatKey;
 }
 
 function renderJobs() {
@@ -162,7 +180,7 @@ function renderJobs() {
   root.innerHTML = state.jobs.slice(0, 8).map((job) => `
     <article class="card job-card" data-job="${job.id}">
       <h3>${escapeHtml(job.title)}</h3>
-      <p>${escapeHtml(job.task_type)} · сценарий #${job.script_id}</p>
+      <p>${escapeHtml(job.task_type)} · сценарий #${job.script_id} · ${escapeHtml(jobStatusLabel(job.status))}</p>
     </article>
   `).join("");
   root.querySelectorAll(".job-card").forEach((card) => {
@@ -171,17 +189,28 @@ function renderJobs() {
 }
 
 async function createJob(scriptId, formatKey) {
+  state.creating = { scriptId, formatKey };
   setStatus("Working");
-  const job = await api(`/api/scripts/${scriptId}/format-jobs`, {
-    method: "POST",
-    body: JSON.stringify({ user_id: state.userId, format_key: formatKey }),
-  });
-  state.output = job.output_text;
-  $("output").textContent = state.output;
-  $("copy").disabled = false;
   state.tab = "result";
-  await loadAll();
-  setStatus("Ready");
+  state.output = pendingMessage(scriptId, formatKey);
+  $("output").textContent = state.output;
+  $("copy").disabled = true;
+  renderTabs();
+  renderScripts();
+  try {
+    const job = await api(`/api/scripts/${scriptId}/format-jobs`, {
+      method: "POST",
+      body: JSON.stringify({ user_id: state.userId, format_key: formatKey }),
+    });
+    state.output = job.output_text || jobStatusMessage(job);
+    $("output").textContent = state.output;
+    $("copy").disabled = !state.output;
+    await loadAll();
+    setStatus(job.status === "failed" ? "Error" : "Ready");
+  } finally {
+    state.creating = null;
+    renderScripts();
+  }
 }
 
 async function showJob(jobId) {
@@ -192,6 +221,38 @@ async function showJob(jobId) {
   $("output").textContent = state.output;
   $("copy").disabled = false;
   setStatus("Ready");
+}
+
+function pendingMessage(scriptId, formatKey) {
+  const format = state.formats.find((item) => item.key === formatKey);
+  const label = format?.label || (formatKey === "all" ? "Все форматы" : formatKey);
+  const lines = [
+    `⏳ Запустил генерацию: ${label}`,
+    `Сценарий #${scriptId}`,
+    "",
+    "Можно оставить это окно открытым. Когда Kie/HeyGen/Telegram закончат работу, здесь появится результат.",
+  ];
+  if (formatKey === "infographic_reels") {
+    lines.push("", "Для формата 5 секунд сейчас генерирую карточку через Kie, затем собираю MP4 и отправляю в Telegram.");
+  }
+  return lines.join("\n");
+}
+
+function jobStatusLabel(status) {
+  const labels = {
+    draft: "черновик",
+    submitted: "отправлено",
+    queued: "в очереди",
+    processing: "в работе",
+    delivered: "готово",
+    failed: "ошибка",
+  };
+  return labels[status] || status || "создано";
+}
+
+function jobStatusMessage(job) {
+  if (job.status === "failed") return job.error || "Задача завершилась с ошибкой.";
+  return `Задача ${jobStatusLabel(job.status)}.`;
 }
 
 $("save-user").addEventListener("click", () => {
@@ -241,8 +302,14 @@ $("copy").addEventListener("click", async () => {
 
 function showError(error) {
   console.error(error);
+  state.creating = null;
   setStatus("Error");
-  $("output").textContent = error.message || String(error);
+  state.tab = "result";
+  state.output = error.message || String(error);
+  $("output").textContent = state.output;
+  $("copy").disabled = !state.output;
+  renderTabs();
+  renderScripts();
 }
 
 loadAll().catch(showError);

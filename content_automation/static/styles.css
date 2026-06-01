@@ -256,6 +256,23 @@ button:disabled {
   font-size: 12px;
 }
 
+.formats button.busy {
+  position: relative;
+  padding-left: 32px;
+}
+
+.formats button.busy::before {
+  position: absolute;
+  left: 12px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 999px;
+  content: "";
+  animation: spin 0.8s linear infinite;
+}
+
 .formats button.gold {
   background: var(--gold);
   border-color: var(--gold);
@@ -269,6 +286,12 @@ button:disabled {
 .formats button.bundle {
   background: var(--blue);
   border-color: var(--blue);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .job-card {
