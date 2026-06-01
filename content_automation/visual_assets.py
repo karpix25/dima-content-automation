@@ -6,6 +6,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from .kie_image import KieImageClient
 from .storage import ScriptRecord
 
 
@@ -20,12 +21,15 @@ def generate_post_heygen_assets(
     record: ScriptRecord,
     output_dir: Path,
     broll_count: int,
+    kie_client: KieImageClient | None = None,
 ) -> VisualAssetSet:
     output_dir.mkdir(parents=True, exist_ok=True)
     size = (1080, 1920) if record.format == "short" else (1920, 1080)
     cover_path = output_dir / f"cover_{record.id}.png"
-    _render_card(
-        cover_path,
+    _generate_or_render(
+        kie_client=kie_client,
+        path=cover_path,
+        prompt=_cover_prompt(record),
         size=size,
         title=record.hook or record.title or "Key idea",
         subtitle=record.trigger or record.angle,
@@ -35,8 +39,10 @@ def generate_post_heygen_assets(
     broll_paths: list[Path] = []
     for index, text in enumerate(_broll_texts(record)[:broll_count], start=1):
         path = output_dir / f"broll_{record.id}_{index}.png"
-        _render_card(
-            path,
+        _generate_or_render(
+            kie_client=kie_client,
+            path=path,
+            prompt=_broll_prompt(record, text),
             size=size,
             title=text,
             subtitle=record.title,
@@ -45,6 +51,24 @@ def generate_post_heygen_assets(
         )
         broll_paths.append(path)
     return VisualAssetSet(cover_path=cover_path, broll_paths=broll_paths)
+
+
+def _generate_or_render(
+    *,
+    kie_client: KieImageClient | None,
+    path: Path,
+    prompt: str,
+    size: tuple[int, int],
+    title: str,
+    subtitle: str,
+    footer: str,
+    accent: tuple[int, int, int],
+) -> None:
+    if kie_client and kie_client.is_configured():
+        generated = kie_client.generate_image(prompt=prompt, output_path=path)
+        if generated and generated.exists():
+            return
+    _render_card(path, size=size, title=title, subtitle=subtitle, footer=footer, accent=accent)
 
 
 def _broll_texts(record: ScriptRecord) -> list[str]:
@@ -58,6 +82,29 @@ def _broll_texts(record: ScriptRecord) -> list[str]:
     voiceover_sentences = re.split(r"(?<=[.!?])\s+", record.voiceover or "")
     candidates.extend(voiceover_sentences[:4])
     return [_clean_text(item) for item in candidates if _clean_text(item)]
+
+
+def _cover_prompt(record: ScriptRecord) -> str:
+    return (
+        "Create a premium vertical 9:16 cover frame for a business short video. "
+        "Cinematic realistic business/editorial style, sharp composition, high contrast, expensive clean look. "
+        "No logos, no watermarks, no UI. Include bold readable Russian/English on-screen text only if it is exact. "
+        f"Main cover headline: {_clean_text(record.hook or record.title)}. "
+        f"Supporting idea: {_clean_text(record.trigger or record.angle)}. "
+        f"Context: {_clean_text(record.source_basis or record.voiceover)[:900]}."
+    )
+
+
+def _broll_prompt(record: ScriptRecord, text: str) -> str:
+    return (
+        "Create a premium vertical 9:16 cutaway image for a business explainer video. "
+        "This is a visual interruption after an AI avatar segment: cinematic, realistic, clean, high contrast. "
+        "No logos, no watermarks, no UI, no fake screenshots. "
+        "If text is present, it must be large and readable, minimal, not crowded. "
+        f"Cutaway message: {_clean_text(text)}. "
+        f"Video topic: {_clean_text(record.title or record.hook)}. "
+        f"Script context: {_clean_text(record.voiceover)[:900]}."
+    )
 
 
 def _render_card(

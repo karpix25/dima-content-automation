@@ -49,6 +49,15 @@ class Settings:
     post_heygen_cover_seconds: float
     post_heygen_broll_count: int
     post_heygen_broll_seconds: float
+    kie_api_key: str | None
+    kie_base_url: str
+    kie_image_model: str
+    kie_image_aspect_ratio: str
+    kie_image_resolution: str
+    kie_poll_timeout_seconds: float
+    kie_poll_interval_seconds: float
+    kie_create_task_max_attempts: int
+    kie_create_task_retry_delay_seconds: float
 
 
 def get_float_env(name: str, default: float) -> float:
@@ -149,4 +158,13 @@ def load_settings() -> Settings:
         post_heygen_cover_seconds=get_float_env("POST_HEYGEN_COVER_SECONDS", 0.10),
         post_heygen_broll_count=max(0, get_int_env("POST_HEYGEN_BROLL_COUNT", 3)),
         post_heygen_broll_seconds=max(0.2, get_float_env("POST_HEYGEN_BROLL_SECONDS", 1.2)),
+        kie_api_key=(os.getenv("KIE_API_KEY") or "").strip() or None,
+        kie_base_url=(os.getenv("KIE_BASE_URL") or "https://api.kie.ai").strip().rstrip("/"),
+        kie_image_model=(os.getenv("KIE_IMAGE_MODEL") or "gpt-image-1").strip(),
+        kie_image_aspect_ratio=(os.getenv("KIE_IMAGE_ASPECT_RATIO") or "9:16").strip(),
+        kie_image_resolution=(os.getenv("KIE_IMAGE_RESOLUTION") or "1K").strip(),
+        kie_poll_timeout_seconds=get_float_env("KIE_POLL_TIMEOUT_SECONDS", 300),
+        kie_poll_interval_seconds=get_float_env("KIE_POLL_INTERVAL_SECONDS", 3),
+        kie_create_task_max_attempts=max(1, get_int_env("KIE_CREATE_TASK_MAX_ATTEMPTS", 4)),
+        kie_create_task_retry_delay_seconds=max(0.5, get_float_env("KIE_CREATE_TASK_RETRY_DELAY_SECONDS", 3)),
     )

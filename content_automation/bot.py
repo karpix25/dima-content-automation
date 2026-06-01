@@ -15,6 +15,7 @@ from .config import load_settings
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
+from .kie_image import KieImageClient, KieImageConfig
 from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .notebooklm_py import NotebookLMPyClient
@@ -57,6 +58,19 @@ heygen = HeyGenClient(
     poll_seconds=settings.heygen_video_poll_seconds,
     timeout_seconds=settings.heygen_video_timeout_seconds,
     private_avatars_only=settings.heygen_private_avatars_only,
+)
+kie_image = KieImageClient(
+    KieImageConfig(
+        api_key=settings.kie_api_key,
+        base_url=settings.kie_base_url,
+        model=settings.kie_image_model,
+        aspect_ratio=settings.kie_image_aspect_ratio,
+        resolution=settings.kie_image_resolution,
+        poll_timeout_seconds=settings.kie_poll_timeout_seconds,
+        poll_interval_seconds=settings.kie_poll_interval_seconds,
+        create_task_max_attempts=settings.kie_create_task_max_attempts,
+        create_task_retry_delay_seconds=settings.kie_create_task_retry_delay_seconds,
+    )
 )
 bot = Bot(settings.telegram_bot_token)
 dp = Dispatcher()
@@ -920,6 +934,7 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
         record=record,
         output_dir=asset_dir,
         broll_count=settings.post_heygen_broll_count,
+        kie_client=kie_image,
     )
     output_path = settings.video_output_directory / f"visual_{record.id}.mp4"
     result = await asyncio.to_thread(
