@@ -31,9 +31,24 @@ RUN apt-get update \
         $(if [ "$INSTALL_AUTH_TOOLS" = "true" ]; then echo "fluxbox novnc websockify x11vnc xvfb x11-utils"; fi) \
     && rm -rf /var/lib/apt/lists/*
 
-RUN chromium_path="$(find /ms-playwright -path '*/chrome-linux/chrome' -type f | head -n 1)" \
-    && test -n "$chromium_path" \
-    && ln -sf "$chromium_path" /usr/local/bin/playwright-chromium
+RUN printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -euo pipefail' \
+    'for candidate in \' \
+    '  /ms-playwright/chromium-*/chrome-linux/chrome \' \
+    '  /ms-playwright/chromium_headless_shell-*/chrome-linux/headless_shell \' \
+    '  /ms-playwright/chrome-*/chrome-linux/chrome \' \
+    '  /usr/bin/chromium \' \
+    '  /usr/bin/chromium-browser \' \
+    '  /usr/bin/chromium-headless-shell; do' \
+    '  for browser in $candidate; do' \
+    '    if [[ -x "$browser" ]]; then exec "$browser" "$@"; fi' \
+    '  done' \
+    'done' \
+    'echo "No Playwright Chromium executable found." >&2' \
+    'exit 127' \
+    > /usr/local/bin/playwright-chromium \
+    && chmod +x /usr/local/bin/playwright-chromium
 
 COPY requirements.txt ./
 COPY hyperframes-auto/package*.json ./hyperframes-auto/
