@@ -50,7 +50,7 @@ KIE_IMAGE_MODEL=gpt-image-1
 KIE_IMAGE_ASPECT_RATIO=9:16
 KIE_IMAGE_RESOLUTION=1K
 MONTAGE_RENDERER=auto
-HYPERFRAMES_PROJECT_DIR=
+HYPERFRAMES_PROJECT_DIR=/app/hyperframes-auto
 REMOTION_PROJECT_DIR=
 MONTAGE_RENDER_TIMEOUT_SECONDS=3600
 MONTAGE_MAX_SCENES=8
@@ -133,7 +133,7 @@ HEYGEN_PRIVATE_AVATARS_ONLY=true
 
 Бот принимает PNG/JPG/WebP файлом или фото и хранит плашку локально на сервере в `DATA_DIR/overlays`. Для каждой плашки задается процент появления: например, `70` значит, что плашка появится с 70% хронометража и останется до конца видео.
 
-После HeyGen бот скачивает mp4 в `VIDEO_OUTPUT_DIRECTORY`. Если задан `HYPERFRAMES_PROJECT_DIR` или `REMOTION_PROJECT_DIR`, DIMA строит `scene-plan.generated.json` и `scene-word-cues.generated.json` из одобренного NotebookLM-сценария и запускает внешний renderer через `npm run render:auto`. Это сохраняет Turan-style монтаж с карточками, cover-логикой и KIE-визуалами в Hyperframes/Remotion. Если внешний renderer не настроен или упал, DIMA генерирует через KIE cover-картинку и карточки-перебивки, накладывает cover на первые `POST_HEYGEN_COVER_SECONDS` (`0.10` по умолчанию), распределяет перебивки поверх видео, затем накладывает настроенную плашку через `ffmpeg` и отправляет финальный mp4 в Telegram как файл/document.
+После HeyGen бот скачивает mp4 в `VIDEO_OUTPUT_DIRECTORY`. В Docker image уже встроен Turan-style `hyperframes-auto`, поэтому для production достаточно оставить `HYPERFRAMES_PROJECT_DIR=/app/hyperframes-auto` и `MONTAGE_RENDERER=auto`. DIMA строит `scene-plan.generated.json` и `scene-word-cues.generated.json` из одобренного NotebookLM-сценария и запускает Hyperframes через `npm run render:auto`. Если Hyperframes не настроен или упал, DIMA генерирует через KIE cover-картинку и карточки-перебивки, накладывает cover на первые `POST_HEYGEN_COVER_SECONDS` (`0.10` по умолчанию), распределяет перебивки поверх видео, затем накладывает настроенную плашку через `ffmpeg` и отправляет финальный mp4 в Telegram как файл/document.
 
 Локальные видео чистятся автоматически. По умолчанию:
 

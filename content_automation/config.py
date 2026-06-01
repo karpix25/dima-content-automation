@@ -104,9 +104,14 @@ def normalize_notebooklm_backend(value: str | None) -> str:
     return backend if backend in {"mcp", "py"} else "mcp"
 
 
-def get_optional_path_env(name: str) -> Path | None:
+def get_optional_path_env(name: str, default: str | None = None) -> Path | None:
     raw = (os.getenv(name) or "").strip()
-    return Path(raw).expanduser() if raw else None
+    if raw:
+        return Path(raw).expanduser()
+    if default:
+        path = Path(default).expanduser()
+        return path if path.exists() else None
+    return None
 
 
 def load_settings() -> Settings:
@@ -173,7 +178,7 @@ def load_settings() -> Settings:
         kie_create_task_max_attempts=max(1, get_int_env("KIE_CREATE_TASK_MAX_ATTEMPTS", 4)),
         kie_create_task_retry_delay_seconds=max(0.5, get_float_env("KIE_CREATE_TASK_RETRY_DELAY_SECONDS", 3)),
         montage_renderer=(os.getenv("MONTAGE_RENDERER") or "auto").strip().lower(),
-        hyperframes_project_dir=get_optional_path_env("HYPERFRAMES_PROJECT_DIR"),
+        hyperframes_project_dir=get_optional_path_env("HYPERFRAMES_PROJECT_DIR", "hyperframes-auto"),
         remotion_project_dir=get_optional_path_env("REMOTION_PROJECT_DIR"),
         montage_render_timeout_seconds=max(60, get_int_env("MONTAGE_RENDER_TIMEOUT_SECONDS", 3600)),
         montage_max_scenes=max(1, get_int_env("MONTAGE_MAX_SCENES", 8)),

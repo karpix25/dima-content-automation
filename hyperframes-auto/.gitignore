@@ -1,0 +1,7 @@
+assets/input/
+renders/
+.thumbnails/
+.preview/
+node_modules/
+horizontal-simple.generated.html
+horizontal-youtube.generated.html

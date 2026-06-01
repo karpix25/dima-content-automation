@@ -10,7 +10,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH" \
     DATA_DIR=/app/.data \
-    ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs
+    ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs \
+    HYPERFRAMES_PROJECT_DIR=/app/hyperframes-auto \
+    HYPERFRAMES_BROWSER_PATH=/usr/local/bin/playwright-chromium \
+    PRODUCER_HEADLESS_SHELL_PATH=/usr/local/bin/playwright-chromium \
+    PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/playwright-chromium \
+    CHROME_BIN=/usr/local/bin/playwright-chromium
 
 WORKDIR /app
 
@@ -26,7 +31,12 @@ RUN apt-get update \
         $(if [ "$INSTALL_AUTH_TOOLS" = "true" ]; then echo "fluxbox novnc websockify x11vnc xvfb x11-utils"; fi) \
     && rm -rf /var/lib/apt/lists/*
 
+RUN chromium_path="$(find /ms-playwright -path '*/chrome-linux/chrome' -type f | head -n 1)" \
+    && test -n "$chromium_path" \
+    && ln -sf "$chromium_path" /usr/local/bin/playwright-chromium
+
 COPY requirements.txt ./
+COPY hyperframes-auto/package*.json ./hyperframes-auto/
 
 RUN python3 -m venv /opt/venv \
     && python -m pip install --upgrade pip \
@@ -37,11 +47,22 @@ RUN python3 -m venv /opt/venv \
         sleep 10; \
     done
 
+RUN cd hyperframes-auto \
+    && npm ci --omit=dev --no-audit --no-fund \
+    && npm cache clean --force
+
 COPY content_automation ./content_automation
+COPY hyperframes-auto ./hyperframes-auto
 COPY scripts ./scripts
 COPY README.md ./
 
-RUN mkdir -p /app/.data /app/outputs/elevenlabs /app/outputs/videos
+RUN mkdir -p \
+    /app/.data \
+    /app/outputs/elevenlabs \
+    /app/outputs/videos \
+    /app/hyperframes-auto/assets/input \
+    /app/hyperframes-auto/assets/generated \
+    /app/hyperframes-auto/renders
 RUN chmod +x scripts/entrypoint.sh scripts/notebooklm_auth_mode.sh scripts/notebooklm_py_auth_mode.sh scripts/novnc_display.sh scripts/run_app.sh
 
 EXPOSE 6080 8000

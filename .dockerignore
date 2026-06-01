@@ -5,6 +5,11 @@
 .gitignore
 node_modules
 outputs
+hyperframes-auto/node_modules
+hyperframes-auto/renders
+hyperframes-auto/.thumbnails
+hyperframes-auto/assets/input/*
+hyperframes-auto/assets/generated/*
 __pycache__
 *.pyc
 .DS_Store

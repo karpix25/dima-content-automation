@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="ru" data-generated-images="beat-0,beat-1,beat-2,beat-3,beat-4,beat-5,beat-6,beat-7">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="./node_modules/gsap/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --red: #b43c34;
+        --red-dark: #7c211d;
+        --ink: #0f172a;
+        --blue: #1d4f8f;
+        --gold: #d99a28;
+        --paper: #ffffff;
+        --soft: #f8fafc;
+        --line: #dbe3ed;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        margin: 0;
+        overflow: hidden;
+        background: #0f172a;
+        color: var(--ink);
+        font-family: "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
+      }
+
+      #main {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #0f172a;
+      }
+
+      .source-video {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      .shade {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background:
+          linear-gradient(180deg, rgba(15, 23, 42, 0.1) 0%, rgba(15, 23, 42, 0) 35%, rgba(15, 23, 42, 0.28) 100%),
+          linear-gradient(90deg, rgba(15, 23, 42, 0.22) 0%, rgba(15, 23, 42, 0) 48%, rgba(15, 23, 42, 0.18) 100%);
+      }
+
+      .glass-layer {
+        position: absolute;
+        inset: 0;
+        background: rgba(248, 250, 252, 0.08);
+        backdrop-filter: blur(14px) saturate(1.08);
+        opacity: 0;
+        z-index: 1.5;
+        pointer-events: none;
+      }
+
+      .word-subtitle {
+        position: absolute;
+        left: 50%;
+        bottom: 340px;
+        z-index: 6;
+        max-width: 92%;
+        transform: translateX(-50%);
+        color: #fff;
+        font-size: 92px;
+        font-weight: 1000;
+        line-height: 1;
+        letter-spacing: 0;
+        text-align: center;
+        text-transform: uppercase;
+        -webkit-text-stroke: 9px #05070b;
+        paint-order: stroke fill;
+        text-shadow:
+          0 6px 0 #05070b,
+          0 18px 30px rgba(0, 0, 0, 0.42);
+        opacity: 0;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+
+      .word-subtitle.is-visible {
+        opacity: 1;
+      }
+
+      .hook-overlay {
+        position: absolute;
+        left: 58px;
+        right: 58px;
+        top: 118px;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 18px;
+        padding: 0;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      .hook-kicker {
+        display: inline-flex;
+        align-items: center;
+        min-height: 48px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: rgba(180, 60, 52, 0.94);
+        color: #fff;
+        font-size: 25px;
+        font-weight: 1000;
+        line-height: 1;
+        text-transform: uppercase;
+        box-shadow: 0 18px 44px rgba(15, 23, 42, 0.28);
+      }
+
+      .hook-title {
+        max-width: 920px;
+        padding: 18px 22px 20px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.96);
+        color: var(--ink);
+        font-size: 78px;
+        font-weight: 1000;
+        line-height: 0.92;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+      }
+
+      .hook-promise {
+        max-width: 820px;
+        padding: 12px 16px;
+        border-radius: 14px;
+        background: rgba(15, 23, 42, 0.88);
+        color: #fff;
+        font-size: 33px;
+        font-weight: 900;
+        line-height: 1.12;
+        text-transform: uppercase;
+        box-shadow: 0 18px 48px rgba(15, 23, 42, 0.26);
+      }
+
+      .beat {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 72px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .top {
+        align-items: center;
+      }
+
+      .middle {
+        align-items: center;
+      }
+
+      .bottom {
+        align-items: center;
+      }
+
+      .beat-card {
+        position: relative;
+        width: 100%;
+        height: 70%;
+        min-height: 0;
+        padding: 46px 44px 48px;
+        overflow: hidden;
+        border: 1px solid #edf2f7;
+        border-radius: 22px;
+        background: var(--paper);
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .beat-card.compact {
+        min-height: 0;
+      }
+
+      .beat-card.medium {
+        height: 70%;
+        padding: 46px 44px 48px;
+      }
+
+      .beat-card.lower {
+        width: 100%;
+        height: 70%;
+        padding: 46px 44px 48px;
+        border-radius: 22px;
+      }
+
+      .beat-card.hero {
+        min-height: 0;
+        padding: 46px 44px 48px;
+      }
+
+      .kicker {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        width: max-content;
+        max-width: 100%;
+        padding: 10px 14px;
+        border: 1px solid rgba(180, 60, 52, 0.22);
+        border-radius: 999px;
+        background: rgba(180, 60, 52, 0.08);
+        color: var(--red);
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .kicker::before {
+        content: "";
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--red);
+      }
+
+      h1,
+      h2 {
+        position: relative;
+        z-index: 1;
+        margin: 26px 0 0;
+        padding-left: 0;
+        border-left: 0;
+        color: var(--ink);
+        font-family: Impact, "Arial Narrow", sans-serif;
+        font-size: 96px;
+        line-height: 1.18;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        font-size: 108px;
+        line-height: 1.24;
+      }
+
+      .beat-card.medium h2 {
+        font-size: 96px;
+        line-height: 1.18;
+      }
+
+      .beat-card.lower h1,
+      .beat-card.lower h2 {
+        margin-top: 26px;
+        padding-left: 0;
+        border-left-width: 0;
+        font-size: 96px;
+        line-height: 1.18;
+      }
+
+      .desc {
+        position: relative;
+        z-index: 1;
+        max-width: 860px;
+        margin-top: 24px;
+        color: #172033;
+        font-size: 50px;
+        line-height: 1.12;
+        font-weight: 900;
+      }
+
+      .beat-card.medium .desc {
+        font-size: 50px;
+      }
+
+      .beat-card.lower .desc {
+        margin-top: 24px;
+        font-size: 50px;
+        line-height: 1.12;
+      }
+
+      .quote-source {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        width: max-content;
+        max-width: 100%;
+        margin-top: 18px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        background: #0f172a;
+        color: #fff;
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .stamp {
+        position: absolute;
+        right: 36px;
+        bottom: 34px;
+        z-index: 1;
+        color: rgba(15, 23, 42, 0.35);
+        font-size: 16px;
+        font-weight: 900;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .visual {
+        position: relative;
+        z-index: 1;
+        width: min(100%, 780px);
+        aspect-ratio: 1 / 1;
+        height: auto;
+        margin-top: 30px;
+        align-self: center;
+        flex: 0 1 auto;
+        border: 1px solid #e9eef5;
+        border-radius: 18px;
+        background:
+          linear-gradient(90deg, rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+          #f8fafc;
+        background-size: 48px 48px;
+        overflow: hidden;
+      }
+
+      .ai-art {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        object-position: center;
+        display: block;
+      }
+
+      .beat-card.medium .visual {
+        margin-top: 34px;
+      }
+
+      .beat-card.lower .visual {
+        margin-top: 34px;
+      }
+
+      .visual.has-generated > :not(.ai-art),
+      .quote-stage.has-generated > :not(.ai-art) {
+        display: none;
+      }
+
+      .beat-card .status-grid,
+      .beat-card .flow,
+      .beat-card .meter,
+      .beat-card .stamp {
+        display: none;
+      }
+
+      .beat-card.lower .status-grid,
+      .beat-card.lower .flow,
+      .beat-card.lower .meter {
+        margin-top: 18px;
+      }
+
+      .axis,
+      .route,
+      .bar,
+      .label,
+      .node,
+      .ship,
+      .alert,
+      .world,
+      .side,
+      .strike,
+      .seal {
+        position: absolute;
+      }
+
+      .node {
+        width: 76px;
+        height: 76px;
+        border: 7px solid var(--red);
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14);
+      }
+
+      .node.blue {
+        border-color: var(--blue);
+      }
+
+      .route {
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(180, 60, 52, 0.66);
+        transform-origin: left center;
+      }
+
+      .axis {
+        height: 8px;
+        border-radius: 999px;
+        background: #cbd5e1;
+      }
+
+      .ship {
+        width: 250px;
+        height: 86px;
+        border: 1px solid #cbd5e1;
+        border-radius: 18px 18px 52px 52px;
+        background: linear-gradient(180deg, #ffffff 0%, #dbe4ef 100%);
+        box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16);
+      }
+
+      .ship::before {
+        content: "";
+        position: absolute;
+        left: 76px;
+        top: -48px;
+        width: 88px;
+        height: 52px;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px 12px 4px 4px;
+        background: #fff;
+      }
+
+      .alert {
+        width: 110px;
+        height: 110px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 30px;
+        background: var(--red);
+        color: #fff;
+        font-family: Impact, "Arial Narrow", sans-serif;
+        font-size: 78px;
+        box-shadow: 0 18px 42px rgba(180, 60, 52, 0.28);
+      }
+
+      .world {
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        border: 8px solid #cbd5e1;
+        background:
+          radial-gradient(circle at 35% 35%, rgba(29, 79, 143, 0.18), transparent 38%),
+          #fff;
+      }
+
+      .world::before,
+      .world::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        border: 4px solid rgba(15, 23, 42, 0.12);
+      }
+
+      .world::before {
+        inset: 38px 20px;
+      }
+
+      .world::after {
+        inset: 20px 72px;
+      }
+
+      .side {
+        width: 190px;
+        height: 190px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        color: #fff;
+        font-family: Impact, "Arial Narrow", sans-serif;
+        font-size: 72px;
+        box-shadow: 0 24px 54px rgba(15, 23, 42, 0.18);
+      }
+
+      .side.red {
+        background: linear-gradient(145deg, #c94b43, #84221f);
+      }
+
+      .side.blue {
+        background: linear-gradient(145deg, #315f9e, #162f57);
+      }
+
+      .strike {
+        width: 310px;
+        height: 18px;
+        border-radius: 999px;
+        background: var(--red);
+        transform-origin: center;
+      }
+
+      .seal {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 164px;
+        height: 164px;
+        border: 10px solid var(--red);
+        border-radius: 50%;
+        color: var(--red);
+        font-family: Impact, "Arial Narrow", sans-serif;
+        font-size: 78px;
+        transform: rotate(-12deg);
+      }
+
+      .label {
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: #fff;
+        color: #334155;
+        font-size: 18px;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .emoji-unit {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 150px;
+        height: 150px;
+        border: 1px solid #e8eef6;
+        border-radius: 28px;
+        background: #fff;
+        font-size: 88px;
+        line-height: 1;
+        box-shadow: 0 18px 46px rgba(15, 23, 42, 0.12);
+      }
+
+      .emoji-unit.big {
+        width: 196px;
+        height: 196px;
+        border-radius: 34px;
+        font-size: 118px;
+      }
+
+      .emoji-unit.red {
+        border-color: rgba(180, 60, 52, 0.28);
+        background: #fff7f6;
+      }
+
+      .emoji-unit.blue {
+        border-color: rgba(29, 79, 143, 0.25);
+        background: #f3f7ff;
+      }
+
+      .quote-stage {
+        position: relative;
+        z-index: 1;
+        width: min(100%, 720px);
+        aspect-ratio: 1 / 1;
+        height: auto;
+        margin-top: 32px;
+        align-self: center;
+        flex: 0 1 auto;
+        border: 1px solid #e9eef5;
+        border-radius: 18px;
+        background:
+          radial-gradient(circle at 22% 42%, rgba(180, 60, 52, 0.12), transparent 26%),
+          radial-gradient(circle at 78% 45%, rgba(29, 79, 143, 0.12), transparent 28%),
+          #f8fafc;
+        overflow: hidden;
+      }
+
+      .quote-side {
+        position: absolute;
+        top: 82px;
+        width: 220px;
+        text-align: center;
+      }
+
+      .quote-side.left {
+        left: 58px;
+      }
+
+      .quote-side.right {
+        right: 58px;
+      }
+
+      .quote-side .emoji-unit {
+        position: relative;
+        margin: 0 auto 14px;
+      }
+
+      .quote-side b {
+        color: var(--ink);
+        font-size: 25px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .quote-beam {
+        position: absolute;
+        left: 290px;
+        right: 290px;
+        top: 174px;
+        height: 12px;
+        border-radius: 999px;
+        background: var(--red);
+      }
+
+      .quote-beam::before,
+      .quote-beam::after {
+        content: "";
+        position: absolute;
+        top: -18px;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 10px solid var(--red);
+        background: #fff;
+      }
+
+      .quote-beam::before {
+        left: -20px;
+      }
+
+      .quote-beam::after {
+        right: -20px;
+      }
+
+      .status-grid {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 26px;
+      }
+
+      .status {
+        min-height: 86px;
+        padding: 12px 14px;
+        border: 1px solid #e8eef6;
+        border-radius: 14px;
+        background: #f8fafc;
+      }
+
+      .status b {
+        display: block;
+        color: #64748b;
+        font-size: 15px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .status span {
+        display: block;
+        margin-top: 6px;
+        color: var(--ink);
+        font-family: Impact, "Arial Narrow", sans-serif;
+        font-size: 34px;
+        line-height: 1.02;
+        text-transform: uppercase;
+      }
+
+      .status.alert-status span {
+        color: var(--red);
+      }
+
+      .flow {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 26px;
+      }
+
+      .flow-step {
+        flex: 1;
+        min-height: 104px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+        border: 1px solid #e8eef6;
+        border-radius: 16px;
+        background: #f8fafc;
+        color: var(--ink);
+        font-size: 23px;
+        line-height: 1.08;
+        font-weight: 900;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .flow-arrow {
+        flex: 0 0 34px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--red);
+      }
+
+      .meter {
+        position: relative;
+        z-index: 1;
+        margin-top: 28px;
+        padding: 18px;
+        border: 1px solid #e8eef6;
+        border-radius: 16px;
+        background: #f8fafc;
+      }
+
+      .meter-row {
+        display: grid;
+        grid-template-columns: 210px 1fr 72px;
+        gap: 14px;
+        align-items: center;
+        margin: 10px 0;
+      }
+
+      .meter-label,
+      .meter-value {
+        color: #334155;
+        font-size: 20px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .meter-track {
+        height: 16px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #e2e8f0;
+      }
+
+      .meter-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: var(--red);
+      }
+
+      .meter-fill.blue-fill {
+        background: var(--blue);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="main"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="26.370"
+      data-fps="30"
+      data-width="1080"
+      data-height="1920"
+    >
+      <video
+        id="source-video"
+        class="clip source-video"
+        data-start="0"
+        data-duration="26.370"
+        data-track-index="0"
+        data-volume="0"
+        data-has-audio="false"
+        src="./assets/input/source.mp4"
+        muted
+        playsinline
+        preload="auto"
+      ></video>
+
+      <div class="shade"></div>
+      <div class="glass-layer"></div>
+      <div id="word-subtitle" class="word-subtitle"></div>
+      <div id="hook-overlay" class="hook-overlay">
+        <div id="hook-kicker" class="hook-kicker">проблема</div>
+        <div id="hook-title" class="hook-title">ЕСЛИ ЦИФРЫ ПОКАЗЫВАЮТ</div>
+        <div id="hook-promise" class="hook-promise">Цифры показывают, что бизнес-модель убыточна и не масштабируется.</div>
+      </div>
+
+      <section data-disabled-card="false" data-visual-brief="Visualize this card as a beautiful illustration-first editorial infographic on a light background. Visual type: illustration. Title: МОДЕЛЬ НЕ РАБОТАЕТ. Subtitle: Цифры показывают, что бизнес-модель убыточна и не масштабируется.. Speech anchor words: модель убыточна; не масштабируется. Core visual idea: Сломанный механизм с красной трещиной, показывающий убыток.. Possible symbolic elements: сломанный механизм; красная трещина; график убытка; человек, смотрящий на механизм. Use subject -&gt; action -&gt; obstacle -&gt; result logic as one concrete visual metaphor that matches this exact topic. Choose objects, people, places, products, documents, tools, screens, money, flags, or other real-world anchors only when they are clearly supported by the title/subtitle/facts. Do not introduce unrelated geopolitics, straits, ships, ports, maps, oil barrels, military imagery, or country flags unless this exact scene mentions them. This is an illustration/metaphor visual: no readable text, no numbers, no percent signs, no captions, no labels, no logos, no emojis inside the generated image." id="beat-0" class="clip beat top" data-start="2.550" data-duration="4.500" data-track-index="1" data-intensity="full">
+        <div class="beat-card hero">
+          <div class="kicker">проблема</div>
+          <h1>МОДЕЛЬ НЕ РАБОТАЕТ</h1>
+          <div class="desc">Цифры показывают, что бизнес-модель убыточна и не масштабируется.</div>
+          <div class="visual">
+            <img class="ai-art" data-ai-id="beat-0" data-ai-src="./assets/generated/beat-0.png" alt="" />
+            <div class="emoji-unit big red" style="left: 74px; top: 120px;">🐉</div>
+            <div class="route" style="left: 278px; top: 212px; width: 380px;"></div>
+            <div class="emoji-unit big blue" style="right: 74px; top: 120px;">🦅</div>
+            <div class="label" style="left: 110px; bottom: 50px;">вызов гегемонии</div>
+            <div class="label" style="right: 118px; bottom: 50px;">ответ действием</div>
+          </div>
+          <div class="flow">
+            <div class="flow-step">угроза</div>
+            <div class="flow-arrow"></div>
+            <div class="flow-step">игнор</div>
+            <div class="flow-arrow"></div>
+            <div class="flow-step">проход</div>
+          </div>
+          <div class="stamp">режиссер: ключевой хук</div>
+        </div>
+      </section>
+
+      <section data-disabled-card="false" data-visual-brief="Visualize this card as a beautiful illustration-first editorial infographic on a light background. Visual type: illustration. Title: СОЗДАЙТЕ БУДУЩЕЕ. Subtitle: Сосредоточьтесь на одном вопросе: создании вашего будущего.. Speech anchor words: 1 вопросом; вашего будущего. Core visual idea: Человек, строящий мост в будущее из кубиков.. Possible symbolic elements: человек; строительные блоки; мост; горизонт будущего. Use subject -&gt; action -&gt; obstacle -&gt; result logic as one concrete visual metaphor that matches this exact topic. Choose objects, people, places, products, documents, tools, screens, money, flags, or other real-world anchors only when they are clearly supported by the title/subtitle/facts. Do not introduce unrelated geopolitics, straits, ships, ports, maps, oil barrels, military imagery, or country flags unless this exact scene mentions them. This is an illustration/metaphor visual: no readable text, no numbers, no percent signs, no captions, no labels, no logos, no emojis inside the generated image." id="beat-1" class="clip beat bottom" data-start="14.880" data-duration="4.010" data-track-index="1" data-intensity="medium">
+        <div class="beat-card medium">
+          <div class="kicker">действие</div>
+          <h2>СОЗДАЙТЕ БУДУЩЕЕ</h2>
+          <div class="desc">Сосредоточьтесь на одном вопросе: создании вашего будущего.</div>
+          <div class="visual">
+            <img class="ai-art" data-ai-id="beat-1" data-ai-src="./assets/generated/beat-1.png" alt="" />
+            <div class="axis" style="left: 100px; top: 138px; width: 690px; transform: rotate(-7deg);"></div>
+            <div class="emoji-unit red" style="left: 120px; top: 74px;">🚧</div>
+            <div class="ship" style="left: 430px; top: 126px; transform: rotate(-7deg);"></div>
+            <div class="emoji-unit" style="right: 94px; top: 86px;">🛢️</div>
+            <div class="label" style="right: 76px; bottom: 44px;">blockade line</div>
+          </div>
+          <div class="status-grid">
+            <div class="status alert-status"><b>барьер</b><span>закрыть</span></div>
+            <div class="status"><b>объект</b><span>пролив</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-disabled-card="false" data-visual-brief="Visualize this card as a beautiful illustration-first editorial infographic on a light background. Visual type: illustration. Title: ИЩИТЕ НОВЫЕ ПУТИ. Subtitle: Найдите новый сегмент аудитории или разработайте новый подпродукт.. Speech anchor words: новый сегмент; новый подпродукт. Core visual idea: Человек с лупой, исследующий карту с разными путями.. Possible symbolic elements: человек с лупой; карта; разные пути; знаки вопроса. Use subject -&gt; action -&gt; obstacle -&gt; result logic as one concrete visual metaphor that matches this exact topic. Choose objects, people, places, products, documents, tools, screens, money, flags, or other real-world anchors only when they are clearly supported by the title/subtitle/facts. Do not introduce unrelated geopolitics, straits, ships, ports, maps, oil barrels, military imagery, or country flags unless this exact scene mentions them. This is an illustration/metaphor visual: no readable text, no numbers, no percent signs, no captions, no labels, no logos, no emojis inside the generated image." id="beat-2" class="clip beat top" data-start="18.960" data-duration="3.680" data-track-index="1" data-intensity="lower">
+        <div class="beat-card lower">
+          <div class="kicker">действие</div>
+          <h2>ИЩИТЕ НОВЫЕ ПУТИ</h2>
+          <div class="desc">Найдите новый сегмент аудитории или разработайте новый подпродукт.</div>
+          <div class="visual">
+            <img class="ai-art" data-ai-id="beat-2" data-ai-src="./assets/generated/beat-2.png" alt="" />
+            <div class="emoji-unit red" style="left: 76px; top: 42px;">⛔</div>
+            <div class="strike" style="right: 86px; top: 78px; transform: rotate(-8deg);"></div>
+            <div class="strike" style="right: 114px; top: 138px; width: 260px; transform: rotate(8deg);"></div>
+            <div class="emoji-unit" style="right: 76px; top: 42px;">🚢</div>
+            <div class="label" style="right: 64px; bottom: 36px;">ultimatum</div>
+          </div>
+          <div class="status-grid">
+            <div class="status alert-status"><b>вход</b><span>запрет</span></div>
+            <div class="status alert-status"><b>выход</b><span>запрет</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-disabled-card="false" data-visual-brief="Visualize this card as a beautiful illustration-first editorial infographic on a light background. Visual type: illustration. Title: СОХРАНИТЕ ЭКСПЕРТИЗУ. Subtitle: Обязательно сохраняйте свою ключевую экспертизу при изменениях.. Speech anchor words: сохраняйте; ключевую экспертизу. Core visual idea: Человек, держащий в руках светящийся кристалл экспертизы.. Possible symbolic elements: человек; светящийся кристалл; фундамент; инструменты. Use subject -&gt; action -&gt; obstacle -&gt; result logic as one concrete visual metaphor that matches this exact topic. Choose objects, people, places, products, documents, tools, screens, money, flags, or other real-world anchors only when they are clearly supported by the title/subtitle/facts. Do not introduce unrelated geopolitics, straits, ships, ports, maps, oil barrels, military imagery, or country flags unless this exact scene mentions them. This is an illustration/metaphor visual: no readable text, no numbers, no percent signs, no captions, no labels, no logos, no emojis inside the generated image." id="beat-3" class="clip beat middle" data-start="22.640" data-duration="3.730" data-track-index="1" data-intensity="medium">
+        <div class="beat-card medium">
+          <div class="kicker">вывод</div>
+          <h2>СОХРАНИТЕ ЭКСПЕРТИЗУ</h2>
+          <div class="desc">Обязательно сохраняйте свою ключевую экспертизу при изменениях.</div>
+          <div class="visual">
+            <img class="ai-art" data-ai-id="beat-3" data-ai-src="./assets/generated/beat-3.png" alt="" />
+            <div class="emoji-unit big red" style="left: 74px; top: 72px;">🇨🇳</div>
+            <div class="route" style="left: 290px; top: 140px; width: 410px; transform: rotate(4deg);"></div>
+            <div class="emoji-unit big" style="right: 86px; top: 72px;">🚢</div>
+            <div class="label" style="right: 64px; bottom: 40px;">route stays open</div>
+          </div>
+          <div class="meter">
+            <div class="meter-row"><div class="meter-label">угроза</div><div class="meter-track"><div class="meter-fill" style="width: 82%;"></div></div><div class="meter-value">82%</div></div>
+            <div class="meter-row"><div class="meter-label">подчинение</div><div class="meter-track"><div class="meter-fill blue-fill" style="width: 18%;"></div></div><div class="meter-value">18%</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-disabled-card="true" data-visual-brief="Visualize this card as a beautiful illustration-first editorial infographic on a light background. Title: НЕ ИДИТЕ ЗАВТРА НА РАБОТУ.. Subtitle: Просто поверьте сам лично через это проходил. Process: не идите завтра на работу -&gt; Просто поверьте сам лично через это проходил. Facts: не идите завтра на работу; Просто поверьте сам лично через это проходил. Use subject -&gt; action -&gt; obstacle -&gt; result logic as one concrete visual metaphor that matches this exact topic. Choose objects, people, places, products, documents, tools, screens, money, flags, or other real-world anchors only when they are clearly supported by the title/subtitle/facts. Do not introduce unrelated geopolitics, straits, ships, ports, maps, oil barrels, military imagery, or country flags unless this exact scene mentions them. Do not request charts, gauges, percentage rings, dashboards, tables, visible numbers, or readable text." id="beat-4" class="clip beat bottom" data-start="1025.4099999999999" data-duration="0.001" data-track-index="104" data-intensity="full">
+        <div class="beat-card hero">
+          <div class="kicker">решение</div>
+          <h1>НЕ ИДИТЕ ЗАВТРА НА РАБОТУ.</h1>
+          <div class="quote-source">Авторский перевод дипломатического смысла</div>
+          <div class="desc">Просто поверьте сам лично через это проходил</div>
+          <div class="quote-stage">
+            <img class="ai-art" data-ai-id="beat-4" data-ai-src="./assets/generated/beat-4.png" alt="" />
+            <div class="quote-side left">
+              <div class="emoji-unit red">📄</div>
+              <b>ультиматум</b>
+            </div>
+            <div class="quote-beam"></div>
+            <div class="quote-side right">
+              <div class="emoji-unit blue">🚢</div>
+              <b>проверка</b>
+            </div>
+            <div class="label" style="left: 300px; bottom: 44px;">слова проверяются маршрутом</div>
+          </div>
+        </div>
+      </section>
+
+      <section data-disabled-card="true" data-visual-brief="Visualize this card as a beautiful illustration-first editorial infographic on a light background. Title: ЗАНИМАТЬСЯ ТОЛЬКО ВОПРОСОМ СОЗДАНИЕМ ВАШЕГО. Subtitle: ФОКУС НА ГЛАВНОМ. Process: не идите завтра на работу -&gt; Просто поверьте сам лично через это проходил. Facts: не идите завтра на работу; Просто поверьте сам лично через это проходил. Use subject -&gt; action -&gt; obstacle -&gt; result logic as one concrete visual metaphor that matches this exact topic. Choose objects, people, places, products, documents, tools, screens, money, flags, or other real-world anchors only when they are clearly supported by the title/subtitle/facts. Do not introduce unrelated geopolitics, straits, ships, ports, maps, oil barrels, military imagery, or country flags unless this exact scene mentions them. Do not request charts, gauges, percentage rings, dashboards, tables, visible numbers, or readable text." id="beat-5" class="clip beat top" data-start="1025.4199999999998" data-duration="0.001" data-track-index="105" data-intensity="medium">
+        <div class="beat-card medium">
+          <div class="kicker">решение</div>
+          <h2>ЗАНИМАТЬСЯ ТОЛЬКО ВОПРОСОМ СОЗДАНИЕМ ВАШЕГО</h2>
+          <div class="desc">ФОКУС НА ГЛАВНОМ</div>
+          <div class="visual">
+            <img class="ai-art" data-ai-id="beat-5" data-ai-src="./assets/generated/beat-5.png" alt="" />
+            <div class="node" style="left: 80px; top: 146px;"></div>
+            <div class="route" style="left: 142px; top: 184px; width: 610px; transform: rotate(-11deg);"></div>
+            <div class="ship" style="left: 410px; top: 118px; transform: rotate(-11deg) scale(1.05);"></div>
+            <div class="emoji-unit red" style="left: 94px; top: 64px;">⛔</div>
+            <div class="emoji-unit" style="right: 98px; top: 82px;">✅</div>
+            <div class="node blue" style="right: 86px; top: 60px;"></div>
+            <div class="label" style="left: 76px; bottom: 40px;">sanctioned tanker</div>
+          </div>
+          <div class="status-grid">
+            <div class="status"><b>танкер</b><span>идёт</span></div>
+            <div class="status alert-status"><b>барьер</b><span>пробит</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-disabled-card="true" data-visual-brief="Visualize this card as a beautiful illustration-first editorial infographic on a light background. Title: ГЛАВНЫЙ РИСК. Subtitle: не идите завтра на работу. Просто поверьте, я сам лично через это проходил.. Process: не идите завтра на работу -&gt; Просто поверьте сам лично через это проходил. Facts: не идите завтра на работу; Просто поверьте сам лично через это проходил. Use subject -&gt; action -&gt; obstacle -&gt; result logic as one concrete visual metaphor that matches this exact topic. Choose objects, people, places, products, documents, tools, screens, money, flags, or other real-world anchors only when they are clearly supported by the title/subtitle/facts. Do not introduce unrelated geopolitics, straits, ships, ports, maps, oil barrels, military imagery, or country flags unless this exact scene mentions them. Do not request charts, gauges, percentage rings, dashboards, tables, visible numbers, or readable text." id="beat-6" class="clip beat middle" data-start="1025.4299999999998" data-duration="0.001" data-track-index="106" data-intensity="lower">
+        <div class="beat-card lower">
+          <div class="kicker">решение</div>
+          <h1>ГЛАВНЫЙ РИСК</h1>
+          <div class="desc">не идите завтра на работу. Просто поверьте, я сам лично через это проходил.</div>
+          <div class="visual">
+            <img class="ai-art" data-ai-id="beat-6" data-ai-src="./assets/generated/beat-6.png" alt="" />
+            <div class="emoji-unit red" style="left: 82px; top: 48px;">⚠️</div>
+            <div class="route" style="left: 250px; top: 122px; width: 360px;"></div>
+            <div class="emoji-unit" style="right: 82px; top: 48px;">🤷</div>
+            <div class="label" style="left: 276px; bottom: 34px;">угроза без действия</div>
+          </div>
+          <div class="status-grid">
+            <div class="status alert-status"><b>угроза</b><span>активна</span></div>
+            <div class="status"><b>действие</b><span>ноль</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-disabled-card="true" data-visual-brief="Visualize this card as a beautiful illustration-first editorial infographic on a light background. Title: ЧТО МЕНЯЕТСЯ. Subtitle: заниматься только вопросом созданием вашего будущего. Process: не идите завтра на работу -&gt; Просто поверьте сам лично через это проходил. Facts: не идите завтра на работу; Просто поверьте сам лично через это проходил. Use subject -&gt; action -&gt; obstacle -&gt; result logic as one concrete visual metaphor that matches this exact topic. Choose objects, people, places, products, documents, tools, screens, money, flags, or other real-world anchors only when they are clearly supported by the title/subtitle/facts. Do not introduce unrelated geopolitics, straits, ships, ports, maps, oil barrels, military imagery, or country flags unless this exact scene mentions them. Do not request charts, gauges, percentage rings, dashboards, tables, visible numbers, or readable text." id="beat-7" class="clip beat bottom" data-start="1025.4399999999998" data-duration="0.001" data-track-index="107" data-intensity="full">
+        <div class="beat-card hero">
+          <div class="kicker">решение</div>
+          <h2>ЧТО МЕНЯЕТСЯ</h2>
+          <div class="desc">заниматься только вопросом созданием вашего будущего</div>
+          <div class="visual">
+            <img class="ai-art" data-ai-id="beat-7" data-ai-src="./assets/generated/beat-7.png" alt="" />
+            <div class="emoji-unit big blue" style="left: 70px; top: 86px;">🇺🇸</div>
+            <div class="emoji-unit big" style="left: 330px; top: 86px;">🌍</div>
+            <div class="emoji-unit big red" style="right: 70px; top: 86px;">🌏</div>
+            <div class="route" style="left: 200px; bottom: 74px; width: 520px; transform: rotate(-3deg);"></div>
+            <div class="label" style="left: 260px; bottom: 34px;">multipolar pressure</div>
+          </div>
+          <div class="meter">
+            <div class="meter-row"><div class="meter-label">однополярность</div><div class="meter-track"><div class="meter-fill blue-fill" style="width: 38%;"></div></div><div class="meter-value">↓</div></div>
+            <div class="meter-row"><div class="meter-label">многополярность</div><div class="meter-track"><div class="meter-fill" style="width: 76%;"></div></div><div class="meter-value">↑</div></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      tl.eventCallback("onUpdate", () => updateWordCaption(tl.time()));
+      const beats = gsap.utils.toArray(".beat:not([data-disabled-card='true'])");
+      const glassLayer = document.querySelector(".glass-layer");
+      const hookOverlay = document.getElementById("hook-overlay");
+      const captionEl = document.getElementById("word-subtitle");
+      let captionWords = [];
+      let captionIndex = 0;
+
+      function normalizeCaptionWord(value) {
+        return String(value || "")
+          .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "")
+          .trim();
+      }
+
+      function extractCaptionWords(payload) {
+        const rawWords = Array.isArray(payload)
+          ? payload
+          : payload?.results?.channels?.[0]?.alternatives?.[0]?.words || [];
+        return rawWords
+          .map((word) => ({
+            text: normalizeCaptionWord(word.punctuated_word || word.text || word.word),
+            start: Number(word.start),
+            end: Number(word.end),
+          }))
+          .filter((word) => word.text && Number.isFinite(word.start) && Number.isFinite(word.end))
+          .sort((a, b) => a.start - b.start);
+      }
+
+      function updateWordCaption(time) {
+        if (!captionEl || !captionWords.length) return;
+
+        while (captionIndex < captionWords.length - 1 && time >= captionWords[captionIndex + 1].start) {
+          captionIndex += 1;
+        }
+        while (captionIndex > 0 && time < captionWords[captionIndex].start) {
+          captionIndex -= 1;
+        }
+
+        const word = captionWords[captionIndex];
+        const next = captionWords[captionIndex + 1];
+        const visibleUntil = next ? Math.min(next.start, word.end + 0.36) : word.end + 0.36;
+        const visible = time >= word.start && time < visibleUntil;
+
+        captionEl.textContent = visible ? word.text : "";
+        captionEl.classList.toggle("is-visible", visible);
+      }
+
+      fetch("./assets/input/transcript.deepgram.json")
+        .then((response) => (response.ok ? response.json() : []))
+        .then((payload) => {
+          captionWords = extractCaptionWords(payload);
+          updateWordCaption(0);
+        })
+        .catch(() => {
+          captionWords = [];
+        });
+
+      function installCaptionSeekBridge() {
+        if (!window.__hf || typeof window.__hf.seek !== "function" || window.__hf.__wordCaptionPatched) {
+          return false;
+        }
+        const originalSeek = window.__hf.seek.bind(window.__hf);
+        window.__hf.seek = (time) => {
+          originalSeek(time);
+          updateWordCaption(Number(time) || 0);
+        };
+        window.__hf.__wordCaptionPatched = true;
+        return true;
+      }
+
+      const captionBridgeTimer = setInterval(() => {
+        if (installCaptionSeekBridge()) clearInterval(captionBridgeTimer);
+      }, 50);
+
+      const generatedImageIds = new Set(
+        (document.documentElement.dataset.generatedImages || "")
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean),
+      );
+      if (generatedImageIds.size) {
+        document.querySelectorAll(".ai-art").forEach((img) => {
+          if (generatedImageIds.has("*") || generatedImageIds.has(img.dataset.aiId)) {
+            img.src = img.dataset.aiSrc;
+            img.onerror = () => img.remove();
+            img.parentElement?.classList.add("has-generated");
+          }
+        });
+      }
+      const totalDuration = 26.370;
+      const directorRules = {
+        overlayCoverageTarget: 0.5,
+        maxSingleOverlayDuration: 3.7,
+        minCleanVideoGap: 1.2,
+        priority: "avatar_first",
+      };
+      const glassByIntensity = {
+        full: 0.78,
+        medium: 0.62,
+        lower: 0.28,
+      };
+      const overlaySeconds = beats.reduce((sum, beat) => sum + Number(beat.dataset.duration), 0);
+      document.documentElement.dataset.overlayCoverage = (overlaySeconds / totalDuration).toFixed(3);
+
+      if (hookOverlay) {
+        const hookExitStart = 2.25;
+        const hookEnd = 2.45;
+        const hookTitle = hookOverlay.querySelector(".hook-title");
+        const hookPromise = hookOverlay.querySelector(".hook-promise");
+        const hookKicker = hookOverlay.querySelector(".hook-kicker");
+        tl.set(hookOverlay, { autoAlpha: 0 }, 0);
+        tl.fromTo(hookOverlay, { autoAlpha: 0, y: -18 }, { autoAlpha: 1, y: 0, duration: 0.18, ease: "power3.out" }, 0.05);
+        tl.from([hookKicker, hookTitle, hookPromise], { opacity: 0, y: 22, duration: 0.28, stagger: 0.06, ease: "power3.out" }, 0.12);
+        tl.to(hookOverlay, { autoAlpha: 0, y: -18, duration: 0.18, ease: "power2.in" }, hookExitStart);
+        tl.set(hookOverlay, { autoAlpha: 0 }, hookEnd);
+      }
+
+      beats.forEach((beat) => {
+        const start = Number(beat.dataset.start);
+        const duration = Number(beat.dataset.duration);
+        const intensity = beat.dataset.intensity || "medium";
+        const card = beat.querySelector(".beat-card");
+        const kicker = beat.querySelector(".kicker");
+        const title = beat.querySelector("h1, h2");
+        const desc = beat.querySelector(".desc");
+        const visual = beat.querySelector(".visual");
+        const visualParts = beat.querySelectorAll(".visual > *");
+
+        tl.to(glassLayer, { opacity: glassByIntensity[intensity], duration: 0.16, ease: "power2.out" }, start);
+        tl.fromTo(beat, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.16, ease: "power2.out" }, start);
+        tl.from(card, { opacity: 0, y: 42, scale: 0.985, duration: 0.34, ease: "power3.out" }, start + 0.04);
+        tl.from(kicker, { opacity: 0, y: 12, duration: 0.24, ease: "power2.out" }, start + 0.14);
+        tl.from(title, { opacity: 0, x: -42, duration: 0.34, ease: "power3.out" }, start + 0.22);
+        tl.from(desc, { opacity: 0, y: 20, duration: 0.3, ease: "power2.out" }, start + 0.42);
+        if (visual) {
+          tl.from(visual, { opacity: 0, y: 22, scale: 0.985, duration: 0.34, ease: "power3.out" }, start + 0.52);
+        }
+        if (visualParts.length) {
+          tl.from(visualParts, { opacity: 0, y: 18, scale: 0.92, duration: 0.34, stagger: 0.05, ease: "back.out(1.25)" }, start + 0.72);
+        }
+        tl.to(card, { y: -12, duration: Math.max(0.4, duration - 0.7), ease: "none" }, start + 0.36);
+        tl.to(glassLayer, { opacity: 0, duration: 0.16, ease: "power2.in" }, start + duration - 0.18);
+        tl.to(beat, { autoAlpha: 0, duration: 0.16, ease: "power2.in" }, start + duration - 0.18);
+        tl.set(beat, { autoAlpha: 0 }, start + duration);
+      });
+
+      window.__directorRules = directorRules;
+      window.__timelines.main = tl;
+    </script>
+  </body>
+</html>
