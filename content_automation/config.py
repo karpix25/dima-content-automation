@@ -58,6 +58,11 @@ class Settings:
     kie_poll_interval_seconds: float
     kie_create_task_max_attempts: int
     kie_create_task_retry_delay_seconds: float
+    montage_renderer: str
+    hyperframes_project_dir: Path | None
+    remotion_project_dir: Path | None
+    montage_render_timeout_seconds: int
+    montage_max_scenes: int
 
 
 def get_float_env(name: str, default: float) -> float:
@@ -167,4 +172,9 @@ def load_settings() -> Settings:
         kie_poll_interval_seconds=get_float_env("KIE_POLL_INTERVAL_SECONDS", 3),
         kie_create_task_max_attempts=max(1, get_int_env("KIE_CREATE_TASK_MAX_ATTEMPTS", 4)),
         kie_create_task_retry_delay_seconds=max(0.5, get_float_env("KIE_CREATE_TASK_RETRY_DELAY_SECONDS", 3)),
+        montage_renderer=(os.getenv("MONTAGE_RENDERER") or "auto").strip().lower(),
+        hyperframes_project_dir=get_optional_path_env("HYPERFRAMES_PROJECT_DIR"),
+        remotion_project_dir=get_optional_path_env("REMOTION_PROJECT_DIR"),
+        montage_render_timeout_seconds=max(60, get_int_env("MONTAGE_RENDER_TIMEOUT_SECONDS", 3600)),
+        montage_max_scenes=max(1, get_int_env("MONTAGE_MAX_SCENES", 8)),
     )

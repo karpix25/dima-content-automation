@@ -16,6 +16,7 @@ from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsV
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
 from .kie_image import KieImageClient, KieImageConfig
+from .montage_renderer import MontageRendererConfig, render_montage_if_configured
 from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .notebooklm_py import NotebookLMPyClient
@@ -71,6 +72,13 @@ kie_image = KieImageClient(
         create_task_max_attempts=settings.kie_create_task_max_attempts,
         create_task_retry_delay_seconds=settings.kie_create_task_retry_delay_seconds,
     )
+)
+montage_renderer_config = MontageRendererConfig(
+    hyperframes_project_dir=settings.hyperframes_project_dir,
+    remotion_project_dir=settings.remotion_project_dir,
+    renderer=settings.montage_renderer,
+    timeout_seconds=settings.montage_render_timeout_seconds,
+    max_scenes=settings.montage_max_scenes,
 )
 bot = Bot(settings.telegram_bot_token)
 dp = Dispatcher()
@@ -929,6 +937,21 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
     if not settings.post_heygen_visuals_enabled:
         return video_path
     asset_dir = settings.video_output_directory / "visual_assets" / str(record.id)
+    montage_dir = settings.video_output_directory / "montage" / str(record.id)
+    try:
+        montage_path = await asyncio.to_thread(
+            render_montage_if_configured,
+            record=record,
+            video_path=video_path,
+            output_dir=montage_dir,
+            config=montage_renderer_config,
+        )
+        if montage_path:
+            logger.info("Post-HeyGen montage rendered with external renderer: %s", montage_path)
+            return montage_path
+    except VideoOverlayError as exc:
+        logger.warning("External montage renderer failed; falling back to KIE+ffmpeg overlays: %s", exc)
+
     assets = await asyncio.to_thread(
         generate_post_heygen_assets,
         record=record,
