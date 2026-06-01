@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict
 from pathlib import Path
 
@@ -56,6 +57,9 @@ from .web_models import (
     UserSettingsOut,
 )
 from .web_serializers import format_to_out, job_to_out, script_to_out
+
+
+logger = logging.getLogger(__name__)
 
 
 settings = load_settings()
@@ -431,6 +435,12 @@ def find_asset_by_path(user_id: str, kind: str, path: str) -> MediaAsset | None:
 
 @app.post("/api/scripts/{script_id}/format-jobs", response_model=FormatJobOut)
 def create_script_format_job(script_id: int, payload: CreateFormatJobIn) -> FormatJobOut:
+    logger.info(
+        "Creating format job: user_id=%s script_id=%s format_key=%s",
+        payload.user_id,
+        script_id,
+        payload.format_key,
+    )
     try:
         job = create_format_job(
             storage,
@@ -443,6 +453,7 @@ def create_script_format_job(script_id: int, payload: CreateFormatJobIn) -> Form
     except TuranServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if job.format_key == "infographic_reels":
+        logger.info("Running infographic delivery for format job %s", job.id)
         record = storage.get_script(payload.user_id, script_id)
         if not record:
             raise HTTPException(status_code=404, detail="Script not found")
@@ -464,7 +475,14 @@ def create_script_format_job(script_id: int, payload: CreateFormatJobIn) -> Form
                     f"Файл: {result.video_path}"
                 ),
             )
+            logger.info(
+                "Infographic format job delivered: job_id=%s telegram_message_id=%s output=%s",
+                job.id,
+                result.telegram_message_id,
+                result.video_path,
+            )
         except Exception as exc:
+            logger.exception("Infographic format job failed: job_id=%s", job.id)
             job = storage.update_format_job_delivery(
                 payload.user_id,
                 job.id,

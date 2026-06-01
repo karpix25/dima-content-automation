@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import random
 import re
 import subprocess
@@ -13,6 +14,9 @@ from .config import Settings
 from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .storage import ScriptRecord
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -36,16 +40,21 @@ def create_and_send_infographic_reels(
     image_path = output_dir / f"kie_gold_card_{record.id}.png"
     video_path = output_dir / f"gold_card_{record.id}.mp4"
 
+    logger.info("Starting Kie gold card generation: script_id=%s image=%s", record.id, image_path)
     client = kie_client or build_kie_client(settings)
     generate_gold_card_with_kie(record=record, path=image_path, kie_client=client)
+    logger.info("Kie gold card generated: script_id=%s image=%s", record.id, image_path)
     audio_path = choose_audio_track(asset_store, user_id)
+    logger.info("Rendering five second gold card video: script_id=%s audio=%s video=%s", record.id, audio_path, video_path)
     render_five_second_video(image_path=image_path, video_path=video_path, audio_path=audio_path)
+    logger.info("Sending gold card video to Telegram: script_id=%s chat_id=%s video=%s", record.id, user_id, video_path)
     message_id = send_video_to_telegram(
         token=settings.telegram_bot_token,
         chat_id=user_id,
         video_path=video_path,
         caption=f"✅ Золотой фон / инфографика 5 сек. через Kie\nСценарий #{record.id}: {record.title or record.hook}",
     )
+    logger.info("Gold card video sent to Telegram: script_id=%s message_id=%s", record.id, message_id)
     return InfographicDeliveryResult(
         image_path=image_path,
         video_path=video_path,
@@ -199,6 +208,7 @@ def render_five_second_video(*, image_path: Path, video_path: Path, audio_path: 
     proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
     if proc.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {proc.stderr[-1600:]}")
+    logger.info("ffmpeg rendered video: %s", video_path)
 
 
 def send_video_to_telegram(*, token: str, chat_id: str, video_path: Path, caption: str) -> str | None:
