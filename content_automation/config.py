@@ -45,6 +45,10 @@ class Settings:
     web_port: int
     turan_api_base_url: str | None
     turan_api_telegram_id: str | None
+    post_heygen_visuals_enabled: bool
+    post_heygen_cover_seconds: float
+    post_heygen_broll_count: int
+    post_heygen_broll_seconds: float
 
 
 def get_float_env(name: str, default: float) -> float:
@@ -141,4 +145,8 @@ def load_settings() -> Settings:
         web_port=get_int_env("WEB_PORT", 8000),
         turan_api_base_url=(os.getenv("TURAN_API_BASE_URL") or os.getenv("TURAN_API_URL") or "").strip().rstrip("/") or None,
         turan_api_telegram_id=(os.getenv("TURAN_API_TELEGRAM_ID") or "").strip() or None,
+        post_heygen_visuals_enabled=get_bool_env("POST_HEYGEN_VISUALS_ENABLED", True),
+        post_heygen_cover_seconds=get_float_env("POST_HEYGEN_COVER_SECONDS", 0.10),
+        post_heygen_broll_count=max(0, get_int_env("POST_HEYGEN_BROLL_COUNT", 3)),
+        post_heygen_broll_seconds=max(0.2, get_float_env("POST_HEYGEN_BROLL_SECONDS", 1.2)),
     )

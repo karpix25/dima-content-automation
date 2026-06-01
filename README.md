@@ -40,6 +40,10 @@ ELEVENLABS_MCP_OUTPUT_MODE=files
 ELEVENLABS_OUTPUT_DIRECTORY=outputs/elevenlabs
 VIDEO_OUTPUT_DIRECTORY=outputs/videos
 VIDEO_KEEP_DAYS=14
+POST_HEYGEN_VISUALS_ENABLED=true
+POST_HEYGEN_COVER_SECONDS=0.10
+POST_HEYGEN_BROLL_COUNT=3
+POST_HEYGEN_BROLL_SECONDS=1.2
 ELEVENLABS_VOICE_ID=
 ELEVENLABS_VOICE_NAME=Dima Kubrak 1
 ELEVENLABS_MODEL_ID=eleven_multilingual_v2
@@ -119,7 +123,7 @@ HEYGEN_PRIVATE_AVATARS_ONLY=true
 
 Бот принимает PNG/JPG/WebP файлом или фото и хранит плашку локально на сервере в `DATA_DIR/overlays`. Для каждой плашки задается процент появления: например, `70` значит, что плашка появится с 70% хронометража и останется до конца видео.
 
-После HeyGen бот скачивает mp4 в `VIDEO_OUTPUT_DIRECTORY`, накладывает плашку через `ffmpeg` и отправляет финальный mp4 в Telegram как файл/document, чтобы Telegram не пережимал качество как обычное video.
+После HeyGen бот скачивает mp4 в `VIDEO_OUTPUT_DIRECTORY`, генерирует cover-картинку и карточки-перебивки из одобренного сценария, накладывает cover на первые `POST_HEYGEN_COVER_SECONDS` (`0.10` по умолчанию), распределяет перебивки поверх видео, затем накладывает настроенную плашку через `ffmpeg` и отправляет финальный mp4 в Telegram как файл/document, чтобы Telegram не пережимал качество как обычное video.
 
 Локальные видео чистятся автоматически. По умолчанию:
 
@@ -165,6 +169,10 @@ ELEVENLABS_API_KEY=...
 ELEVENLABS_OUTPUT_DIRECTORY=/app/outputs/elevenlabs
 VIDEO_OUTPUT_DIRECTORY=/app/outputs/videos
 VIDEO_KEEP_DAYS=14
+POST_HEYGEN_VISUALS_ENABLED=true
+POST_HEYGEN_COVER_SECONDS=0.10
+POST_HEYGEN_BROLL_COUNT=3
+POST_HEYGEN_BROLL_SECONDS=1.2
 HEYGEN_API_KEY=...
 ```
 

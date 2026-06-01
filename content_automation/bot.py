@@ -21,7 +21,9 @@ from .notebooklm_py import NotebookLMPyClient
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .storage import ScriptRecord, Storage
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
+from .post_heygen_video import apply_post_heygen_visuals
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
+from .visual_assets import generate_post_heygen_assets
 
 
 logging.basicConfig(level=logging.INFO)
@@ -887,17 +889,15 @@ async def send_generated_video(chat_id: int, thread_id: int | None, video_url: s
         await send_to_chat_thread(chat_id, f"{caption}\n\n{video_url}", thread_id=thread_id)
 
 
-async def process_overlay_if_configured(user_id: str, record: ScriptRecord, video_url: str) -> Path | None:
+async def process_overlay_if_configured(user_id: str, record: ScriptRecord, video_path: Path) -> Path | None:
     overlay_path = get_overlay_path(user_id, record.format)
     if not overlay_path or not overlay_path.exists():
         return None
     start_percent = get_overlay_start_percent(user_id, record.format)
-    input_path = settings.video_output_directory / f"heygen_{record.id}.mp4"
     output_path = settings.video_output_directory / f"final_{record.id}.mp4"
-    await download_video(video_url, input_path)
     result = await asyncio.to_thread(
         apply_overlay,
-        video_path=input_path,
+        video_path=video_path,
         overlay_path=overlay_path,
         output_path=output_path,
         start_percent=start_percent,
@@ -908,7 +908,34 @@ async def process_overlay_if_configured(user_id: str, record: ScriptRecord, vide
         result.start_seconds,
         result.duration_seconds,
     )
-    remove_file(input_path)
+    return result.output_path
+
+
+async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_path: Path) -> Path:
+    if not settings.post_heygen_visuals_enabled:
+        return video_path
+    asset_dir = settings.video_output_directory / "visual_assets" / str(record.id)
+    assets = await asyncio.to_thread(
+        generate_post_heygen_assets,
+        record=record,
+        output_dir=asset_dir,
+        broll_count=settings.post_heygen_broll_count,
+    )
+    output_path = settings.video_output_directory / f"visual_{record.id}.mp4"
+    result = await asyncio.to_thread(
+        apply_post_heygen_visuals,
+        video_path=video_path,
+        assets=assets,
+        output_path=output_path,
+        cover_seconds=settings.post_heygen_cover_seconds,
+        broll_seconds=settings.post_heygen_broll_seconds,
+    )
+    logger.info(
+        "Post-HeyGen visuals applied to script %s: cover %.2fs, broll starts=%s",
+        record.id,
+        result.cover_seconds,
+        result.broll_starts,
+    )
     return result.output_path
 
 
@@ -917,21 +944,29 @@ async def send_final_video(chat_id: int, thread_id: int | None, user_id: str, re
     cleaned = cleanup_old_videos(settings.video_output_directory, keep_days=settings.video_keep_days)
     if cleaned:
         logger.info("Cleaned %s old video files from %s", cleaned, settings.video_output_directory)
+    raw_path = settings.video_output_directory / f"heygen_{record.id}.mp4"
     try:
-        final_path = await process_overlay_if_configured(user_id, record, video_url)
+        await download_video(video_url, raw_path)
+    except VideoOverlayError as exc:
+        logger.exception("Failed to download HeyGen video")
+        await send_to_chat_thread(chat_id, f"⚠️ Не удалось скачать видео файлом: {exc}\nОтправляю ссылку.", thread_id=thread_id)
+        await send_generated_video(chat_id, thread_id, video_url, caption)
+        return
+
+    final_path = raw_path
+    try:
+        final_path = await process_post_heygen_visuals_if_enabled(record, final_path)
+    except VideoOverlayError as exc:
+        logger.exception("Failed to apply post-HeyGen visuals")
+        await send_to_chat_thread(chat_id, f"⚠️ Cover/перебивки не наложил: {exc}", thread_id=thread_id)
+
+    try:
+        overlay_path = await process_overlay_if_configured(user_id, record, final_path)
+        final_path = overlay_path or final_path
     except VideoOverlayError as exc:
         logger.exception("Failed to apply overlay")
-        await send_to_chat_thread(chat_id, f"⚠️ Плашку не наложил: {exc}\nОтправляю оригинальный HeyGen video.", thread_id=thread_id)
-        final_path = None
-    if not final_path:
-        final_path = settings.video_output_directory / f"final_{record.id}.mp4"
-        try:
-            await download_video(video_url, final_path)
-        except VideoOverlayError as exc:
-            logger.exception("Failed to download HeyGen video")
-            await send_to_chat_thread(chat_id, f"⚠️ Не удалось скачать видео файлом: {exc}\nОтправляю ссылку.", thread_id=thread_id)
-            await send_generated_video(chat_id, thread_id, video_url, caption)
-            return
+        await send_to_chat_thread(chat_id, f"⚠️ Плашку не наложил: {exc}", thread_id=thread_id)
+
     if final_path and final_path.exists():
         await bot.send_document(chat_id, FSInputFile(final_path), caption=caption, message_thread_id=thread_id)
         return
