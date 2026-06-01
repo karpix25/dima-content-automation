@@ -4,37 +4,6 @@
   margin-top: 0;
 }
 
-.settings-sticky {
-  position: relative;
-  z-index: 1;
-  margin: -4px 0 2px;
-}
-
-.settings-toolbar-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 72px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-}
-
-.settings-toolbar-card strong {
-  display: block;
-  font-size: 18px;
-  letter-spacing: 0;
-}
-
-.settings-toolbar-card p {
-  margin-top: 4px;
-  font-size: 13px;
-  line-height: 1.25;
-}
-
 .tg-card {
   border-radius: 12px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -326,11 +295,4 @@
     grid-template-columns: 1fr;
   }
 
-  .settings-toolbar-card {
-    align-items: flex-start;
-  }
-
-  .settings-toolbar-card .mini-badge {
-    flex: 0 0 auto;
-  }
 }

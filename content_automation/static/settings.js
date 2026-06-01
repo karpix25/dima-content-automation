@@ -28,7 +28,6 @@ export function renderSettingsPanel(deps) {
     return;
   }
   root.innerHTML = `
-    ${renderSaveBar()}
     ${renderIdentitySection(deps)}
     ${renderCoverSection(deps)}
     ${renderAvatarInsertSection(deps)}
@@ -37,20 +36,6 @@ export function renderSettingsPanel(deps) {
     ${renderOverlaySection(deps)}
   `;
   bindSettingsEvents(root, deps);
-}
-
-function renderSaveBar() {
-  return `
-    <div class="settings-sticky">
-      <div class="settings-toolbar-card">
-        <div>
-          <strong>Основные настройки</strong>
-          <p>Аватар, голос, обложки, референсы, вставки и формат 5 секунд</p>
-        </div>
-        <span class="mini-badge">Turan UI</span>
-      </div>
-    </div>
-  `;
 }
 
 function renderIdentitySection({ state, escapeHtml }) {
