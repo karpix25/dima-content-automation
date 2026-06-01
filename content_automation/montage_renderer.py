@@ -34,6 +34,8 @@ def render_montage_if_configured(
         candidates.append(("remotion", config.remotion_project_dir))
 
     for name, project_dir in candidates:
+        if name == "hyperframes" and record.format != "youtube":
+            continue
         if project_dir and (project_dir / "package.json").exists():
             rendered = _render(
                 name=name,
@@ -67,7 +69,14 @@ def _render(
     scene_plan_path.write_text(json.dumps(plan.scenes, ensure_ascii=False, indent=2), encoding="utf-8")
     word_cues_path.write_text(json.dumps(plan.word_cues, ensure_ascii=False, indent=2), encoding="utf-8")
     output_path = output_dir / f"{name}_{record.id}.mp4"
-    cmd = _command(name, video_path=video_path, scene_plan_path=scene_plan_path, word_cues_path=word_cues_path, output_path=output_path)
+    cmd = _command(
+        name,
+        record=record,
+        video_path=video_path,
+        scene_plan_path=scene_plan_path,
+        word_cues_path=word_cues_path,
+        output_path=output_path,
+    )
     try:
         result = subprocess.run(
             cmd,
@@ -86,6 +95,7 @@ def _render(
 def _command(
     name: str,
     *,
+    record: ScriptRecord,
     video_path: Path,
     scene_plan_path: Path,
     word_cues_path: Path,
@@ -105,6 +115,8 @@ def _command(
             str(word_cues_path),
             "--out",
             str(output_path),
+            "--layout",
+            "horizontal_youtube" if record.format == "youtube" else "horizontal_simple",
         ]
     return [
         "npm",

@@ -35,6 +35,8 @@ def create_and_send_infographic_reels(
     asset_store: MediaAssetStore,
     kie_client: KieImageClient | None = None,
     reference_paths: list[Path] | None = None,
+    cta_text: str | None = None,
+    overlay_path: Path | None = None,
 ) -> InfographicDeliveryResult:
     output_dir = settings.video_output_directory / "infographic_reels"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -43,11 +45,21 @@ def create_and_send_infographic_reels(
 
     logger.info("Starting Kie gold card generation: script_id=%s image=%s", record.id, image_path)
     client = kie_client or build_kie_client(settings)
-    generate_gold_card_with_kie(record=record, path=image_path, kie_client=client, reference_paths=reference_paths or [])
+    generate_gold_card_with_kie(
+        record=record,
+        path=image_path,
+        kie_client=client,
+        reference_paths=reference_paths or [],
+        cta_text=cta_text,
+    )
     logger.info("Kie gold card generated: script_id=%s image=%s", record.id, image_path)
     audio_path = choose_audio_track(asset_store, user_id)
     logger.info("Rendering five second gold card video: script_id=%s audio=%s video=%s", record.id, audio_path, video_path)
     render_five_second_video(image_path=image_path, video_path=video_path, audio_path=audio_path)
+    if overlay_path and overlay_path.exists():
+        overlay_output = output_dir / f"gold_card_overlay_{record.id}.mp4"
+        apply_five_second_overlay(video_path=video_path, overlay_path=overlay_path, output_path=overlay_output)
+        video_path = overlay_output
     logger.info("Sending gold card video to Telegram: script_id=%s chat_id=%s video=%s", record.id, user_id, video_path)
     message_id = send_video_to_telegram(
         token=settings.telegram_bot_token,
@@ -87,11 +99,12 @@ def generate_gold_card_with_kie(
     path: Path,
     kie_client: KieImageClient,
     reference_paths: list[Path] | None = None,
+    cta_text: str | None = None,
 ) -> Path:
     if not kie_client.is_configured():
         raise RuntimeError("KIE_API_KEY не задан: формат 5 секунд должен генерировать карточку через Kie")
     generated = kie_client.generate_image(
-        prompt=gold_card_prompt(record, has_references=bool(reference_paths)),
+        prompt=gold_card_prompt(record, has_references=bool(reference_paths), cta_text=cta_text),
         output_path=path,
         reference_paths=reference_paths or [],
     )
@@ -100,7 +113,7 @@ def generate_gold_card_with_kie(
     return generated
 
 
-def gold_card_prompt(record: ScriptRecord, *, has_references: bool = False) -> str:
+def gold_card_prompt(record: ScriptRecord, *, has_references: bool = False, cta_text: str | None = None) -> str:
     bullets = "; ".join(build_bullets(record)[:3])
     reference_rule = (
         "Use the uploaded face/style reference images to keep the person and visual style consistent. "
@@ -116,9 +129,43 @@ def gold_card_prompt(record: ScriptRecord, *, has_references: bool = False) -> s
         f"Main headline: {clean_text(record.hook or record.title)}. "
         f"Subtitle/context: {clean_text(record.angle or record.trigger or record.source_basis)}. "
         f"Supporting bullets: {bullets}. "
-        f"CTA: {clean_text(record.cta or 'Save this insight')}. "
+        f"CTA: {clean_text(cta_text or record.cta or 'Save this insight')}. "
         "The final image must feel like a polished Turan-style Instagram/Reels business card."
     )
+
+
+def apply_five_second_overlay(*, video_path: Path, overlay_path: Path, output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path),
+        "-i",
+        str(overlay_path),
+        "-filter_complex",
+        "[1:v]format=rgba[ov];[0:v][ov]overlay=(W-w)/2:(H-h)/2:enable='gte(t,2)'[v]",
+        "-map",
+        "[v]",
+        "-map",
+        "0:a?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-c:a",
+        "copy",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        str(output_path),
+    ]
+    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(f"ffmpeg five-second overlay error: {proc.stderr[-1600:]}")
 
 
 def render_gold_card(record: ScriptRecord, path: Path) -> None:

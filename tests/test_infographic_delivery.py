@@ -37,6 +37,14 @@ def test_generate_gold_card_with_kie_passes_reference_paths(tmp_path: Path):
     assert "face/style reference" in client.prompts[0]
 
 
+def test_generate_gold_card_with_kie_uses_configured_cta(tmp_path: Path):
+    client = FakeKieClient(configured=True)
+
+    generate_gold_card_with_kie(record=_record(), path=tmp_path / "card.png", kie_client=client, cta_text="Join the Dima audit.")
+
+    assert "Join the Dima audit." in client.prompts[0]
+
+
 def test_generate_gold_card_with_kie_requires_api_key(tmp_path: Path):
     with pytest.raises(RuntimeError, match="KIE_API_KEY"):
         generate_gold_card_with_kie(record=_record(), path=tmp_path / "card.png", kie_client=FakeKieClient(configured=False))

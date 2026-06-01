@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from .config import Settings
-from .infographic_delivery import create_and_send_infographic_reels
+from .infographic_delivery import build_kie_client, create_and_send_infographic_reels
+from .media_delivery import create_and_send_avatar_video
 from .media_assets import MediaAssetStore
 from .reference_paths import thumbnail_reference_paths
+from .settings_service import get_user_settings
 from .storage import FormatJob, Storage
 from .turan_client import TuranApiClient, submit_format_job
+from .turan_formats import list_turan_formats
 from .turan_service import create_format_job
 
 
@@ -28,9 +32,26 @@ def create_and_deliver_format_job(
     format_key: str,
 ) -> FormatJob:
     logger.info("Creating format job: user_id=%s script_id=%s format_key=%s", user_id, script_id, format_key)
+    if format_key == "all":
+        return _deliver_all_formats(
+            storage=storage,
+            asset_store=asset_store,
+            settings=settings,
+            user_id=user_id,
+            script_id=script_id,
+        )
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
     if job.format_key == "infographic_reels":
         return _deliver_infographic_job(
+            storage=storage,
+            asset_store=asset_store,
+            settings=settings,
+            user_id=user_id,
+            script_id=script_id,
+            job=job,
+        )
+    if job.format_key in {"avatar_reels", "avatar_horizontal"}:
+        return _deliver_avatar_job(
             storage=storage,
             asset_store=asset_store,
             settings=settings,
@@ -51,6 +72,78 @@ def create_and_deliver_format_job(
     return job
 
 
+def _deliver_all_formats(
+    *,
+    storage: Storage,
+    asset_store: MediaAssetStore,
+    settings: Settings,
+    user_id: str,
+    script_id: int,
+) -> FormatJob:
+    bundle = create_format_job(storage, user_id, script_id, "all", asset_store=asset_store, settings=settings)
+    delivered: list[str] = []
+    failed: list[str] = []
+    for spec in list_turan_formats():
+        child = create_and_deliver_format_job(
+            storage=storage,
+            asset_store=asset_store,
+            settings=settings,
+            user_id=user_id,
+            script_id=script_id,
+            format_key=spec.key,
+        )
+        if child.status == "failed":
+            failed.append(f"{spec.label}: {child.error or child.output_text}")
+        else:
+            delivered.append(f"{spec.label}: {child.output_url or child.external_task_id or child.status}")
+    status = "failed" if failed else "delivered"
+    output = ["Генерация всех форматов завершена.", "", "Готово:", *delivered]
+    if failed:
+        output.extend(["", "Ошибки:", *failed])
+    return storage.update_format_job_delivery(user_id, bundle.id, status=status, output_text="\n".join(output))
+
+
+def _deliver_avatar_job(
+    *,
+    storage: Storage,
+    asset_store: MediaAssetStore,
+    settings: Settings,
+    user_id: str,
+    script_id: int,
+    job: FormatJob,
+) -> FormatJob:
+    record = storage.get_script(user_id, script_id)
+    if not record:
+        raise ScriptNotFoundError("Script not found")
+    try:
+        result = create_and_send_avatar_video(
+            record=record,
+            user_id=user_id,
+            format_key=job.format_key,
+            settings=settings,
+            storage=storage,
+            asset_store=asset_store,
+            kie_client=build_kie_client(settings),
+        )
+        return storage.update_format_job_delivery(
+            user_id,
+            job.id,
+            status="delivered",
+            external_task_id=result.telegram_message_id or result.heygen_video_id,
+            output_url=str(result.video_path),
+            output_text=f"✅ Avatar формат создан и отправлен в Telegram.\nФайл: {result.video_path}",
+        )
+    except Exception as exc:
+        logger.exception("Avatar format job failed: job_id=%s", job.id)
+        return storage.update_format_job_delivery(
+            user_id,
+            job.id,
+            status="failed",
+            error=str(exc),
+            output_text=f"⚠️ Не удалось создать avatar формат: {exc}",
+        )
+
+
 def _deliver_infographic_job(
     *,
     storage: Storage,
@@ -65,11 +158,15 @@ def _deliver_infographic_job(
     if not record:
         raise ScriptNotFoundError("Script not found")
     try:
+        state = get_user_settings(storage, settings, user_id)
+        overlay_path = Path(state.instagram_post_5s_overlay_path) if state.instagram_post_5s_overlay_path else None
         result = create_and_send_infographic_reels(
             record=record,
             user_id=user_id,
             settings=settings,
             asset_store=asset_store,
+            cta_text=state.instagram_post_5s_cta_text,
+            overlay_path=overlay_path,
             reference_paths=thumbnail_reference_paths(
                 storage=storage,
                 asset_store=asset_store,

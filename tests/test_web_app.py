@@ -46,8 +46,23 @@ def test_formats_endpoint_lists_catalog():
 
 def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
     record = add_approved_script(storage)
     monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+
+    def fake_avatar_delivery(**kwargs):
+        return SimpleNamespace(
+            video_path=tmp_path / f"{kwargs['format_key']}.mp4",
+            telegram_message_id=f"tg-{kwargs['format_key']}",
+            heygen_video_id="heygen",
+        )
+
+    def fake_infographic_delivery(**kwargs):
+        return SimpleNamespace(video_path=tmp_path / "gold.mp4", telegram_message_id="tg-gold")
+
+    monkeypatch.setattr(web_format_jobs, "create_and_send_avatar_video", fake_avatar_delivery)
+    monkeypatch.setattr(web_format_jobs, "create_and_send_infographic_reels", fake_infographic_delivery)
     client = TestClient(web_app.app)
 
     listed = client.get("/api/scripts/approved", params={"user_id": record.user_id})
@@ -61,12 +76,15 @@ def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     assert listed.status_code == 200
     assert listed.json()[0]["id"] == record.id
     assert created.status_code == 200
+    assert created.json()["status"] == "delivered"
     assert created.json()["task_type"] == "turan_bundle"
     assert created.json()["raw"]["formats"][0]["turan_task_input"]["source_url"] == f"notebooklm-script://{record.id}"
     assert jobs.status_code == 200
-    assert jobs.json()[0]["id"] == created.json()["id"]
+    assert {job["format_key"] for job in jobs.json()} >= {"all", "avatar_reels", "infographic_reels", "avatar_horizontal"}
+    assert any(job["id"] == created.json()["id"] for job in jobs.json())
     assert opened.status_code == 200
-    assert "Revenue is not profit" in opened.json()["output_text"]
+    assert "Генерация всех форматов завершена" in opened.json()["output_text"]
+    assert "gold.mp4" in opened.json()["output_text"]
 
 
 def test_infographic_reels_job_sends_video_instead_of_prompt(tmp_path, monkeypatch):
@@ -185,6 +203,15 @@ def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
         files=[("files", ("sound.mp3", b"audio", "audio/mpeg"))],
     )
     record = add_approved_script(storage)
+
+    def fake_avatar_delivery(**kwargs):
+        return SimpleNamespace(
+            video_path=tmp_path / f"{kwargs['format_key']}.mp4",
+            telegram_message_id="888",
+            heygen_video_id="heygen",
+        )
+
+    monkeypatch.setattr(web_format_jobs, "create_and_send_avatar_video", fake_avatar_delivery)
     created_job = client.post(
         f"/api/scripts/{record.id}/format-jobs",
         json={"user_id": "42", "format_key": "avatar_horizontal"},
@@ -205,6 +232,8 @@ def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
     assert model.json()["heygen_video_api_version"] == "v3"
     assert model.json()["heygen_avatar_engine"] == "avatar_iv"
     assert audio.json()["audio_tracks"][0]["file_name"] == "sound.mp3"
+    assert created_job.json()["status"] == "delivered"
+    assert created_vertical_job.json()["status"] == "delivered"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["thumbnail"]["style_references"][0]["file_name"] == "ref.png"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["id"] == "avatar-horizontal"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["engine"] == "avatar_iv"

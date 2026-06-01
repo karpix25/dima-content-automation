@@ -6,11 +6,11 @@ const projectRoot = new URL("..", import.meta.url);
 const indexPath = new URL("../index.html", import.meta.url);
 const promptsPath = new URL("../assets/generated/prompts.json", import.meta.url);
 const outputDir = new URL("../assets/generated/", import.meta.url);
-const apiBase = process.env.KIE_API_BASE || "https://api.kie.ai";
+const apiBase = process.env.KIE_API_BASE || process.env.KIE_BASE_URL || "https://api.kie.ai";
 const callbackUrl = process.env.KIE_CALLBACK_URL || "https://example.com/callback";
 const model = process.env.KIE_IMAGE_MODEL || "gpt-image-2-text-to-image";
-const aspectRatio = process.env.KIE_ASPECT_RATIO || "1:1";
-const resolution = process.env.KIE_RESOLUTION || "1K";
+const aspectRatio = process.env.KIE_ASPECT_RATIO || process.env.KIE_IMAGE_ASPECT_RATIO || "1:1";
+const resolution = process.env.KIE_RESOLUTION || process.env.KIE_IMAGE_RESOLUTION || "1K";
 const jobTimeoutMs = Math.max(
   60_000,
   Number(process.env.KIE_JOB_TIMEOUT_MS || 15 * 60 * 1000),
