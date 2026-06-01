@@ -14,6 +14,27 @@ class KieImageError(RuntimeError):
     pass
 
 
+KIE_GPT_IMAGE_2_ASPECT_RATIOS = {
+    "auto",
+    "1:1",
+    "3:2",
+    "2:3",
+    "4:3",
+    "3:4",
+    "5:4",
+    "4:5",
+    "16:9",
+    "9:16",
+    "2:1",
+    "1:2",
+    "3:1",
+    "1:3",
+    "21:9",
+    "9:21",
+}
+KIE_GPT_IMAGE_2_RESOLUTIONS = {"1K", "2K", "4K"}
+
+
 @dataclass(frozen=True)
 class KieImageConfig:
     api_key: str | None
@@ -151,8 +172,8 @@ def _result_url(record: dict[str, Any]) -> str:
 def _task_payload(*, model: str, prompt: str, config: KieImageConfig, input_urls: list[str]) -> dict[str, Any]:
     input_payload: dict[str, Any] = {
         "prompt": prompt,
-        "aspect_ratio": config.aspect_ratio,
-        "resolution": config.resolution,
+        "aspect_ratio": _normalize_aspect_ratio(config.aspect_ratio),
+        "resolution": _normalize_resolution(config.resolution),
     }
     if input_urls:
         input_payload["input_urls"] = input_urls
@@ -168,8 +189,18 @@ def _model_candidates(model: str, *, has_references: bool = False) -> list[str]:
         candidates = ["gpt-image-2-image-to-image", primary]
         return list(dict.fromkeys(item for item in candidates if item and item != "gpt-image-2-text-to-image"))
     aliases = {
-        "gpt-image-2": ["gpt-image-2-text-to-image"],
-        "gpt-image-2-text-to-image": ["gpt-image-2"],
+        "gpt-image-2": ["gpt-image-2-text-to-image", "gpt-image-2"],
+        "gpt-image-2-text-to-image": ["gpt-image-2-text-to-image", "gpt-image-2"],
     }
-    candidates = [primary, *aliases.get(primary, [])]
+    candidates = aliases.get(primary, [primary])
     return list(dict.fromkeys(item for item in candidates if item))
+
+
+def _normalize_aspect_ratio(value: str) -> str:
+    normalized = (value or "").strip() or "9:16"
+    return normalized if normalized in KIE_GPT_IMAGE_2_ASPECT_RATIOS else "9:16"
+
+
+def _normalize_resolution(value: str) -> str:
+    normalized = (value or "").strip().upper() or "1K"
+    return normalized if normalized in KIE_GPT_IMAGE_2_RESOLUTIONS else "1K"
