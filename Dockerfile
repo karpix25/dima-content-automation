@@ -54,17 +54,15 @@ COPY requirements.txt ./
 COPY hyperframes-auto/package*.json ./hyperframes-auto/
 
 RUN python3 -m venv /opt/venv \
-    && python -m pip install --upgrade pip \
     && for attempt in 1 2 3; do \
-        pip install --timeout 120 --retries 10 -r requirements.txt && break; \
+        python -m pip install --timeout 120 --retries 10 -r requirements.txt && break; \
         if [ "$attempt" = "3" ]; then exit 1; fi; \
         echo "pip install failed, retrying in 10 seconds..."; \
         sleep 10; \
     done
 
 RUN cd hyperframes-auto \
-    && npm ci --omit=dev --no-audit --no-fund \
-    && npm cache clean --force
+    && npm ci --omit=dev --no-audit --no-fund
 
 COPY content_automation ./content_automation
 COPY hyperframes-auto ./hyperframes-auto
