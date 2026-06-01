@@ -75,8 +75,8 @@ function renderScripts() {
       <h3>#${script.id} ${escapeHtml(script.title || script.hook)}</h3>
       <p>${escapeHtml(script.hook)}</p>
       <div class="formats">
-        ${state.formats.map((format, index) => `
-          <button class="${index === 1 ? "gold" : index === 2 ? "green" : ""}"
+        ${state.formats.map((format) => `
+          <button class="${formatButtonClass(format.key)}"
             data-script="${script.id}" data-format="${format.key}">
             ${escapeHtml(format.label)}
           </button>
@@ -88,6 +88,12 @@ function renderScripts() {
   root.querySelectorAll("button[data-script]").forEach((button) => {
     button.addEventListener("click", () => createJob(button.dataset.script, button.dataset.format));
   });
+}
+
+function formatButtonClass(formatKey) {
+  if (formatKey === "infographic_reels") return "gold";
+  if (formatKey === "avatar_horizontal") return "green";
+  return "";
 }
 
 function renderJobs() {

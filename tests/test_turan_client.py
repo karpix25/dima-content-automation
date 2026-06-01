@@ -36,7 +36,7 @@ def test_submit_format_job_sends_all_turan_inputs(tmp_path):
     result = submit_format_job(job, client, "42")
 
     assert result.status == "submitted"
-    assert result.external_task_id == "1,2,3,4"
-    assert len(client.payloads) == 4
+    assert result.external_task_id == "1,2,3"
+    assert len(client.payloads) == 3
     assert client.payloads[0][1]["source_url"] == f"notebooklm-script://{job.script_id}"
     assert client.payloads[0][1]["script_text"] == "Approved NotebookLM text."

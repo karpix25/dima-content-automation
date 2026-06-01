@@ -31,13 +31,6 @@ def build_structured_payload(record: ScriptRecord, spec: TuranFormat) -> dict[st
         "turan_task_input": build_turan_task_input(record, spec),
         "package_text": build_turan_package(record, spec.key),
     }
-    if spec.key == "gold_5s":
-        base["instagram_post_5s"] = {
-            "on_screen_title": record.hook or record.title,
-            "on_screen_subline": record.trigger or record.angle,
-            "voiceover": record.voiceover,
-            "caption": _caption(record),
-        }
     if spec.key == "infographic_reels":
         base["infographic_reels"] = {
             "card": {
@@ -45,6 +38,8 @@ def build_structured_payload(record: ScriptRecord, spec: TuranFormat) -> dict[st
                 "subtitle": record.angle or record.trigger,
                 "description": _caption(record),
                 "source_title": record.title,
+                "duration_seconds": 5,
+                "style": "gold_background",
             }
         }
     if spec.key in {"avatar_reels", "avatar_horizontal"}:
@@ -75,13 +70,9 @@ def build_turan_task_input(record: ScriptRecord, spec: TuranFormat) -> dict[str,
                 "subtitle": record.angle or record.trigger,
                 "description": _caption(record),
                 "source_title": record.title,
+                "duration_seconds": 5,
+                "style": "gold_background",
             }
-        }
-    if spec.key == "gold_5s":
-        script_meta["instagram_post_5s"] = {
-            "title": record.hook or record.title,
-            "subtitle": record.trigger or record.angle,
-            "description": _caption(record),
         }
 
     return {

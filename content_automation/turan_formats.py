@@ -23,16 +23,10 @@ TURAN_FORMATS: tuple[TuranFormat, ...] = (
         description="vertical avatar script package",
     ),
     TuranFormat(
-        key="gold_5s",
-        label="Золотой фон 5 сек.",
-        task_type="avatar_instagram_post_5s",
-        description="short text-card reel package",
-    ),
-    TuranFormat(
         key="infographic_reels",
-        label="Инфографика Reels",
+        label="Золотой фон / инфографика 5 сек.",
         task_type="infographic_reels",
-        description="visual infographic card package",
+        description="five-second gold infographic card package",
     ),
     TuranFormat(
         key="avatar_horizontal",
@@ -59,8 +53,6 @@ def build_turan_package(record: ScriptRecord, format_key: str) -> str:
         raise ValueError(f"Unknown Turan format: {format_key}")
     if spec.key == "avatar_reels":
         return build_avatar_reels_package(record, spec)
-    if spec.key == "gold_5s":
-        return build_gold_5s_package(record, spec)
     if spec.key == "infographic_reels":
         return build_infographic_reels_package(record, spec)
     if spec.key == "avatar_horizontal":
@@ -86,28 +78,15 @@ def build_avatar_reels_package(record: ScriptRecord, spec: TuranFormat) -> str:
     )
 
 
-def build_gold_5s_package(record: ScriptRecord, spec: TuranFormat) -> str:
-    title = _short_overlay(record.hook or record.title, 52)
-    subline = _short_overlay(record.trigger or record.angle, 72)
-    return _join_sections(
-        _header(record, spec),
-        ("Format goal", "Five-second gold-background card in the Turan style."),
-        ("On-screen title", title),
-        ("On-screen subline", subline),
-        ("Micro voiceover", _short_voiceover(record.voiceover, 120)),
-        ("Caption", _caption(record)),
-        ("Visual direction", _visual_direction(record, "gold card, bold title, fast social proof energy")),
-    )
-
-
 def build_infographic_reels_package(record: ScriptRecord, spec: TuranFormat) -> str:
     bullets = _insight_bullets(record)
     return _join_sections(
         _header(record, spec),
-        ("Format goal", "A single infographic reel card based on the approved NotebookLM insight."),
+        ("Format goal", "A five-second gold-background infographic card based on the approved NotebookLM insight."),
         ("Card title", _short_overlay(record.hook or record.title, 64)),
         ("Card subtitle", _short_overlay(record.angle or record.trigger, 90)),
         ("Card bullets", "\n".join(f"- {item}" for item in bullets)),
+        ("Micro voiceover", _short_voiceover(record.voiceover, 120)),
         ("Image prompt", _image_prompt(record, bullets)),
         ("Caption", _caption(record)),
     )

@@ -62,7 +62,7 @@ def test_create_all_formats_job_persists_bundle(tmp_path):
     assert job.format_key == "all"
     assert job.task_type == "turan_bundle"
     assert "Turan format: ИИ аватар Reels" in job.output_text
-    assert "Turan format: Инфографика Reels" in job.output_text
+    assert "Turan format: Золотой фон / инфографика 5 сек." in job.output_text
     assert job.raw["formats"][0]["turan_task_input"]["script_text"] == record.voiceover
 
 
