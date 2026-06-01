@@ -36,6 +36,8 @@ class SelectAssetIn(BaseModel):
     id: str
     name: str
     target: str = "both"
+    preview_image_url: str | None = None
+    preview_video_url: str | None = None
 
 
 class HeyGenModelIn(BaseModel):
@@ -92,8 +94,12 @@ class UserSettingsOut(BaseModel):
     cta_mix: str
     heygen_avatar_id: str | None = None
     heygen_avatar_name: str | None = None
+    heygen_avatar_preview_image_url: str | None = None
+    heygen_avatar_preview_video_url: str | None = None
     heygen_vertical_avatar_id: str | None = None
     heygen_vertical_avatar_name: str | None = None
+    heygen_vertical_avatar_preview_image_url: str | None = None
+    heygen_vertical_avatar_preview_video_url: str | None = None
     heygen_video_api_version: str = "v2"
     heygen_avatar_engine: str = "avatar_iv"
     elevenlabs_voice_id: str | None = None

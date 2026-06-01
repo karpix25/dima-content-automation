@@ -39,8 +39,12 @@ class UserSettingsState:
     cta_mix: str
     heygen_avatar_id: str | None
     heygen_avatar_name: str | None
+    heygen_avatar_preview_image_url: str | None
+    heygen_avatar_preview_video_url: str | None
     heygen_vertical_avatar_id: str | None
     heygen_vertical_avatar_name: str | None
+    heygen_vertical_avatar_preview_image_url: str | None
+    heygen_vertical_avatar_preview_video_url: str | None
     heygen_video_api_version: str
     heygen_avatar_engine: str
     elevenlabs_voice_id: str | None
@@ -64,8 +68,12 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         cta_mix=storage.get_setting(user_id, "cta_mix") or DEFAULT_CTA_MIX,
         heygen_avatar_id=storage.get_setting(user_id, "heygen_avatar_id"),
         heygen_avatar_name=storage.get_setting(user_id, "heygen_avatar_name"),
+        heygen_avatar_preview_image_url=storage.get_setting(user_id, "heygen_avatar_preview_image_url"),
+        heygen_avatar_preview_video_url=storage.get_setting(user_id, "heygen_avatar_preview_video_url"),
         heygen_vertical_avatar_id=storage.get_setting(user_id, "heygen_vertical_avatar_id") or storage.get_setting(user_id, "heygen_avatar_id"),
         heygen_vertical_avatar_name=storage.get_setting(user_id, "heygen_vertical_avatar_name") or storage.get_setting(user_id, "heygen_avatar_name"),
+        heygen_vertical_avatar_preview_image_url=storage.get_setting(user_id, "heygen_vertical_avatar_preview_image_url") or storage.get_setting(user_id, "heygen_avatar_preview_image_url"),
+        heygen_vertical_avatar_preview_video_url=storage.get_setting(user_id, "heygen_vertical_avatar_preview_video_url") or storage.get_setting(user_id, "heygen_avatar_preview_video_url"),
         heygen_video_api_version=get_heygen_video_api_version(storage, user_id),
         heygen_avatar_engine=get_heygen_avatar_engine(storage, user_id),
         elevenlabs_voice_id=storage.get_setting(user_id, "elevenlabs_voice_id") or settings.elevenlabs_voice_id,
@@ -93,19 +101,35 @@ def set_text_setting(storage: Storage, user_id: str, key: str, value: str) -> No
     storage.set_setting(user_id, key, normalized)
 
 
-def set_active_heygen_avatar(storage: Storage, user_id: str, avatar_id: str, avatar_name: str, target: str = "both") -> None:
+def set_active_heygen_avatar(
+    storage: Storage,
+    user_id: str,
+    avatar_id: str,
+    avatar_name: str,
+    target: str = "both",
+    preview_image_url: str | None = None,
+    preview_video_url: str | None = None,
+) -> None:
     normalized = (target or "both").strip().lower()
     if normalized in {"youtube", "horizontal", "landscape"}:
         storage.set_setting(user_id, "heygen_avatar_id", avatar_id)
         storage.set_setting(user_id, "heygen_avatar_name", avatar_name)
+        storage.set_setting(user_id, "heygen_avatar_preview_image_url", preview_image_url or "")
+        storage.set_setting(user_id, "heygen_avatar_preview_video_url", preview_video_url or "")
     elif normalized in {"shorts", "reels", "vertical", "portrait", "9:16"}:
         storage.set_setting(user_id, "heygen_vertical_avatar_id", avatar_id)
         storage.set_setting(user_id, "heygen_vertical_avatar_name", avatar_name)
+        storage.set_setting(user_id, "heygen_vertical_avatar_preview_image_url", preview_image_url or "")
+        storage.set_setting(user_id, "heygen_vertical_avatar_preview_video_url", preview_video_url or "")
     elif normalized == "both":
         storage.set_setting(user_id, "heygen_avatar_id", avatar_id)
         storage.set_setting(user_id, "heygen_avatar_name", avatar_name)
+        storage.set_setting(user_id, "heygen_avatar_preview_image_url", preview_image_url or "")
+        storage.set_setting(user_id, "heygen_avatar_preview_video_url", preview_video_url or "")
         storage.set_setting(user_id, "heygen_vertical_avatar_id", avatar_id)
         storage.set_setting(user_id, "heygen_vertical_avatar_name", avatar_name)
+        storage.set_setting(user_id, "heygen_vertical_avatar_preview_image_url", preview_image_url or "")
+        storage.set_setting(user_id, "heygen_vertical_avatar_preview_video_url", preview_video_url or "")
     else:
         raise ValueError("Unsupported avatar target")
 

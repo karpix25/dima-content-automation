@@ -163,7 +163,13 @@ def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
     )
     horizontal_avatar = client.post(
         "/api/settings/heygen-avatar",
-        json={"user_id": "42", "id": "avatar-horizontal", "name": "Horizontal Dima", "target": "horizontal"},
+        json={
+            "user_id": "42",
+            "id": "avatar-horizontal",
+            "name": "Horizontal Dima",
+            "target": "horizontal",
+            "preview_image_url": "https://example.com/horizontal.jpg",
+        },
     )
     vertical_avatar = client.post(
         "/api/settings/heygen-avatar",
@@ -194,6 +200,7 @@ def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
     assert faces.status_code == 200
     assert activated.status_code == 200
     assert horizontal_avatar.json()["heygen_avatar_id"] == "avatar-horizontal"
+    assert horizontal_avatar.json()["heygen_avatar_preview_image_url"] == "https://example.com/horizontal.jpg"
     assert vertical_avatar.json()["heygen_vertical_avatar_id"] == "avatar-vertical"
     assert model.json()["heygen_video_api_version"] == "v3"
     assert model.json()["heygen_avatar_engine"] == "avatar_iv"

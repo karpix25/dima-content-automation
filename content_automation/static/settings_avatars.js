@@ -24,15 +24,21 @@ export function renderAvatarSelectors(state, escapeHtml) {
     <div class="avatar-current-grid">
       ${currentAvatarCard(
         "YouTube / горизонтальный",
+        horizontal,
         settings.heygen_avatar_name,
         settings.heygen_avatar_id,
+        settings.heygen_avatar_preview_image_url,
+        settings.heygen_avatar_preview_video_url,
         "dark",
         escapeHtml,
       )}
       ${currentAvatarCard(
         "Shorts/Reels / вертикальный",
+        vertical,
         settings.heygen_vertical_avatar_name,
         settings.heygen_vertical_avatar_id,
+        settings.heygen_vertical_avatar_preview_image_url,
+        settings.heygen_vertical_avatar_preview_video_url,
         "blue",
         escapeHtml,
       )}
@@ -76,14 +82,29 @@ function modelButton(id, label, hint, selected, escapeHtml) {
   `;
 }
 
-function currentAvatarCard(label, name, id, tone, escapeHtml) {
+function currentAvatarCard(label, avatar, name, id, imageUrl, videoUrl, tone, escapeHtml) {
+  const previewImage = avatar?.preview_image_url || imageUrl || "";
+  const previewVideo = avatar?.preview_video_url || videoUrl || "";
   return `
     <div class="avatar-current ${tone}">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(name || "Не выбран")}</strong>
-      <code>${escapeHtml(id || "")}</code>
+      ${renderPreview(previewImage, previewVideo, escapeHtml)}
+      <div>
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(name || "Не выбран")}</strong>
+        <code>${escapeHtml(id || "")}</code>
+      </div>
     </div>
   `;
+}
+
+function renderPreview(imageUrl, videoUrl, escapeHtml) {
+  if (videoUrl) {
+    return `<video class="avatar-current-preview" src="${escapeHtml(videoUrl)}" muted playsinline preload="metadata"></video>`;
+  }
+  if (imageUrl) {
+    return `<img class="avatar-current-preview" src="${escapeHtml(imageUrl)}" alt="" />`;
+  }
+  return `<div class="avatar-current-preview placeholder"></div>`;
 }
 
 function renderAvatarList(state, escapeHtml) {
@@ -111,6 +132,8 @@ function renderAvatarList(state, escapeHtml) {
             data-target="horizontal"
             data-id="${escapeHtml(avatar.id)}"
             data-name="${escapeHtml(avatar.name)}"
+            data-preview-image-url="${escapeHtml(avatar.preview_image_url || "")}"
+            data-preview-video-url="${escapeHtml(avatar.preview_video_url || "")}"
           >YouTube</button>
           <button
             class="${isVertical ? "active" : ""}"
@@ -119,6 +142,8 @@ function renderAvatarList(state, escapeHtml) {
             data-target="vertical"
             data-id="${escapeHtml(avatar.id)}"
             data-name="${escapeHtml(avatar.name)}"
+            data-preview-image-url="${escapeHtml(avatar.preview_image_url || "")}"
+            data-preview-video-url="${escapeHtml(avatar.preview_video_url || "")}"
           >Shorts</button>
         </div>
       </article>
@@ -163,6 +188,8 @@ async function selectAvatar(deps, dataset, renderSettingsPanel) {
       id: dataset.id,
       name: dataset.name,
       target: dataset.target || "both",
+      preview_image_url: dataset.previewImageUrl || "",
+      preview_video_url: dataset.previewVideoUrl || "",
     }),
   });
   renderSettingsPanel(deps);

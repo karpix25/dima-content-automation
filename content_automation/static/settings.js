@@ -1,4 +1,5 @@
 import { bindAvatarEvents, renderAvatarSelectors } from "/static/settings_avatars.js";
+import { bindVoiceEvents, renderVoiceSelector } from "/static/settings_voices.js";
 
 export async function loadSettingsData(deps, render = true) {
   const { state, api } = deps;
@@ -64,10 +65,7 @@ function renderIdentitySection({ state, escapeHtml }) {
         </div>
         <div class="soft-box">
           <h3>Голос ElevenLabs</h3>
-          <p>${escapeHtml(settings.elevenlabs_voice_name || "Не выбран")}</p>
-          <code>${escapeHtml(settings.elevenlabs_voice_id || "")}</code>
-          <button data-action="load-voices">Загрузить голоса</button>
-          <div class="asset-list">${renderVoiceList(state, escapeHtml)}</div>
+          ${renderVoiceSelector(state, escapeHtml)}
         </div>
       </div>
     </details>
@@ -214,9 +212,8 @@ function renderOverlaySection({ state, escapeHtml }) {
 
 function bindSettingsEvents(root, deps) {
   bindAvatarEvents(root, deps, renderSettingsPanel);
-  root.querySelectorAll("[data-action='load-voices']").forEach((button) => button.addEventListener("click", () => loadVoices(deps).catch(deps.showError)));
+  bindVoiceEvents(root, deps, renderSettingsPanel);
   root.querySelectorAll("[data-action='save-text']").forEach((button) => button.addEventListener("click", () => saveTextSetting(deps, button.dataset.key).catch(deps.showError)));
-  root.querySelectorAll("[data-action='select-voice']").forEach((button) => button.addEventListener("click", () => selectAsset(deps, "elevenlabs-voice", button.dataset).catch(deps.showError)));
   root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => button.addEventListener("click", () => saveOverlayPercent(deps, button.dataset.format).catch(deps.showError)));
   root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => button.addEventListener("click", () => deleteOverlay(deps, button.dataset.format).catch(deps.showError)));
   root.querySelectorAll("[data-action='delete-ref']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "thumbnail-references", button.dataset.id).catch(deps.showError)));
@@ -230,13 +227,6 @@ function bindSettingsEvents(root, deps) {
   root.querySelectorAll("[data-overlay-file]").forEach((input) => input.addEventListener("change", () => uploadOverlay(deps, input.dataset.overlayFile, input.files[0]).catch(deps.showError)));
 }
 
-async function loadVoices({ state, api, setStatus }) {
-  setStatus("Голоса");
-  state.voices = await api("/api/settings/elevenlabs-voices");
-  renderSettingsPanel(arguments[0]);
-  setStatus("Готово");
-}
-
 async function saveTextSetting(deps, key) {
   const field = document.querySelector(`[data-setting="${key}"]`);
   deps.setStatus("Сохраняю");
@@ -245,16 +235,6 @@ async function saveTextSetting(deps, key) {
     body: JSON.stringify({ user_id: deps.state.userId, key, value: field.value }),
   });
   await loadSettingsData(deps);
-  deps.setStatus("Сохранено");
-}
-
-async function selectAsset(deps, kind, dataset) {
-  deps.setStatus("Сохраняю");
-  deps.state.settings = await deps.api(`/api/settings/${kind}`, {
-    method: "POST",
-    body: JSON.stringify({ user_id: deps.state.userId, id: dataset.id, name: dataset.name }),
-  });
-  renderSettingsPanel(deps);
   deps.setStatus("Сохранено");
 }
 
@@ -331,16 +311,6 @@ async function deleteFiveAudio(deps, id) {
 async function deleteFiveOverlay(deps) {
   await deps.api(`/api/settings/instagram-post-5s/overlay?user_id=${encodeURIComponent(deps.state.userId)}`, { method: "DELETE" });
   await loadSettingsData(deps);
-}
-
-function renderVoiceList(state, escapeHtml) {
-  return state.voices.map((voice) => `
-    <article class="asset-card text-card">
-      <div><strong>${escapeHtml(voice.name)}</strong><small>${escapeHtml(voice.category || voice.id)}</small></div>
-      ${voice.preview_url ? `<a href="${escapeHtml(voice.preview_url)}" target="_blank" rel="noreferrer">Прослушать</a>` : ""}
-      <button data-action="select-voice" data-id="${escapeHtml(voice.id)}" data-name="${escapeHtml(voice.name)}">Выбрать</button>
-    </article>
-  `).join("");
 }
 
 function renderFaceReferences(state, escapeHtml) {
