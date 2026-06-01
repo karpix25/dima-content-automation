@@ -16,7 +16,9 @@ def test_generate_gold_card_with_kie_uses_prompt_and_output_path(tmp_path: Path)
 
     assert generated == output_path
     assert output_path.read_text() == "kie-card"
-    assert "premium vertical 9:16" in client.prompts[0]
+    assert "exact color #EBC97C" in client.prompts[0]
+    assert "off-white/milky rounded rectangle block" in client.prompts[0]
+    assert "Montserrat" in client.prompts[0]
     assert "Revenue is not profit" in client.prompts[0]
     assert client.reference_paths == []
 
@@ -35,7 +37,8 @@ def test_generate_gold_card_with_kie_passes_reference_paths(tmp_path: Path):
     )
 
     assert client.reference_paths == [reference]
-    assert "face/style reference" in client.prompts[0]
+    assert "face/style reference images" in client.prompts[0]
+    assert "realistic cutout sticker of the author" in client.prompts[0]
 
 
 def test_generate_gold_card_with_kie_uses_configured_cta(tmp_path: Path):
@@ -57,6 +60,7 @@ def test_gold_card_prompt_includes_script_fields():
     assert "Revenue is not profit" in prompt
     assert "Cash conversion" in prompt
     assert "Check contribution margin" in prompt
+    assert "#EBC97C" in prompt
 
 
 def test_render_five_second_video_normalizes_kie_image_size(tmp_path: Path, monkeypatch):

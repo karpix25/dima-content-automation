@@ -14,6 +14,7 @@ from .config import Settings
 from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .storage import ScriptRecord
+from .turan_infographic_prompt import build_turan_infographic_prompt
 
 
 logger = logging.getLogger(__name__)
@@ -118,23 +119,11 @@ def generate_gold_card_with_kie(
 
 
 def gold_card_prompt(record: ScriptRecord, *, has_references: bool = False, cta_text: str | None = None) -> str:
-    bullets = "; ".join(build_bullets(record)[:3])
-    reference_rule = (
-        "Use the uploaded face/style reference images to keep the person and visual style consistent. "
-        "Do not copy old text from references; replace all text with the script headline and bullets. "
-        if has_references
-        else ""
-    )
-    return (
-        "Create a premium vertical 9:16 five-second business infographic card for Amazon sellers. "
-        f"{reference_rule}"
-        "Use a rich gold background, sharp contrast, luxury founder-brand style, clean spacing, readable hierarchy. "
-        "No logos, no watermarks, no fake UI, no clutter. "
-        f"Main headline: {clean_text(record.hook or record.title)}. "
-        f"Subtitle/context: {clean_text(record.angle or record.trigger or record.source_basis)}. "
-        f"Supporting bullets: {bullets}. "
-        f"CTA: {clean_text(cta_text or record.cta or 'Save this insight')}. "
-        "The final image must feel like a polished Turan-style Instagram/Reels business card."
+    return build_turan_infographic_prompt(
+        record=record,
+        bullets=build_bullets(record),
+        cta_text=cta_text,
+        has_references=has_references,
     )
 
 
