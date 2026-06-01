@@ -314,6 +314,7 @@ class Storage:
         status: str,
         external_task_id: str | None = None,
         output_url: str | None = None,
+        output_text: str | None = None,
         error: str | None = None,
         raw: dict[str, Any] | None = None,
     ) -> FormatJob:
@@ -325,6 +326,9 @@ class Storage:
             "updated_at = CURRENT_TIMESTAMP",
         ]
         values: list[Any] = [status, external_task_id, output_url, error]
+        if output_text is not None:
+            fields.append("output_text = ?")
+            values.append(output_text)
         if raw is not None:
             fields.append("raw_json = ?")
             values.append(json.dumps(raw, ensure_ascii=False))

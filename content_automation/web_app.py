@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import load_settings
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError
 from .heygen import HeyGenClient, HeyGenError
+from .infographic_delivery import create_and_send_infographic_reels
 from .media_assets import (
     AUDIO_EXTENSIONS,
     IMAGE_EXTENSIONS,
@@ -433,6 +434,37 @@ def create_script_format_job(script_id: int, payload: CreateFormatJobIn) -> Form
         )
     except TuranServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if job.format_key == "infographic_reels":
+        record = storage.get_script(payload.user_id, script_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="Script not found")
+        try:
+            result = create_and_send_infographic_reels(
+                record=record,
+                user_id=payload.user_id,
+                settings=settings,
+                asset_store=asset_store,
+            )
+            job = storage.update_format_job_delivery(
+                payload.user_id,
+                job.id,
+                status="delivered",
+                external_task_id=result.telegram_message_id,
+                output_url=str(result.video_path),
+                output_text=(
+                    "✅ Золотой фон / инфографика 5 сек. создана и отправлена в Telegram.\n"
+                    f"Файл: {result.video_path}"
+                ),
+            )
+        except Exception as exc:
+            job = storage.update_format_job_delivery(
+                payload.user_id,
+                job.id,
+                status="failed",
+                error=str(exc),
+                output_text=f"⚠️ Не удалось создать или отправить золотой фон: {exc}",
+            )
+        return job_to_out(job)
     if settings.turan_api_base_url:
         result = submit_format_job(
             job,

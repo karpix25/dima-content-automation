@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import replace
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
@@ -66,6 +67,30 @@ def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     assert jobs.json()[0]["id"] == created.json()["id"]
     assert opened.status_code == 200
     assert "Revenue is not profit" in opened.json()["output_text"]
+
+
+def test_infographic_reels_job_sends_video_instead_of_prompt(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
+    record = add_approved_script(storage)
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+
+    def fake_delivery(**kwargs):
+        return SimpleNamespace(video_path=tmp_path / "gold.mp4", telegram_message_id="777")
+
+    monkeypatch.setattr(web_app, "create_and_send_infographic_reels", fake_delivery)
+    client = TestClient(web_app.app)
+
+    created = client.post(
+        f"/api/scripts/{record.id}/format-jobs",
+        json={"user_id": record.user_id, "format_key": "infographic_reels"},
+    )
+
+    assert created.status_code == 200
+    assert created.json()["status"] == "delivered"
+    assert created.json()["external_task_id"] == "777"
+    assert "отправлена в Telegram" in created.json()["output_text"]
 
 
 def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
