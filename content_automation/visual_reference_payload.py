@@ -15,8 +15,14 @@ def build_visual_reference_payload(
 ) -> dict[str, object]:
     state = get_user_settings(storage, settings, user_id)
     target = "horizontal" if format_key == "avatar_horizontal" else "vertical"
+    avatar_id = state.heygen_avatar_id if target == "horizontal" else state.heygen_vertical_avatar_id
+    avatar_name = state.heygen_avatar_name if target == "horizontal" else state.heygen_vertical_avatar_name
     return {
         "target": target,
+        "heygen_avatar": {
+            "id": avatar_id,
+            "name": avatar_name,
+        },
         "thumbnail": {
             "face_path": state.thumbnail_face_path if target == "horizontal" else state.vertical_thumbnail_face_path,
             "style_references": [

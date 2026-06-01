@@ -35,6 +35,7 @@ class SelectAssetIn(BaseModel):
     user_id: str
     id: str
     name: str
+    target: str = "both"
 
 
 class OverlayPercentIn(BaseModel):
@@ -86,6 +87,8 @@ class UserSettingsOut(BaseModel):
     cta_mix: str
     heygen_avatar_id: str | None = None
     heygen_avatar_name: str | None = None
+    heygen_vertical_avatar_id: str | None = None
+    heygen_vertical_avatar_name: str | None = None
     elevenlabs_voice_id: str | None = None
     elevenlabs_voice_name: str
     thumbnail_face_path: str | None = None

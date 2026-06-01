@@ -159,6 +159,86 @@
   grid-template-columns: 1fr auto auto;
 }
 
+.avatar-current-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.avatar-current {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.avatar-current span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.avatar-current strong {
+  font-size: 13px;
+}
+
+.avatar-current.blue {
+  border-color: rgba(36, 161, 222, 0.28);
+}
+
+.avatar-current.dark {
+  border-color: rgba(15, 23, 42, 0.24);
+}
+
+.avatar-load-row p {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.avatar-card {
+  grid-template-columns: 46px 1fr;
+}
+
+.avatar-card.active {
+  border-color: #111827;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+}
+
+.avatar-card .avatar-target-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.avatar-target-row button {
+  height: 28px;
+  padding: 0 4px;
+  background: #eef2f7;
+  color: #475569;
+  font-size: 11px;
+}
+
+.avatar-target-row button.active {
+  background: var(--blue);
+  color: white;
+}
+
+.avatar-target-row button.dark {
+  background: #111827;
+}
+
+.avatar-placeholder {
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  background: #e5e7eb;
+}
+
 .asset-card img,
 .overlay-card img {
   width: 46px;
@@ -299,6 +379,7 @@
 }
 
 @media (max-width: 620px) {
+  .avatar-current-grid,
   .settings-two,
   .settings-three {
     grid-template-columns: 1fr;

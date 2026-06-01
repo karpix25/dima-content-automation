@@ -501,17 +501,23 @@ def set_active_elevenlabs_voice(user_id: str, voice: ElevenLabsVoice) -> None:
     storage.set_setting(user_id, "elevenlabs_voice_name", voice.name)
 
 
-def get_active_heygen_avatar_id(user_id: str) -> str | None:
-    return storage.get_setting(user_id, "heygen_avatar_id")
+def get_active_heygen_avatar_id(user_id: str, target: str = "vertical") -> str | None:
+    if target == "horizontal":
+        return storage.get_setting(user_id, "heygen_avatar_id")
+    return storage.get_setting(user_id, "heygen_vertical_avatar_id") or storage.get_setting(user_id, "heygen_avatar_id")
 
 
-def get_active_heygen_avatar_name(user_id: str) -> str | None:
-    return storage.get_setting(user_id, "heygen_avatar_name")
+def get_active_heygen_avatar_name(user_id: str, target: str = "vertical") -> str | None:
+    if target == "horizontal":
+        return storage.get_setting(user_id, "heygen_avatar_name")
+    return storage.get_setting(user_id, "heygen_vertical_avatar_name") or storage.get_setting(user_id, "heygen_avatar_name")
 
 
 def set_active_heygen_avatar(user_id: str, avatar: HeyGenAvatar) -> None:
     storage.set_setting(user_id, "heygen_avatar_id", avatar.id)
     storage.set_setting(user_id, "heygen_avatar_name", avatar.name)
+    storage.set_setting(user_id, "heygen_vertical_avatar_id", avatar.id)
+    storage.set_setting(user_id, "heygen_vertical_avatar_name", avatar.name)
 
 
 def button(text: str, *, callback_data: str | None = None, url: str | None = None, style: str | None = None) -> InlineKeyboardButton:
@@ -1112,13 +1118,16 @@ def format_current_settings(user_id: str) -> str:
     cta_mix = get_cta_mix(user_id)
     voice_name = get_active_elevenlabs_voice_name(user_id)
     voice_id = get_active_elevenlabs_voice_id(user_id) or "не задан"
-    avatar_name = get_active_heygen_avatar_name(user_id) or "не выбран"
-    avatar_id = get_active_heygen_avatar_id(user_id) or "не задан"
+    avatar_name = get_active_heygen_avatar_name(user_id, "horizontal") or "не выбран"
+    avatar_id = get_active_heygen_avatar_id(user_id, "horizontal") or "не задан"
+    vertical_avatar_name = get_active_heygen_avatar_name(user_id, "vertical") or "не выбран"
+    vertical_avatar_id = get_active_heygen_avatar_id(user_id, "vertical") or "не задан"
     return "\n\n".join(
         [
             "Текущие настройки контента:",
             f"База NotebookLM:\n{notebook}",
-            f"HeyGen avatar:\n{avatar_name}\n{avatar_id}",
+            f"HeyGen avatar YouTube:\n{avatar_name}\n{avatar_id}",
+            f"HeyGen avatar Shorts/Reels:\n{vertical_avatar_name}\n{vertical_avatar_id}",
             f"ElevenLabs voice:\n{voice_name}\n{voice_id}",
             overlay_summary(user_id, "short"),
             overlay_summary(user_id, "youtube"),

@@ -132,7 +132,10 @@ async def heygen_avatars() -> list[HeyGenAvatarOut]:
 
 @app.post("/api/settings/heygen-avatar", response_model=UserSettingsOut)
 def update_heygen_avatar(payload: SelectAssetIn) -> UserSettingsOut:
-    set_active_heygen_avatar(storage, payload.user_id, payload.id, payload.name)
+    try:
+        set_active_heygen_avatar(storage, payload.user_id, payload.id, payload.name, payload.target)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return settings_to_out(payload.user_id)
 
 

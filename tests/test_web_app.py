@@ -136,6 +136,14 @@ def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
         f"/api/settings/thumbnail-face-references/{faces.json()[0]['id']}",
         json={"user_id": "42", "target": "vertical"},
     )
+    horizontal_avatar = client.post(
+        "/api/settings/heygen-avatar",
+        json={"user_id": "42", "id": "avatar-horizontal", "name": "Horizontal Dima", "target": "horizontal"},
+    )
+    vertical_avatar = client.post(
+        "/api/settings/heygen-avatar",
+        json={"user_id": "42", "id": "avatar-vertical", "name": "Vertical Dima", "target": "vertical"},
+    )
     audio = client.post(
         "/api/settings/instagram-post-5s/audio",
         data={"user_id": "42"},
@@ -146,12 +154,20 @@ def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
         f"/api/scripts/{record.id}/format-jobs",
         json={"user_id": "42", "format_key": "avatar_horizontal"},
     )
+    created_vertical_job = client.post(
+        f"/api/scripts/{record.id}/format-jobs",
+        json={"user_id": "42", "format_key": "avatar_reels"},
+    )
     settings = client.get("/api/settings", params={"user_id": "42"})
 
     assert refs.status_code == 200
     assert updated.json()["target"] == "horizontal"
     assert faces.status_code == 200
     assert activated.status_code == 200
+    assert horizontal_avatar.json()["heygen_avatar_id"] == "avatar-horizontal"
+    assert vertical_avatar.json()["heygen_vertical_avatar_id"] == "avatar-vertical"
     assert audio.json()["audio_tracks"][0]["file_name"] == "sound.mp3"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["thumbnail"]["style_references"][0]["file_name"] == "ref.png"
+    assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["id"] == "avatar-horizontal"
+    assert created_vertical_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["id"] == "avatar-vertical"
     assert settings.json()["vertical_thumbnail_face_path"].endswith(".jpg")

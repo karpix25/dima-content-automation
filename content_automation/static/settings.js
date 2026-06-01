@@ -1,3 +1,5 @@
+import { bindAvatarEvents, renderAvatarSelectors } from "/static/settings_avatars.js";
+
 export async function loadSettingsData(deps, render = true) {
   const { state, api } = deps;
   if (!state.userId) return;
@@ -57,11 +59,8 @@ function renderIdentitySection({ state, escapeHtml }) {
       <summary><span>Аватар и голос</span></summary>
       <div class="settings-two">
         <div class="soft-box">
-          <h3>Аватар HeyGen</h3>
-          <p>${escapeHtml(settings.heygen_avatar_name || "Не выбран")}</p>
-          <code>${escapeHtml(settings.heygen_avatar_id || "")}</code>
-          <button data-action="load-avatars">Загрузить аватары</button>
-          <div class="asset-list">${renderAvatarList(state, escapeHtml)}</div>
+          <h3>Аватары HeyGen</h3>
+          ${renderAvatarSelectors(state, escapeHtml)}
         </div>
         <div class="soft-box">
           <h3>Голос ElevenLabs</h3>
@@ -214,10 +213,9 @@ function renderOverlaySection({ state, escapeHtml }) {
 }
 
 function bindSettingsEvents(root, deps) {
-  root.querySelectorAll("[data-action='load-avatars']").forEach((button) => button.addEventListener("click", () => loadAvatars(deps).catch(deps.showError)));
+  bindAvatarEvents(root, deps, renderSettingsPanel);
   root.querySelectorAll("[data-action='load-voices']").forEach((button) => button.addEventListener("click", () => loadVoices(deps).catch(deps.showError)));
   root.querySelectorAll("[data-action='save-text']").forEach((button) => button.addEventListener("click", () => saveTextSetting(deps, button.dataset.key).catch(deps.showError)));
-  root.querySelectorAll("[data-action='select-avatar']").forEach((button) => button.addEventListener("click", () => selectAsset(deps, "heygen-avatar", button.dataset).catch(deps.showError)));
   root.querySelectorAll("[data-action='select-voice']").forEach((button) => button.addEventListener("click", () => selectAsset(deps, "elevenlabs-voice", button.dataset).catch(deps.showError)));
   root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => button.addEventListener("click", () => saveOverlayPercent(deps, button.dataset.format).catch(deps.showError)));
   root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => button.addEventListener("click", () => deleteOverlay(deps, button.dataset.format).catch(deps.showError)));
@@ -230,13 +228,6 @@ function bindSettingsEvents(root, deps) {
   root.querySelectorAll("[data-face-target]").forEach((button) => button.addEventListener("click", () => activateFace(deps, button.dataset.id, button.dataset.faceTarget).catch(deps.showError)));
   root.querySelectorAll("[data-upload]").forEach((input) => input.addEventListener("change", () => handleUpload(deps, input).catch(deps.showError)));
   root.querySelectorAll("[data-overlay-file]").forEach((input) => input.addEventListener("change", () => uploadOverlay(deps, input.dataset.overlayFile, input.files[0]).catch(deps.showError)));
-}
-
-async function loadAvatars({ state, api, setStatus }) {
-  setStatus("Аватары");
-  state.avatars = await api("/api/settings/heygen-avatars");
-  renderSettingsPanel(arguments[0]);
-  setStatus("Готово");
 }
 
 async function loadVoices({ state, api, setStatus }) {
@@ -340,16 +331,6 @@ async function deleteFiveAudio(deps, id) {
 async function deleteFiveOverlay(deps) {
   await deps.api(`/api/settings/instagram-post-5s/overlay?user_id=${encodeURIComponent(deps.state.userId)}`, { method: "DELETE" });
   await loadSettingsData(deps);
-}
-
-function renderAvatarList(state, escapeHtml) {
-  return state.avatars.map((avatar) => `
-    <article class="asset-card">
-      ${avatar.preview_image_url ? `<img src="${escapeHtml(avatar.preview_image_url)}" alt="" />` : ""}
-      <div><strong>${escapeHtml(avatar.name)}</strong><small>${escapeHtml(avatar.id)}</small></div>
-      <button data-action="select-avatar" data-id="${escapeHtml(avatar.id)}" data-name="${escapeHtml(avatar.name)}">Выбрать</button>
-    </article>
-  `).join("");
 }
 
 function renderVoiceList(state, escapeHtml) {
