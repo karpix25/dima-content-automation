@@ -56,7 +56,7 @@ function renderSaveBar() {
 function renderIdentitySection({ state, escapeHtml }) {
   const settings = state.settings;
   return `
-    <details open class="tg-card settings-section">
+    <details class="tg-card settings-section">
       <summary><span>Аватар и голос</span></summary>
       <div class="settings-two">
         <div class="soft-box">
@@ -74,7 +74,7 @@ function renderIdentitySection({ state, escapeHtml }) {
 
 function renderCoverSection({ state, escapeHtml }) {
   return `
-    <details open class="tg-card settings-section">
+    <details class="tg-card settings-section">
       <summary><span>Обложки: лицо и референсы</span></summary>
       <div class="settings-two cover-grid">
         <div class="soft-box">
@@ -128,7 +128,7 @@ function renderAvatarInsertSection({ state, escapeHtml }) {
 function renderFiveSecondSection({ state, escapeHtml }) {
   const five = state.fiveSecondSettings || { audio_tracks: [] };
   return `
-    <details open class="tg-card settings-section">
+    <details class="tg-card settings-section">
       <summary><span>5 секунд</span></summary>
       <label>CTA в нижнем белом фрейме</label>
       <input data-setting="instagram_post_5s_cta_text" maxlength="180" value="${escapeHtml(five.cta_text || "")}" />

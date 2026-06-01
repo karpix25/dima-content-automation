@@ -1,17 +1,13 @@
 .settings-grid {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   margin-top: 0;
 }
 
 .settings-sticky {
-  position: sticky;
-  top: 61px;
-  z-index: 30;
-  margin: -16px -16px 0;
-  padding: 8px 16px;
-  background: rgba(240, 242, 245, 0.95);
-  backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 1;
+  margin: -4px 0 2px;
 }
 
 .settings-toolbar-card {
@@ -19,11 +15,24 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px;
+  min-height: 72px;
+  padding: 14px 16px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.settings-toolbar-card strong {
+  display: block;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.settings-toolbar-card p {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.25;
 }
 
 .tg-card {
@@ -33,35 +42,48 @@
 
 .settings-section {
   display: grid;
-  gap: 8px;
-  overflow: visible;
+  gap: 0;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 16px;
+  padding: 0;
   background: #fff;
 }
 
 .settings-section summary {
-  position: sticky;
-  top: 132px;
-  z-index: 20;
   min-height: 56px;
-  margin: -16px -16px 0;
-  padding: 16px 44px 16px 16px;
+  padding: 16px 48px 16px 16px;
   cursor: pointer;
   list-style: none;
-  border-radius: 12px;
   background: #fff;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
 }
 
 .settings-section[open] summary {
-  margin-bottom: 12px;
   border-bottom: 1px solid #eef2f7;
-  border-bottom-right-radius: 0;
-  border-bottom-left-radius: 0;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
+}
+
+.settings-section > :not(summary) {
+  margin: 12px;
+}
+
+.settings-section > label,
+.settings-section > input,
+.settings-section > textarea,
+.settings-section > button {
+  margin-right: 12px;
+  margin-left: 12px;
+}
+
+.settings-section > input,
+.settings-section > textarea {
+  width: calc(100% - 24px);
+}
+
+.settings-section > button {
+  justify-self: start;
 }
 
 .settings-section summary::after {
@@ -109,8 +131,7 @@
 .settings-two,
 .settings-three {
   display: grid;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 10px;
 }
 
 .settings-two {
@@ -252,7 +273,7 @@
   justify-content: center;
   height: 32px;
   padding: 0 10px;
-  border-radius: 10px;
+  border-radius: 14px;
   font-size: 11px;
   font-weight: 800;
 }
@@ -303,5 +324,13 @@
   .settings-two,
   .settings-three {
     grid-template-columns: 1fr;
+  }
+
+  .settings-toolbar-card {
+    align-items: flex-start;
+  }
+
+  .settings-toolbar-card .mini-badge {
+    flex: 0 0 auto;
   }
 }
