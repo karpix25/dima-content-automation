@@ -34,15 +34,35 @@ def test_generate_post_heygen_assets_prefers_kie_when_configured(tmp_path: Path)
     assert len(client.prompts) == 2
 
 
+def test_generate_post_heygen_assets_passes_references_to_kie(tmp_path: Path):
+    record = _record()
+    client = FakeKieClient()
+    reference = tmp_path / "style.jpg"
+    reference.write_text("style")
+
+    generate_post_heygen_assets(
+        record=record,
+        output_dir=tmp_path / "out",
+        broll_count=1,
+        kie_client=client,
+        reference_paths=[reference],
+    )
+
+    assert client.reference_batches == [[reference], [reference]]
+    assert "references" in client.prompts[0]
+
+
 class FakeKieClient:
     def __init__(self) -> None:
         self.prompts: list[str] = []
+        self.reference_batches: list[list[Path]] = []
 
     def is_configured(self) -> bool:
         return True
 
-    def generate_image(self, *, prompt: str, output_path: Path) -> Path:
+    def generate_image(self, *, prompt: str, output_path: Path, reference_paths: list[Path] | None = None) -> Path:
         self.prompts.append(prompt)
+        self.reference_batches.append(reference_paths or [])
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text("kie")
         return output_path

@@ -34,6 +34,7 @@ def create_and_send_infographic_reels(
     settings: Settings,
     asset_store: MediaAssetStore,
     kie_client: KieImageClient | None = None,
+    reference_paths: list[Path] | None = None,
 ) -> InfographicDeliveryResult:
     output_dir = settings.video_output_directory / "infographic_reels"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -42,7 +43,7 @@ def create_and_send_infographic_reels(
 
     logger.info("Starting Kie gold card generation: script_id=%s image=%s", record.id, image_path)
     client = kie_client or build_kie_client(settings)
-    generate_gold_card_with_kie(record=record, path=image_path, kie_client=client)
+    generate_gold_card_with_kie(record=record, path=image_path, kie_client=client, reference_paths=reference_paths or [])
     logger.info("Kie gold card generated: script_id=%s image=%s", record.id, image_path)
     audio_path = choose_audio_track(asset_store, user_id)
     logger.info("Rendering five second gold card video: script_id=%s audio=%s video=%s", record.id, audio_path, video_path)
@@ -68,6 +69,7 @@ def build_kie_client(settings: Settings) -> KieImageClient:
         KieImageConfig(
             api_key=settings.kie_api_key,
             base_url=settings.kie_base_url,
+            upload_base_url=settings.kie_upload_base_url,
             model=settings.kie_image_model,
             aspect_ratio=settings.kie_image_aspect_ratio,
             resolution=settings.kie_image_resolution,
@@ -79,19 +81,36 @@ def build_kie_client(settings: Settings) -> KieImageClient:
     )
 
 
-def generate_gold_card_with_kie(*, record: ScriptRecord, path: Path, kie_client: KieImageClient) -> Path:
+def generate_gold_card_with_kie(
+    *,
+    record: ScriptRecord,
+    path: Path,
+    kie_client: KieImageClient,
+    reference_paths: list[Path] | None = None,
+) -> Path:
     if not kie_client.is_configured():
         raise RuntimeError("KIE_API_KEY не задан: формат 5 секунд должен генерировать карточку через Kie")
-    generated = kie_client.generate_image(prompt=gold_card_prompt(record), output_path=path)
+    generated = kie_client.generate_image(
+        prompt=gold_card_prompt(record, has_references=bool(reference_paths)),
+        output_path=path,
+        reference_paths=reference_paths or [],
+    )
     if not generated or not generated.exists():
         raise RuntimeError("Kie не вернул файл карточки для формата 5 секунд")
     return generated
 
 
-def gold_card_prompt(record: ScriptRecord) -> str:
+def gold_card_prompt(record: ScriptRecord, *, has_references: bool = False) -> str:
     bullets = "; ".join(build_bullets(record)[:3])
+    reference_rule = (
+        "Use the uploaded face/style reference images to keep the person and visual style consistent. "
+        "Do not copy old text from references; replace all text with the script headline and bullets. "
+        if has_references
+        else ""
+    )
     return (
         "Create a premium vertical 9:16 five-second business infographic card for Amazon sellers. "
+        f"{reference_rule}"
         "Use a rich gold background, sharp contrast, luxury founder-brand style, clean spacing, readable hierarchy. "
         "No logos, no watermarks, no fake UI, no clutter. "
         f"Main headline: {clean_text(record.hook or record.title)}. "

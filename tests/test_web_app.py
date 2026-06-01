@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from content_automation import web_app
+from content_automation import web_app, web_format_jobs
 from content_automation.media_assets import MediaAssetStore
 from content_automation.storage import Storage
 
@@ -79,7 +79,7 @@ def test_infographic_reels_job_sends_video_instead_of_prompt(tmp_path, monkeypat
     def fake_delivery(**kwargs):
         return SimpleNamespace(video_path=tmp_path / "gold.mp4", telegram_message_id="777")
 
-    monkeypatch.setattr(web_app, "create_and_send_infographic_reels", fake_delivery)
+    monkeypatch.setattr(web_format_jobs, "create_and_send_infographic_reels", fake_delivery)
     client = TestClient(web_app.app)
 
     created = client.post(

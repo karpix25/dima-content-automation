@@ -22,6 +22,7 @@ def generate_post_heygen_assets(
     output_dir: Path,
     broll_count: int,
     kie_client: KieImageClient | None = None,
+    reference_paths: list[Path] | None = None,
 ) -> VisualAssetSet:
     output_dir.mkdir(parents=True, exist_ok=True)
     size = (1080, 1920) if record.format == "short" else (1920, 1080)
@@ -29,7 +30,8 @@ def generate_post_heygen_assets(
     _generate_or_render(
         kie_client=kie_client,
         path=cover_path,
-        prompt=_cover_prompt(record),
+        prompt=_cover_prompt(record, has_references=bool(reference_paths)),
+        reference_paths=reference_paths or [],
         size=size,
         title=record.hook or record.title or "Key idea",
         subtitle=record.trigger or record.angle,
@@ -42,7 +44,8 @@ def generate_post_heygen_assets(
         _generate_or_render(
             kie_client=kie_client,
             path=path,
-            prompt=_broll_prompt(record, text),
+            prompt=_broll_prompt(record, text, has_references=bool(reference_paths)),
+            reference_paths=reference_paths or [],
             size=size,
             title=text,
             subtitle=record.title,
@@ -58,6 +61,7 @@ def _generate_or_render(
     kie_client: KieImageClient | None,
     path: Path,
     prompt: str,
+    reference_paths: list[Path],
     size: tuple[int, int],
     title: str,
     subtitle: str,
@@ -65,7 +69,7 @@ def _generate_or_render(
     accent: tuple[int, int, int],
 ) -> None:
     if kie_client and kie_client.is_configured():
-        generated = kie_client.generate_image(prompt=prompt, output_path=path)
+        generated = kie_client.generate_image(prompt=prompt, output_path=path, reference_paths=reference_paths)
         if generated and generated.exists():
             return
     _render_card(path, size=size, title=title, subtitle=subtitle, footer=footer, accent=accent)
@@ -84,9 +88,16 @@ def _broll_texts(record: ScriptRecord) -> list[str]:
     return [_clean_text(item) for item in candidates if _clean_text(item)]
 
 
-def _cover_prompt(record: ScriptRecord) -> str:
+def _cover_prompt(record: ScriptRecord, *, has_references: bool = False) -> str:
+    reference_rule = (
+        "Use the uploaded face/style references for consistent person appearance and brand styling. "
+        "Do not copy text from references. "
+        if has_references
+        else ""
+    )
     return (
         "Create a premium vertical 9:16 cover frame for a business short video. "
+        f"{reference_rule}"
         "Cinematic realistic business/editorial style, sharp composition, high contrast, expensive clean look. "
         "No logos, no watermarks, no UI. Include bold readable Russian/English on-screen text only if it is exact. "
         f"Main cover headline: {_clean_text(record.hook or record.title)}. "
@@ -95,9 +106,15 @@ def _cover_prompt(record: ScriptRecord) -> str:
     )
 
 
-def _broll_prompt(record: ScriptRecord, text: str) -> str:
+def _broll_prompt(record: ScriptRecord, text: str, *, has_references: bool = False) -> str:
+    reference_rule = (
+        "Use uploaded style references for color, composition, and brand feel without copying their text. "
+        if has_references
+        else ""
+    )
     return (
         "Create a premium vertical 9:16 cutaway image for a business explainer video. "
+        f"{reference_rule}"
         "This is a visual interruption after an AI avatar segment: cinematic, realistic, clean, high contrast. "
         "No logos, no watermarks, no UI, no fake screenshots. "
         "If text is present, it must be large and readable, minimal, not crowded. "

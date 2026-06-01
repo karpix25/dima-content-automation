@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +18,7 @@ class KieImageError(RuntimeError):
 class KieImageConfig:
     api_key: str | None
     base_url: str
+    upload_base_url: str
     model: str
     aspect_ratio: str
     resolution: str
@@ -33,14 +35,15 @@ class KieImageClient:
     def is_configured(self) -> bool:
         return bool(self.config.api_key)
 
-    def generate_image(self, *, prompt: str, output_path: Path) -> Path | None:
+    def generate_image(self, *, prompt: str, output_path: Path, reference_paths: list[Path] | None = None) -> Path | None:
         clean_prompt = " ".join((prompt or "").split())
         if not clean_prompt or not self.config.api_key:
             return None
+        input_urls = self._upload_references(reference_paths or [])
         last_error = ""
-        for model in _model_candidates(self.config.model):
+        for model in _model_candidates(self.config.model, has_references=bool(input_urls)):
             try:
-                task_id = self._create_task(_task_payload(model=model, prompt=clean_prompt, config=self.config))
+                task_id = self._create_task(_task_payload(model=model, prompt=clean_prompt, config=self.config, input_urls=input_urls))
                 break
             except KieImageError as exc:
                 last_error = str(exc)
@@ -50,6 +53,36 @@ class KieImageClient:
             raise KieImageError(last_error)
         result_url = self._poll_result_url(task_id)
         return self._download(result_url, output_path)
+
+    def _upload_references(self, paths: list[Path]) -> list[str]:
+        valid_paths = [path for path in paths[:16] if path.exists()]
+        if not valid_paths:
+            return []
+        urls: list[str] = []
+        with httpx.Client(timeout=180, follow_redirects=True) as client:
+            for path in valid_paths:
+                urls.append(self._upload_reference(client, path))
+        return urls
+
+    def _upload_reference(self, client: httpx.Client, path: Path) -> str:
+        headers = {"Authorization": f"Bearer {self.config.api_key}"}
+        mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        with path.open("rb") as file_obj:
+            response = client.post(
+                f"{self.config.upload_base_url}/api/file-stream-upload",
+                headers=headers,
+                data={"uploadPath": "dima-references", "fileName": path.name},
+                files={"file": (path.name, file_obj, mime_type)},
+            )
+        response.raise_for_status()
+        data = response.json()
+        if int((data or {}).get("code") or 200) != 200 and not (data or {}).get("success"):
+            raise KieImageError(f"KIE reference upload failed: {data}")
+        payload = (data or {}).get("data") or {}
+        url = str(payload.get("fileUrl") or payload.get("downloadUrl") or "").strip()
+        if not url:
+            raise KieImageError(f"KIE reference upload returned no file URL: {data}")
+        return url
 
     def _create_task(self, payload: dict[str, Any]) -> str:
         headers = {
@@ -115,19 +148,25 @@ def _result_url(record: dict[str, Any]) -> str:
     raise KieImageError(f"KIE result has no image url: {record}")
 
 
-def _task_payload(*, model: str, prompt: str, config: KieImageConfig) -> dict[str, Any]:
+def _task_payload(*, model: str, prompt: str, config: KieImageConfig, input_urls: list[str]) -> dict[str, Any]:
+    input_payload: dict[str, Any] = {
+        "prompt": prompt,
+        "aspect_ratio": config.aspect_ratio,
+        "resolution": config.resolution,
+    }
+    if input_urls:
+        input_payload["input_urls"] = input_urls
     return {
         "model": model,
-        "input": {
-            "prompt": prompt,
-            "aspect_ratio": config.aspect_ratio,
-            "resolution": config.resolution,
-        },
+        "input": input_payload,
     }
 
 
-def _model_candidates(model: str) -> list[str]:
+def _model_candidates(model: str, *, has_references: bool = False) -> list[str]:
     primary = (model or "gpt-image-2").strip()
+    if has_references:
+        candidates = ["gpt-image-2-image-to-image", primary]
+        return list(dict.fromkeys(item for item in candidates if item and item != "gpt-image-2-text-to-image"))
     aliases = {
         "gpt-image-2": ["gpt-image-2-text-to-image"],
         "gpt-image-2-text-to-image": ["gpt-image-2"],

@@ -17,6 +17,7 @@ from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsV
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
 from .kie_image import KieImageClient, KieImageConfig
+from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
 from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
@@ -25,6 +26,7 @@ from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts
 from .storage import ScriptRecord, Storage
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
 from .post_heygen_video import apply_post_heygen_visuals
+from .reference_paths import target_from_record_format, thumbnail_reference_paths
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
 from .visual_assets import generate_post_heygen_assets
 
@@ -34,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
+asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
 if settings.notebooklm_backend == "py":
     notebooklm = NotebookLMPyClient(
         storage_path=settings.notebooklm_py_storage_path,
@@ -65,6 +68,7 @@ kie_image = KieImageClient(
     KieImageConfig(
         api_key=settings.kie_api_key,
         base_url=settings.kie_base_url,
+        upload_base_url=settings.kie_upload_base_url,
         model=settings.kie_image_model,
         aspect_ratio=settings.kie_image_aspect_ratio,
         resolution=settings.kie_image_resolution,
@@ -988,6 +992,13 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
         output_dir=asset_dir,
         broll_count=settings.post_heygen_broll_count,
         kie_client=kie_image,
+        reference_paths=thumbnail_reference_paths(
+            storage=storage,
+            asset_store=asset_store,
+            settings=settings,
+            user_id=record.user_id,
+            target=target_from_record_format(record.format),
+        ),
     )
     output_path = settings.video_output_directory / f"visual_{record.id}.mp4"
     result = await asyncio.to_thread(
