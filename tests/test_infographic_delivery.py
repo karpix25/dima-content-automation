@@ -1,8 +1,9 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from content_automation.infographic_delivery import generate_gold_card_with_kie, gold_card_prompt
+from content_automation.infographic_delivery import generate_gold_card_with_kie, gold_card_prompt, render_five_second_video
 from content_automation.storage import ScriptRecord
 
 
@@ -56,6 +57,28 @@ def test_gold_card_prompt_includes_script_fields():
     assert "Revenue is not profit" in prompt
     assert "Cash conversion" in prompt
     assert "Check contribution margin" in prompt
+
+
+def test_render_five_second_video_normalizes_kie_image_size(tmp_path: Path, monkeypatch):
+    image_path = tmp_path / "odd.png"
+    image_path.write_bytes(b"png")
+    commands = []
+
+    def fake_run(cmd, **kwargs):
+        commands.append(cmd)
+        return SimpleNamespace(returncode=0, stderr="")
+
+    monkeypatch.setattr("content_automation.infographic_delivery.subprocess.run", fake_run)
+
+    render_five_second_video(image_path=image_path, video_path=tmp_path / "out.mp4", audio_path=None)
+
+    command = commands[0]
+    assert "-vf" in command
+    assert command[command.index("-vf") + 1] == (
+        "scale=1080:1920:force_original_aspect_ratio=decrease,"
+        "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1"
+    )
+    assert "yuv420p" in command
 
 
 class FakeKieClient:

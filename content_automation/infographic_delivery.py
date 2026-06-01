@@ -17,6 +17,10 @@ from .storage import ScriptRecord
 
 
 logger = logging.getLogger(__name__)
+FIVE_SECOND_VIDEO_FILTER = (
+    "scale=1080:1920:force_original_aspect_ratio=decrease,"
+    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1"
+)
 
 
 @dataclass(frozen=True)
@@ -234,6 +238,8 @@ def render_five_second_video(*, image_path: Path, video_path: Path, audio_path: 
             "-t",
             "5",
             "-shortest",
+            "-vf",
+            FIVE_SECOND_VIDEO_FILTER,
             "-c:v",
             "libx264",
             "-pix_fmt",
@@ -261,6 +267,8 @@ def render_five_second_video(*, image_path: Path, video_path: Path, audio_path: 
             "-i",
             "anullsrc=channel_layout=stereo:sample_rate=44100",
             "-shortest",
+            "-vf",
+            FIVE_SECOND_VIDEO_FILTER,
             "-c:v",
             "libx264",
             "-pix_fmt",
