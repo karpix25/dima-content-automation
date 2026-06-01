@@ -3,62 +3,63 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DIMA Content Formats</title>
+    <title>DIMA мини-приложение</title>
     <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/settings.css" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
     <div class="app">
       <header class="topbar">
         <div>
-          <h1>Formats</h1>
-          <p>NotebookLM approved scripts</p>
+          <h1>DIMA контент</h1>
+          <p>Одобренные сценарии из NotebookLM</p>
         </div>
-        <span id="status-pill" class="pill">Loading</span>
+        <span id="status-pill" class="pill">Загрузка</span>
       </header>
 
       <main>
         <nav class="tabs">
-          <button class="tab active" data-tab="formats">Formats</button>
-          <button class="tab" data-tab="settings">Settings</button>
-          <button class="tab" data-tab="history">History</button>
+          <button class="tab active" data-tab="formats">Форматы</button>
+          <button class="tab" data-tab="settings">Настройки</button>
+          <button class="tab" data-tab="history">История</button>
         </nav>
 
         <section id="login" class="panel hidden">
           <label for="tg-id">Telegram ID</label>
           <div class="login-row">
             <input id="tg-id" inputmode="numeric" placeholder="123456789" />
-            <button id="save-user">Open</button>
+            <button id="save-user">Открыть</button>
           </div>
         </section>
 
         <section id="formats-panel" class="panel">
           <div class="section-head">
-            <h2>Approved</h2>
-            <button id="refresh">Refresh</button>
+            <h2>Одобренные сценарии</h2>
+            <button id="refresh">Обновить</button>
           </div>
           <div id="scripts" class="list"></div>
         </section>
 
         <section id="settings-panel" class="panel hidden">
           <div class="section-head">
-            <h2>Settings</h2>
-            <button id="refresh-settings">Refresh</button>
+            <h2>Настройки</h2>
+            <button id="refresh-settings">Обновить</button>
           </div>
           <div id="settings" class="settings-grid"></div>
         </section>
 
         <section class="panel">
           <div class="section-head">
-            <h2>Result</h2>
-            <button id="copy" disabled>Copy</button>
+            <h2>Результат</h2>
+            <button id="copy" disabled>Копировать</button>
           </div>
-          <pre id="output">Choose a script and format.</pre>
+          <pre id="output">Выберите сценарий и формат.</pre>
         </section>
 
         <section id="history-panel" class="panel">
           <div class="section-head">
-            <h2>History</h2>
+            <h2>История</h2>
           </div>
           <div id="jobs" class="list compact"></div>
         </section>

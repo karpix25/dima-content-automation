@@ -21,7 +21,7 @@ export function renderSettingsPanel(deps) {
   const root = document.getElementById("settings");
   const { state } = deps;
   if (!state.settings) {
-    root.innerHTML = `<p>Settings are loading.</p>`;
+    root.innerHTML = `<p>Настройки загружаются.</p>`;
     return;
   }
   root.innerHTML = `
@@ -41,9 +41,9 @@ function renderSaveBar() {
     <div class="settings-sticky">
       <div>
         <strong>Основные настройки</strong>
-        <p>Аватар, голос, обложки, референсы и 5s assets</p>
+        <p>Аватар, голос, обложки, референсы, вставки и формат 5 секунд</p>
       </div>
-      <span class="mini-badge">Turan style</span>
+      <span class="mini-badge">как в Turan</span>
     </div>
   `;
 }
@@ -52,20 +52,20 @@ function renderIdentitySection({ state, escapeHtml }) {
   const settings = state.settings;
   return `
     <details open class="tg-card settings-section">
-      <summary><span>Avatar & voice</span></summary>
+      <summary><span>Аватар и голос</span></summary>
       <div class="settings-two">
         <div class="soft-box">
-          <h3>HeyGen avatar</h3>
-          <p>${escapeHtml(settings.heygen_avatar_name || "Not selected")}</p>
+          <h3>Аватар HeyGen</h3>
+          <p>${escapeHtml(settings.heygen_avatar_name || "Не выбран")}</p>
           <code>${escapeHtml(settings.heygen_avatar_id || "")}</code>
-          <button data-action="load-avatars">Load avatars</button>
+          <button data-action="load-avatars">Загрузить аватары</button>
           <div class="asset-list">${renderAvatarList(state, escapeHtml)}</div>
         </div>
         <div class="soft-box">
-          <h3>ElevenLabs voice</h3>
-          <p>${escapeHtml(settings.elevenlabs_voice_name || "Not selected")}</p>
+          <h3>Голос ElevenLabs</h3>
+          <p>${escapeHtml(settings.elevenlabs_voice_name || "Не выбран")}</p>
           <code>${escapeHtml(settings.elevenlabs_voice_id || "")}</code>
-          <button data-action="load-voices">Load voices</button>
+          <button data-action="load-voices">Загрузить голоса</button>
           <div class="asset-list">${renderVoiceList(state, escapeHtml)}</div>
         </div>
       </div>
@@ -82,7 +82,7 @@ function renderCoverSection({ state, escapeHtml }) {
           <div class="box-head">
             <h3>Референс лица</h3>
             <label class="upload-button">
-              Upload
+              Загрузить
               <input type="file" multiple accept="image/png,image/jpeg,image/webp" data-upload="thumbnail-faces" />
             </label>
           </div>
@@ -92,7 +92,7 @@ function renderCoverSection({ state, escapeHtml }) {
           <div class="box-head">
             <h3>Референсы обложек</h3>
             <label class="upload-button blue">
-              Add
+              Добавить
               <input type="file" multiple accept="image/png,image/jpeg,image/webp" data-upload="thumbnail-references" />
             </label>
           </div>
@@ -108,16 +108,16 @@ function renderAvatarInsertSection({ state, escapeHtml }) {
   const settings = state.settings;
   return `
     <details class="tg-card settings-section">
-      <summary><span>Видео-вставки для avatar_youtube</span></summary>
+      <summary><span>Видео-вставки для горизонтального аватара</span></summary>
       <div class="settings-three">
         ${numberField("avatar_insert_start_percent", "Старт вставок (%)", settings.avatar_insert_start_percent, 0, 99)}
         ${numberField("avatar_insert_end_percent", "Финиш вставок (%)", settings.avatar_insert_end_percent, 1, 100)}
         ${numberField("avatar_insert_clips_count", "Сколько вставок", settings.avatar_insert_clips_count, 0, 20)}
       </div>
       <div class="box-head">
-        <p>Видео для перебивок в горизонтальном avatar формате.</p>
+        <p>Видео для перебивок в горизонтальном формате с аватаром. Система выберет нужные клипы в указанном диапазоне.</p>
         <label class="upload-button blue">
-          Add video
+          Добавить видео
           <input type="file" multiple accept="video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-m4v" data-upload="avatar-inserts" />
         </label>
       </div>
@@ -133,13 +133,13 @@ function renderFiveSecondSection({ state, escapeHtml }) {
       <summary><span>5 секунд</span></summary>
       <label>CTA в нижнем белом фрейме</label>
       <input data-setting="instagram_post_5s_cta_text" maxlength="180" value="${escapeHtml(five.cta_text || "")}" />
-      <button data-action="save-text" data-key="instagram_post_5s_cta_text">Save CTA</button>
+      <button data-action="save-text" data-key="instagram_post_5s_cta_text">Сохранить CTA</button>
       <div class="settings-two">
         <div class="soft-box">
           <div class="box-head">
             <h3>Аудиобиблиотека</h3>
             <label class="upload-button blue">
-              Add
+              Добавить
               <input type="file" multiple accept="audio/*,video/mp4,video/quicktime" data-upload="five-second-audio" />
             </label>
           </div>
@@ -149,7 +149,7 @@ function renderFiveSecondSection({ state, escapeHtml }) {
         <div class="soft-box">
           <div class="box-head">
             <h3>Плашка с 2 секунды</h3>
-            <label class="icon-button">
+            <label class="icon-button" title="Загрузить плашку">
               +
               <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="five-second-overlay" />
             </label>
@@ -158,7 +158,7 @@ function renderFiveSecondSection({ state, escapeHtml }) {
             <article class="asset-card">
               <img src="${five.overlay_url}" alt="" />
               <div><strong>${escapeHtml((five.overlay_path || "").split("/").pop())}</strong></div>
-              <button data-action="delete-five-overlay">Delete</button>
+              <button data-action="delete-five-overlay">Удалить</button>
             </article>
           ` : `<p>Нет плашки. Если загрузить, появится на 2 секунде и будет до конца.</p>`}
         </div>
@@ -170,18 +170,18 @@ function renderFiveSecondSection({ state, escapeHtml }) {
 function renderTextSection({ state, escapeHtml }) {
   const rows = [
     ["notebook_id", "NotebookLM ID", state.settings.notebook_id || ""],
-    ["author_style", "Author voice", state.settings.author_style || ""],
-    ["offer_context", "Offer context", state.settings.offer_context || ""],
-    ["cta_mix", "CTA mix", state.settings.cta_mix || ""],
-    ["youtube_description_template", "YouTube description template", state.settings.youtube_description_template || ""],
+    ["author_style", "Стиль автора", state.settings.author_style || ""],
+    ["offer_context", "Контекст оффера", state.settings.offer_context || ""],
+    ["cta_mix", "Логика CTA", state.settings.cta_mix || ""],
+    ["youtube_description_template", "Шаблон описания YouTube", state.settings.youtube_description_template || ""],
   ];
   return `
     <details class="tg-card settings-section">
-      <summary><span>Text settings</span></summary>
+      <summary><span>Текстовые настройки</span></summary>
       ${rows.map(([key, label, value]) => `
         <label>${label}</label>
         <textarea data-setting="${key}" rows="${key === "notebook_id" ? 2 : 5}">${escapeHtml(value)}</textarea>
-        <button data-action="save-text" data-key="${key}">Save ${label}</button>
+        <button data-action="save-text" data-key="${key}">Сохранить</button>
       `).join("")}
     </details>
   `;
@@ -190,20 +190,20 @@ function renderTextSection({ state, escapeHtml }) {
 function renderOverlaySection({ state, escapeHtml }) {
   return `
     <details class="tg-card settings-section">
-      <summary><span>Final overlays</span></summary>
+      <summary><span>Финальные плашки поверх видео</span></summary>
       ${state.settings.overlays.map((overlay) => `
         <article class="overlay-card">
           <div>
             <strong>${escapeHtml(overlay.label)}</strong>
-            <p>${overlay.has_file ? escapeHtml(overlay.file_name) : "No file"}</p>
+            <p>${overlay.has_file ? escapeHtml(overlay.file_name) : "Файл не загружен"}</p>
           </div>
           ${overlay.has_file ? `<img src="/api/settings/overlay/file?user_id=${encodeURIComponent(state.userId)}&format=${encodeURIComponent(overlay.format)}&t=${Date.now()}" alt="" />` : ""}
-          <label>Start %</label>
+          <label>Старт %</label>
           <input type="number" min="0" max="100" value="${overlay.start_percent}" data-overlay-percent="${overlay.format}" />
           <input type="file" accept="image/png,image/jpeg,image/webp" data-overlay-file="${overlay.format}" />
           <div class="settings-actions">
-            <button data-action="save-overlay-percent" data-format="${overlay.format}">Save</button>
-            <button data-action="delete-overlay" data-format="${overlay.format}" ${overlay.has_file ? "" : "disabled"}>Delete</button>
+            <button data-action="save-overlay-percent" data-format="${overlay.format}">Сохранить</button>
+            <button data-action="delete-overlay" data-format="${overlay.format}" ${overlay.has_file ? "" : "disabled"}>Удалить</button>
           </div>
         </article>
       `).join("")}
@@ -231,49 +231,49 @@ function bindSettingsEvents(root, deps) {
 }
 
 async function loadAvatars({ state, api, setStatus }) {
-  setStatus("Avatars");
+  setStatus("Аватары");
   state.avatars = await api("/api/settings/heygen-avatars");
   renderSettingsPanel(arguments[0]);
-  setStatus("Ready");
+  setStatus("Готово");
 }
 
 async function loadVoices({ state, api, setStatus }) {
-  setStatus("Voices");
+  setStatus("Голоса");
   state.voices = await api("/api/settings/elevenlabs-voices");
   renderSettingsPanel(arguments[0]);
-  setStatus("Ready");
+  setStatus("Готово");
 }
 
 async function saveTextSetting(deps, key) {
   const field = document.querySelector(`[data-setting="${key}"]`);
-  deps.setStatus("Saving");
+  deps.setStatus("Сохраняю");
   deps.state.settings = await deps.api("/api/settings/text", {
     method: "PATCH",
     body: JSON.stringify({ user_id: deps.state.userId, key, value: field.value }),
   });
   await loadSettingsData(deps);
-  deps.setStatus("Saved");
+  deps.setStatus("Сохранено");
 }
 
 async function selectAsset(deps, kind, dataset) {
-  deps.setStatus("Saving");
+  deps.setStatus("Сохраняю");
   deps.state.settings = await deps.api(`/api/settings/${kind}`, {
     method: "POST",
     body: JSON.stringify({ user_id: deps.state.userId, id: dataset.id, name: dataset.name }),
   });
   renderSettingsPanel(deps);
-  deps.setStatus("Saved");
+  deps.setStatus("Сохранено");
 }
 
 async function saveOverlayPercent(deps, format) {
   const field = document.querySelector(`[data-overlay-percent="${format}"]`);
-  deps.setStatus("Saving");
+  deps.setStatus("Сохраняю");
   await deps.api("/api/settings/overlay", {
     method: "PATCH",
     body: JSON.stringify({ user_id: deps.state.userId, format, start_percent: Number(field.value || 70) }),
   });
   await loadSettingsData(deps);
-  deps.setStatus("Saved");
+  deps.setStatus("Сохранено");
 }
 
 async function uploadOverlay(deps, format, file) {
@@ -345,7 +345,7 @@ function renderAvatarList(state, escapeHtml) {
     <article class="asset-card">
       ${avatar.preview_image_url ? `<img src="${escapeHtml(avatar.preview_image_url)}" alt="" />` : ""}
       <div><strong>${escapeHtml(avatar.name)}</strong><small>${escapeHtml(avatar.id)}</small></div>
-      <button data-action="select-avatar" data-id="${escapeHtml(avatar.id)}" data-name="${escapeHtml(avatar.name)}">Use</button>
+      <button data-action="select-avatar" data-id="${escapeHtml(avatar.id)}" data-name="${escapeHtml(avatar.name)}">Выбрать</button>
     </article>
   `).join("");
 }
@@ -354,8 +354,8 @@ function renderVoiceList(state, escapeHtml) {
   return state.voices.map((voice) => `
     <article class="asset-card text-card">
       <div><strong>${escapeHtml(voice.name)}</strong><small>${escapeHtml(voice.category || voice.id)}</small></div>
-      ${voice.preview_url ? `<a href="${escapeHtml(voice.preview_url)}" target="_blank" rel="noreferrer">Preview</a>` : ""}
-      <button data-action="select-voice" data-id="${escapeHtml(voice.id)}" data-name="${escapeHtml(voice.name)}">Use</button>
+      ${voice.preview_url ? `<a href="${escapeHtml(voice.preview_url)}" target="_blank" rel="noreferrer">Прослушать</a>` : ""}
+      <button data-action="select-voice" data-id="${escapeHtml(voice.id)}" data-name="${escapeHtml(voice.name)}">Выбрать</button>
     </article>
   `).join("");
 }
@@ -368,7 +368,7 @@ function renderFaceReferences(state, escapeHtml) {
     return `
       <article class="thumb-card">
         <img src="${item.url}" alt="" />
-        <button class="delete-chip" data-action="delete-face" data-id="${item.id}">x</button>
+        <button class="delete-chip" data-action="delete-face" data-id="${item.id}" title="Удалить">x</button>
         <div class="target-row">
           <button class="${isYoutube ? "active dark" : ""}" data-face-target="horizontal" data-id="${item.id}">YouTube</button>
           <button class="${isShorts ? "active" : ""}" data-face-target="vertical" data-id="${item.id}">Shorts</button>
@@ -386,7 +386,7 @@ function renderThumbnailReferences(state) {
     return `
       <article class="thumb-card">
         <img src="${item.url}" alt="" />
-        <button class="delete-chip" data-action="delete-ref" data-id="${item.id}">x</button>
+        <button class="delete-chip" data-action="delete-ref" data-id="${item.id}" title="Удалить">x</button>
         <div class="target-row">
           <button class="${isYoutube ? "active dark" : ""}" data-target-ref="horizontal" data-id="${item.id}">YouTube</button>
           <button class="${isShorts ? "active" : ""}" data-target-ref="vertical" data-id="${item.id}">Shorts</button>
@@ -401,7 +401,7 @@ function renderSimpleAssetList(items, escapeHtml, action) {
   return items.map((item) => `
     <article class="asset-card text-card">
       <div><strong>${escapeHtml(item.file_name)}</strong><small>#${item.id}</small></div>
-      <button data-action="${action}" data-id="${item.id}">Delete</button>
+      <button data-action="${action}" data-id="${item.id}">Удалить</button>
     </article>
   `).join("");
 }
@@ -411,7 +411,7 @@ function numberField(key, label, value, min, max) {
     <div>
       <label>${label}</label>
       <input type="number" min="${min}" max="${max}" value="${value}" data-setting="${key}" />
-      <button data-action="save-text" data-key="${key}">Save</button>
+      <button data-action="save-text" data-key="${key}">Сохранить</button>
     </div>
   `;
 }
@@ -442,6 +442,6 @@ function formWithUser(userId) {
 
 async function postForm(path, form) {
   const res = await fetch(path, { method: "POST", body: form });
-  if (!res.ok) throw new Error((await res.json()).detail || "Upload failed");
+  if (!res.ok) throw new Error((await res.json()).detail || "Загрузка не удалась");
   return res.json();
 }

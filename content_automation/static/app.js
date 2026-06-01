@@ -26,7 +26,17 @@ const state = {
 const $ = (id) => document.getElementById(id);
 
 function setStatus(text) {
-  $("status-pill").textContent = text;
+  const labels = {
+    Loading: "Загрузка",
+    Login: "Вход",
+    Ready: "Готово",
+    Working: "Создаю",
+    Opening: "Открываю",
+    Copied: "Скопировано",
+    Error: "Ошибка",
+    "Select text": "Выделите текст",
+  };
+  $("status-pill").textContent = labels[text] || text;
 }
 
 function escapeHtml(value) {
@@ -46,7 +56,7 @@ async function api(path, options = {}) {
   });
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}));
-    throw new Error(detail.detail || `Request failed: ${res.status}`);
+    throw new Error(detail.detail || `Запрос не выполнен: ${res.status}`);
   }
   return res.json();
 }
@@ -97,7 +107,7 @@ function renderTabs() {
 function renderScripts() {
   const root = $("scripts");
   if (!state.scripts.length) {
-    root.innerHTML = `<p>No approved scripts yet. Approve one in Telegram first.</p>`;
+    root.innerHTML = `<p>Пока нет одобренных сценариев. Сначала одобрите сценарий в Telegram.</p>`;
     return;
   }
   root.innerHTML = state.scripts.map((script) => `
@@ -111,7 +121,7 @@ function renderScripts() {
             ${escapeHtml(format.label)}
           </button>
         `).join("")}
-        <button class="bundle" data-script="${script.id}" data-format="all">All formats</button>
+        <button class="bundle" data-script="${script.id}" data-format="all">Все форматы</button>
       </div>
     </article>
   `).join("");
@@ -129,13 +139,13 @@ function formatButtonClass(formatKey) {
 function renderJobs() {
   const root = $("jobs");
   if (!state.jobs.length) {
-    root.innerHTML = `<p>No generated format jobs yet.</p>`;
+    root.innerHTML = `<p>Пока нет созданных форматов.</p>`;
     return;
   }
   root.innerHTML = state.jobs.slice(0, 8).map((job) => `
     <article class="card job-card" data-job="${job.id}">
       <h3>${escapeHtml(job.title)}</h3>
-      <p>${escapeHtml(job.task_type)} · script #${job.script_id}</p>
+      <p>${escapeHtml(job.task_type)} · сценарий #${job.script_id}</p>
     </article>
   `).join("");
   root.querySelectorAll(".job-card").forEach((card) => {
@@ -183,7 +193,7 @@ document.querySelectorAll(".tab").forEach((button) => {
 
 $("copy").addEventListener("click", async () => {
   try {
-    if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+    if (!navigator.clipboard?.writeText) throw new Error("Буфер обмена недоступен");
     await navigator.clipboard.writeText(state.output);
     setStatus("Copied");
     setTimeout(() => setStatus("Ready"), 1200);
