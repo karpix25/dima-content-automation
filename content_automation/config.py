@@ -170,7 +170,7 @@ def load_settings() -> Settings:
         post_heygen_broll_seconds=max(0.2, get_float_env("POST_HEYGEN_BROLL_SECONDS", 1.2)),
         kie_api_key=(os.getenv("KIE_API_KEY") or "").strip() or None,
         kie_base_url=(os.getenv("KIE_BASE_URL") or "https://api.kie.ai").strip().rstrip("/"),
-        kie_image_model=(os.getenv("KIE_IMAGE_MODEL") or "gpt-image-1").strip(),
+        kie_image_model=(os.getenv("KIE_IMAGE_MODEL") or "gpt-image-2").strip(),
         kie_image_aspect_ratio=(os.getenv("KIE_IMAGE_ASPECT_RATIO") or "9:16").strip(),
         kie_image_resolution=(os.getenv("KIE_IMAGE_RESOLUTION") or "1K").strip(),
         kie_poll_timeout_seconds=get_float_env("KIE_POLL_TIMEOUT_SECONDS", 300),

@@ -37,16 +37,17 @@ class KieImageClient:
         clean_prompt = " ".join((prompt or "").split())
         if not clean_prompt or not self.config.api_key:
             return None
-        task_id = self._create_task(
-            {
-                "model": self.config.model,
-                "input": {
-                    "prompt": clean_prompt,
-                    "aspect_ratio": self.config.aspect_ratio,
-                    "resolution": self.config.resolution,
-                },
-            }
-        )
+        last_error = ""
+        for model in _model_candidates(self.config.model):
+            try:
+                task_id = self._create_task(_task_payload(model=model, prompt=clean_prompt, config=self.config))
+                break
+            except KieImageError as exc:
+                last_error = str(exc)
+                if "not supported" not in last_error.lower():
+                    raise
+        else:
+            raise KieImageError(last_error)
         result_url = self._poll_result_url(task_id)
         return self._download(result_url, output_path)
 
@@ -62,6 +63,8 @@ class KieImageClient:
                     response = client.post(f"{self.config.base_url}/api/v1/jobs/createTask", headers=headers, json=payload)
                     response.raise_for_status()
                     data = response.json()
+                    if int((data or {}).get("code") or 200) != 200:
+                        raise KieImageError(str(data))
                     task_id = str(((data or {}).get("data") or {}).get("taskId") or "").strip()
                     if task_id:
                         return task_id
@@ -110,3 +113,24 @@ def _result_url(record: dict[str, Any]) -> str:
     if urls and isinstance(urls[0], str) and urls[0].strip():
         return urls[0].strip()
     raise KieImageError(f"KIE result has no image url: {record}")
+
+
+def _task_payload(*, model: str, prompt: str, config: KieImageConfig) -> dict[str, Any]:
+    return {
+        "model": model,
+        "input": {
+            "prompt": prompt,
+            "aspect_ratio": config.aspect_ratio,
+            "resolution": config.resolution,
+        },
+    }
+
+
+def _model_candidates(model: str) -> list[str]:
+    primary = (model or "gpt-image-2").strip()
+    aliases = {
+        "gpt-image-2": ["gpt-image-2-text-to-image"],
+        "gpt-image-2-text-to-image": ["gpt-image-2"],
+    }
+    candidates = [primary, *aliases.get(primary, [])]
+    return list(dict.fromkeys(item for item in candidates if item))
