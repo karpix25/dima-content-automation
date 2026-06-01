@@ -1,22 +1,59 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import load_settings
+from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError
+from .heygen import HeyGenClient, HeyGenError
+from .settings_service import (
+    delete_overlay_file,
+    get_overlay_path,
+    get_user_settings,
+    save_overlay_file,
+    set_active_elevenlabs_voice,
+    set_active_heygen_avatar,
+    set_overlay_start_percent,
+    set_text_setting,
+)
 from .storage import Storage
 from .turan_client import TuranApiClient, submit_format_job
 from .turan_formats import list_turan_formats
 from .turan_service import TuranServiceError, create_format_job, list_approved_scripts
-from .web_models import CreateFormatJobIn, FormatJobOut, FormatOut, ScriptOut
+from .web_models import (
+    CreateFormatJobIn,
+    ElevenLabsVoiceOut,
+    FormatJobOut,
+    FormatOut,
+    HeyGenAvatarOut,
+    OverlayOut,
+    OverlayPercentIn,
+    ScriptOut,
+    SelectAssetIn,
+    TextSettingIn,
+    UserSettingsOut,
+)
 from .web_serializers import format_to_out, job_to_out, script_to_out
 
 
 settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
+heygen = HeyGenClient(
+    api_key=settings.heygen_api_key,
+    api_base_url=settings.heygen_api_base_url,
+    upload_base_url=settings.heygen_upload_base_url,
+    aspect_ratio=settings.heygen_aspect_ratio,
+    resolution=settings.heygen_resolution,
+    output_format=settings.heygen_output_format,
+    poll_seconds=settings.heygen_video_poll_seconds,
+    timeout_seconds=settings.heygen_video_timeout_seconds,
+    private_avatars_only=settings.heygen_private_avatars_only,
+)
+elevenlabs = ElevenLabsAPIClient(api_key=settings.elevenlabs_api_key)
 static_dir = Path(__file__).with_name("static")
 
 app = FastAPI(title="DIMA Content Mini App")
@@ -54,12 +91,105 @@ def format_jobs(
     return [job_to_out(item) for item in storage.list_format_jobs(user_id, limit=limit)]
 
 
+@app.get("/api/settings", response_model=UserSettingsOut)
+def user_settings(user_id: str = Query(..., min_length=1)) -> UserSettingsOut:
+    return settings_to_out(user_id)
+
+
+@app.patch("/api/settings/text", response_model=UserSettingsOut)
+def update_text_setting(payload: TextSettingIn) -> UserSettingsOut:
+    try:
+        set_text_setting(storage, payload.user_id, payload.key, payload.value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return settings_to_out(payload.user_id)
+
+
+@app.get("/api/settings/heygen-avatars", response_model=list[HeyGenAvatarOut])
+async def heygen_avatars() -> list[HeyGenAvatarOut]:
+    try:
+        avatars = await heygen.list_avatar_looks()
+    except HeyGenError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [HeyGenAvatarOut(id=item.id, name=item.name, preview_image_url=item.preview_image_url, preview_video_url=item.preview_video_url) for item in avatars]
+
+
+@app.post("/api/settings/heygen-avatar", response_model=UserSettingsOut)
+def update_heygen_avatar(payload: SelectAssetIn) -> UserSettingsOut:
+    set_active_heygen_avatar(storage, payload.user_id, payload.id, payload.name)
+    return settings_to_out(payload.user_id)
+
+
+@app.get("/api/settings/elevenlabs-voices", response_model=list[ElevenLabsVoiceOut])
+async def elevenlabs_voices() -> list[ElevenLabsVoiceOut]:
+    try:
+        voices = await elevenlabs.list_voices()
+    except ElevenLabsAPIError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [ElevenLabsVoiceOut(id=item.id, name=item.name, category=item.category, preview_url=item.preview_url) for item in voices]
+
+
+@app.post("/api/settings/elevenlabs-voice", response_model=UserSettingsOut)
+def update_elevenlabs_voice(payload: SelectAssetIn) -> UserSettingsOut:
+    set_active_elevenlabs_voice(storage, payload.user_id, payload.id, payload.name)
+    return settings_to_out(payload.user_id)
+
+
+@app.patch("/api/settings/overlay", response_model=OverlayOut)
+def update_overlay_percent(payload: OverlayPercentIn) -> OverlayOut:
+    try:
+        state = set_overlay_start_percent(storage, payload.user_id, payload.format, payload.start_percent)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return OverlayOut.model_validate(state.__dict__)
+
+
+@app.post("/api/settings/overlay", response_model=OverlayOut)
+async def upload_overlay(
+    user_id: str = Form(...),
+    format: str = Form(...),
+    file: UploadFile = File(...),
+) -> OverlayOut:
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Empty file")
+    try:
+        state = save_overlay_file(storage, settings, user_id, format, file.filename or "overlay.png", content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return OverlayOut.model_validate(state.__dict__)
+
+
+@app.delete("/api/settings/overlay", response_model=OverlayOut)
+def delete_overlay(user_id: str = Query(..., min_length=1), format: str = Query(..., min_length=1)) -> OverlayOut:
+    try:
+        state = delete_overlay_file(storage, user_id, format)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return OverlayOut.model_validate(state.__dict__)
+
+
+@app.get("/api/settings/overlay/file")
+def overlay_file(user_id: str = Query(..., min_length=1), format: str = Query(..., min_length=1)) -> FileResponse:
+    try:
+        path = get_overlay_path(storage, user_id, format)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not path or not path.exists():
+        raise HTTPException(status_code=404, detail="Overlay not found")
+    return FileResponse(path)
+
+
 @app.get("/api/format-jobs/{job_id}", response_model=FormatJobOut)
 def format_job(job_id: int, user_id: str = Query(..., min_length=1)) -> FormatJobOut:
     job = storage.get_format_job(user_id, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Format job not found")
     return job_to_out(job)
+
+
+def settings_to_out(user_id: str) -> UserSettingsOut:
+    return UserSettingsOut.model_validate(asdict(get_user_settings(storage, settings, user_id)))
 
 
 @app.post("/api/scripts/{script_id}/format-jobs", response_model=FormatJobOut)

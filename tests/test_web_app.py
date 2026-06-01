@@ -1,4 +1,5 @@
 from pathlib import Path
+from dataclasses import replace
 
 from fastapi.testclient import TestClient
 
@@ -60,3 +61,45 @@ def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     assert jobs.json()[0]["id"] == created.json()["id"]
     assert opened.status_code == 200
     assert "Revenue is not profit" in opened.json()["output_text"]
+
+
+def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    monkeypatch.setattr(web_app, "storage", storage)
+    client = TestClient(web_app.app)
+
+    saved = client.patch(
+        "/api/settings/text",
+        json={"user_id": "42", "key": "author_style", "value": "Direct operator voice."},
+    )
+    overlay = client.patch(
+        "/api/settings/overlay",
+        json={"user_id": "42", "format": "short", "start_percent": 55},
+    )
+    settings = client.get("/api/settings", params={"user_id": "42"})
+
+    assert saved.status_code == 200
+    assert saved.json()["author_style"] == "Direct operator voice."
+    assert overlay.status_code == 200
+    assert overlay.json()["start_percent"] == 55
+    assert settings.status_code == 200
+    assert settings.json()["overlays"][0]["start_percent"] == 55
+
+
+def test_overlay_upload_and_preview(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "settings", replace(web_app.settings, data_dir=tmp_path))
+    client = TestClient(web_app.app)
+
+    uploaded = client.post(
+        "/api/settings/overlay",
+        data={"user_id": "42", "format": "youtube"},
+        files={"file": ("plate.png", b"fake-png", "image/png")},
+    )
+    preview = client.get("/api/settings/overlay/file", params={"user_id": "42", "format": "youtube"})
+
+    assert uploaded.status_code == 200
+    assert uploaded.json()["has_file"] is True
+    assert preview.status_code == 200
+    assert preview.content == b"fake-png"

@@ -18,6 +18,12 @@
       </header>
 
       <main>
+        <nav class="tabs">
+          <button class="tab active" data-tab="formats">Formats</button>
+          <button class="tab" data-tab="settings">Settings</button>
+          <button class="tab" data-tab="history">History</button>
+        </nav>
+
         <section id="login" class="panel hidden">
           <label for="tg-id">Telegram ID</label>
           <div class="login-row">
@@ -26,12 +32,20 @@
           </div>
         </section>
 
-        <section class="panel">
+        <section id="formats-panel" class="panel">
           <div class="section-head">
             <h2>Approved</h2>
             <button id="refresh">Refresh</button>
           </div>
           <div id="scripts" class="list"></div>
+        </section>
+
+        <section id="settings-panel" class="panel hidden">
+          <div class="section-head">
+            <h2>Settings</h2>
+            <button id="refresh-settings">Refresh</button>
+          </div>
+          <div id="settings" class="settings-grid"></div>
         </section>
 
         <section class="panel">
@@ -42,7 +56,7 @@
           <pre id="output">Choose a script and format.</pre>
         </section>
 
-        <section class="panel">
+        <section id="history-panel" class="panel">
           <div class="section-head">
             <h2>History</h2>
           </div>

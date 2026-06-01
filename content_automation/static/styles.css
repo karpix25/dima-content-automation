@@ -67,6 +67,24 @@ main {
   padding: 12px;
 }
 
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.tab {
+  background: #e5e7eb;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.tab.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: white;
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -83,16 +101,28 @@ main {
 }
 
 input,
+textarea,
 button {
-  height: 38px;
   border-radius: 8px;
   border: 1px solid var(--line);
   font: inherit;
 }
 
-input {
+input,
+textarea {
   width: 100%;
   padding: 0 10px;
+}
+
+input,
+button {
+  height: 38px;
+}
+
+textarea {
+  min-height: 86px;
+  padding: 10px;
+  resize: vertical;
 }
 
 button {
@@ -195,6 +225,94 @@ pre {
 
 .compact .card {
   padding: 10px;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.settings-section h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.settings-section code {
+  display: block;
+  min-height: 20px;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.asset-list {
+  display: grid;
+  gap: 8px;
+}
+
+.asset-card,
+.overlay-card {
+  display: grid;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background: #f9fafb;
+}
+
+.asset-card {
+  grid-template-columns: 46px 1fr auto;
+}
+
+.asset-card.text-card {
+  grid-template-columns: 1fr auto auto;
+}
+
+.asset-card img,
+.overlay-card img {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #e5e7eb;
+}
+
+.asset-card strong,
+.overlay-card strong {
+  display: block;
+  font-size: 13px;
+}
+
+.asset-card small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.asset-card a {
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .hidden {
