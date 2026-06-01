@@ -3,6 +3,6 @@ python-dotenv>=1.0,<2
 elevenlabs-mcp==0.9.1
 httpx>=0.28,<1
 notebooklm-py[browser]>=0.5,<0.6
-fastapi>=0.110,<1
-uvicorn[standard]>=0.27,<1
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
 Pillow>=11,<12
