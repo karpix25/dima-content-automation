@@ -27,6 +27,7 @@ from .settings_service import (
     set_active_elevenlabs_voice,
     set_active_heygen_avatar,
     set_active_thumbnail_face,
+    set_heygen_generation_model,
     set_instagram_post_5s_overlay,
     set_overlay_start_percent,
     set_text_setting,
@@ -41,6 +42,7 @@ from .web_models import (
     FormatJobOut,
     FormatOut,
     FaceActivateIn,
+    HeyGenModelIn,
     HeyGenAvatarOut,
     InstagramPost5sOut,
     MediaAssetOut,
@@ -127,13 +129,32 @@ async def heygen_avatars() -> list[HeyGenAvatarOut]:
         avatars = await heygen.list_avatar_looks()
     except HeyGenError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return [HeyGenAvatarOut(id=item.id, name=item.name, preview_image_url=item.preview_image_url, preview_video_url=item.preview_video_url) for item in avatars]
+    return [
+        HeyGenAvatarOut(
+            id=item.id,
+            name=item.name,
+            preview_image_url=item.preview_image_url,
+            preview_video_url=item.preview_video_url,
+            avatar_type=item.avatar_type,
+            supported_engines=item.supported_engines,
+        )
+        for item in avatars
+    ]
 
 
 @app.post("/api/settings/heygen-avatar", response_model=UserSettingsOut)
 def update_heygen_avatar(payload: SelectAssetIn) -> UserSettingsOut:
     try:
         set_active_heygen_avatar(storage, payload.user_id, payload.id, payload.name, payload.target)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return settings_to_out(payload.user_id)
+
+
+@app.post("/api/settings/heygen-model", response_model=UserSettingsOut)
+def update_heygen_model(payload: HeyGenModelIn) -> UserSettingsOut:
+    try:
+        set_heygen_generation_model(storage, payload.user_id, payload.model)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return settings_to_out(payload.user_id)

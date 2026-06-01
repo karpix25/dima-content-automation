@@ -22,6 +22,8 @@ def build_visual_reference_payload(
         "heygen_avatar": {
             "id": avatar_id,
             "name": avatar_name,
+            "api_version": state.heygen_video_api_version,
+            "engine": state.heygen_avatar_engine if state.heygen_video_api_version == "v3" else None,
         },
         "thumbnail": {
             "face_path": state.thumbnail_face_path if target == "horizontal" else state.vertical_thumbnail_face_path,

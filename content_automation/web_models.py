@@ -38,6 +38,11 @@ class SelectAssetIn(BaseModel):
     target: str = "both"
 
 
+class HeyGenModelIn(BaseModel):
+    user_id: str
+    model: str
+
+
 class OverlayPercentIn(BaseModel):
     user_id: str
     format: str
@@ -89,6 +94,8 @@ class UserSettingsOut(BaseModel):
     heygen_avatar_name: str | None = None
     heygen_vertical_avatar_id: str | None = None
     heygen_vertical_avatar_name: str | None = None
+    heygen_video_api_version: str = "v2"
+    heygen_avatar_engine: str = "avatar_iv"
     elevenlabs_voice_id: str | None = None
     elevenlabs_voice_name: str
     thumbnail_face_path: str | None = None
@@ -107,6 +114,8 @@ class HeyGenAvatarOut(BaseModel):
     name: str
     preview_image_url: str | None = None
     preview_video_url: str | None = None
+    avatar_type: str = ""
+    supported_engines: list[str] = []
 
 
 class ElevenLabsVoiceOut(BaseModel):

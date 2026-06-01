@@ -19,6 +19,8 @@ class HeyGenAvatar:
     name: str
     preview_image_url: str | None
     preview_video_url: str | None
+    avatar_type: str
+    supported_engines: list[str]
     raw: dict[str, Any]
 
 
@@ -140,19 +142,34 @@ class HeyGenClient:
             raise HeyGenError(f"HeyGen не вернул asset id после upload: {payload}")
         return asset_id
 
-    async def create_video_from_audio(self, *, avatar_id: str, audio_asset_id: str, title: str | None = None) -> HeyGenVideoResult:
-        body = {
-            "type": "avatar",
-            "avatar_id": avatar_id,
-            "audio_asset_id": audio_asset_id,
-            "title": title or "Telegram approved script",
-            "aspect_ratio": self.aspect_ratio,
-            "resolution": self.resolution,
-            "output_format": self.output_format,
-        }
+    async def create_video_from_audio(
+        self,
+        *,
+        avatar_id: str,
+        audio_asset_id: str,
+        title: str | None = None,
+        api_version: str = "v2",
+        engine: str = "avatar_iv",
+        motion_prompt: str | None = None,
+        expressiveness: str | None = None,
+    ) -> HeyGenVideoResult:
+        api_version_value = (api_version or "v2").strip().lower()
+        if api_version_value == "v3":
+            body = self._video_v3_body(
+                avatar_id=avatar_id,
+                audio_asset_id=audio_asset_id,
+                title=title,
+                engine=engine,
+                motion_prompt=motion_prompt,
+                expressiveness=expressiveness,
+            )
+            endpoint = f"{self.api_base_url}/v3/videos"
+        else:
+            body = self._video_v2_body(avatar_id=avatar_id, audio_asset_id=audio_asset_id)
+            endpoint = f"{self.api_base_url}/v2/video/generate"
         async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
-                f"{self.api_base_url}/v3/videos",
+                endpoint,
                 headers={**self.headers(), "content-type": "application/json"},
                 json=body,
             )
@@ -169,9 +186,69 @@ class HeyGenClient:
             raw=payload,
         )
 
+    def _video_v3_body(
+        self,
+        *,
+        avatar_id: str,
+        audio_asset_id: str,
+        title: str | None,
+        engine: str,
+        motion_prompt: str | None,
+        expressiveness: str | None,
+    ) -> dict[str, Any]:
+        engine_type = (engine or "avatar_iv").strip().lower()
+        if engine_type not in {"avatar_iv", "avatar_v"}:
+            engine_type = "avatar_iv"
+        body: dict[str, Any] = {
+            "type": "avatar",
+            "avatar_id": avatar_id,
+            "audio_asset_id": audio_asset_id,
+            "title": title or "Telegram approved script",
+            "aspect_ratio": self.aspect_ratio,
+            "resolution": self.resolution,
+            "output_format": self.output_format,
+            "engine": {"type": engine_type},
+        }
+        if engine_type == "avatar_iv":
+            motion_prompt_value = (motion_prompt or "").strip()
+            expressiveness_value = (expressiveness or "").strip().lower()
+            if motion_prompt_value:
+                body["motion_prompt"] = motion_prompt_value[:500]
+            if expressiveness_value in {"low", "medium", "high"}:
+                body["expressiveness"] = expressiveness_value
+        return body
+
+    def _video_v2_body(self, *, avatar_id: str, audio_asset_id: str) -> dict[str, Any]:
+        is_vertical = self.aspect_ratio.strip() == "9:16"
+        return {
+            "video_inputs": [
+                {
+                    "character": {
+                        "type": "avatar",
+                        "avatar_id": avatar_id,
+                        "avatar_style": "normal",
+                    },
+                    "voice": {
+                        "type": "audio",
+                        "audio_asset_id": audio_asset_id,
+                    },
+                }
+            ],
+            "dimension": {
+                "width": 1080 if is_vertical else 1920,
+                "height": 1920 if is_vertical else 1080,
+            },
+        }
+
     async def get_video(self, video_id: str) -> HeyGenVideoResult:
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.get(f"{self.api_base_url}/v3/videos/{video_id}", headers=self.headers())
+            if response.status_code in {404, 405}:
+                response = await client.get(
+                    f"{self.api_base_url}/v1/video_status.get",
+                    headers=self.headers(),
+                    params={"video_id": video_id},
+                )
         if response.status_code >= 400:
             raise HeyGenError(f"HeyGen video status error {response.status_code}: {response.text[:1000]}")
         payload = response.json()
@@ -229,6 +306,9 @@ def _parse_avatar(item: dict[str, Any]) -> HeyGenAvatar | None:
     name = str(item.get("name") or item.get("avatar_name") or item.get("display_name") or avatar_id).strip()
     if not avatar_id:
         return None
+    supported = item.get("supported_api_engines") or item.get("supported_engines") or []
+    if not isinstance(supported, list):
+        supported = []
     return HeyGenAvatar(
         id=avatar_id,
         name=name or avatar_id,
@@ -242,6 +322,8 @@ def _parse_avatar(item: dict[str, Any]) -> HeyGenAvatar | None:
         ),
         preview_video_url=_first_text(item, ("preview_video_url",), ("preview_video",), ("video_url",)),
         raw=item,
+        avatar_type=str(item.get("avatar_type") or item.get("type") or "").strip(),
+        supported_engines=[str(engine).strip() for engine in supported if str(engine).strip()],
     )
 
 

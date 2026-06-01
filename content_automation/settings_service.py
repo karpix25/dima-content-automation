@@ -41,6 +41,8 @@ class UserSettingsState:
     heygen_avatar_name: str | None
     heygen_vertical_avatar_id: str | None
     heygen_vertical_avatar_name: str | None
+    heygen_video_api_version: str
+    heygen_avatar_engine: str
     elevenlabs_voice_id: str | None
     elevenlabs_voice_name: str
     thumbnail_face_path: str | None
@@ -64,6 +66,8 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         heygen_avatar_name=storage.get_setting(user_id, "heygen_avatar_name"),
         heygen_vertical_avatar_id=storage.get_setting(user_id, "heygen_vertical_avatar_id") or storage.get_setting(user_id, "heygen_avatar_id"),
         heygen_vertical_avatar_name=storage.get_setting(user_id, "heygen_vertical_avatar_name") or storage.get_setting(user_id, "heygen_avatar_name"),
+        heygen_video_api_version=get_heygen_video_api_version(storage, user_id),
+        heygen_avatar_engine=get_heygen_avatar_engine(storage, user_id),
         elevenlabs_voice_id=storage.get_setting(user_id, "elevenlabs_voice_id") or settings.elevenlabs_voice_id,
         elevenlabs_voice_name=storage.get_setting(user_id, "elevenlabs_voice_name") or settings.elevenlabs_voice_name,
         thumbnail_face_path=storage.get_setting(user_id, "thumbnail_face_path"),
@@ -104,6 +108,28 @@ def set_active_heygen_avatar(storage: Storage, user_id: str, avatar_id: str, ava
         storage.set_setting(user_id, "heygen_vertical_avatar_name", avatar_name)
     else:
         raise ValueError("Unsupported avatar target")
+
+
+def set_heygen_generation_model(storage: Storage, user_id: str, model: str) -> None:
+    normalized = (model or "avatar_iii").strip().lower()
+    if normalized == "avatar_iii":
+        storage.set_setting(user_id, "heygen_video_api_version", "v2")
+        storage.set_setting(user_id, "heygen_avatar_engine", "avatar_iv")
+    elif normalized in {"avatar_iv", "avatar_v"}:
+        storage.set_setting(user_id, "heygen_video_api_version", "v3")
+        storage.set_setting(user_id, "heygen_avatar_engine", normalized)
+    else:
+        raise ValueError("Unsupported HeyGen model")
+
+
+def get_heygen_video_api_version(storage: Storage, user_id: str) -> str:
+    value = (storage.get_setting(user_id, "heygen_video_api_version") or "v2").strip().lower()
+    return value if value in {"v2", "v3"} else "v2"
+
+
+def get_heygen_avatar_engine(storage: Storage, user_id: str) -> str:
+    value = (storage.get_setting(user_id, "heygen_avatar_engine") or "avatar_iv").strip().lower()
+    return value if value in {"avatar_iv", "avatar_v"} else "avatar_iv"
 
 
 def set_active_elevenlabs_voice(storage: Storage, user_id: str, voice_id: str, voice_name: str) -> None:

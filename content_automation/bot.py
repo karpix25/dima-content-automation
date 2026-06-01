@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import difflib
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -520,6 +521,29 @@ def set_active_heygen_avatar(user_id: str, avatar: HeyGenAvatar) -> None:
     storage.set_setting(user_id, "heygen_vertical_avatar_name", avatar.name)
 
 
+def get_heygen_generation_settings(user_id: str) -> tuple[str, str]:
+    api_version = (storage.get_setting(user_id, "heygen_video_api_version") or "v2").strip().lower()
+    engine = (storage.get_setting(user_id, "heygen_avatar_engine") or "avatar_iv").strip().lower()
+    if api_version not in {"v2", "v3"}:
+        api_version = "v2"
+    if engine not in {"avatar_iv", "avatar_v"}:
+        engine = "avatar_iv"
+    return api_version, engine
+
+
+def default_photo_avatar_motion_prompt() -> str:
+    return (
+        os.getenv("HEYGEN_PHOTO_AVATAR_MOTION_PROMPT")
+        or (
+            "The subject appears as a natural, expressive presenter speaking directly to the camera. "
+            "The camera stays stable and professional, while the performance feels alive, focused, and confident. "
+            "Facial expression remains neutral and attentive, without a smile, with subtle changes that match "
+            "the rhythm and emphasis of speech. Use natural presenter movement: small shifts in posture, "
+            "controlled head movement, steady eye contact, and restrained hand movement when it supports emphasis."
+        )
+    ).strip()
+
+
 def button(text: str, *, callback_data: str | None = None, url: str | None = None, style: str | None = None) -> InlineKeyboardButton:
     kwargs: dict[str, str] = {"text": text}
     if callback_data:
@@ -1033,13 +1057,28 @@ async def create_and_send_video(chat_id: int, thread_id: int | None, user_id: st
         await send_to_chat_thread(chat_id, "⚠️ HeyGen avatar не выбран. Открой /settings → 🎭 Аватар HeyGen.", thread_id=thread_id)
         return
 
+    heygen_api_version, avatar_engine = get_heygen_generation_settings(user_id)
+    motion_prompt = default_photo_avatar_motion_prompt() if heygen_api_version == "v3" and avatar_engine == "avatar_iv" else None
+    expressiveness = (os.getenv("HEYGEN_PHOTO_AVATAR_EXPRESSIVENESS") or "high").strip().lower() if motion_prompt else None
     status_msg = await send_to_chat_thread(
         chat_id,
-        f"🎭 Отправляю озвучку в HeyGen.\nАватар: {avatar_name}\nЭто может занять несколько минут.",
+        (
+            f"🎭 Отправляю озвучку в HeyGen {heygen_api_version}"
+            f"{f' ({avatar_engine})' if heygen_api_version == 'v3' else ''}.\n"
+            f"Аватар: {avatar_name}\nЭто может занять несколько минут."
+        ),
         thread_id=thread_id,
     )
     asset_id = await heygen.upload_audio_file(path)
-    created = await heygen.create_video_from_audio(avatar_id=avatar_id, audio_asset_id=asset_id, title=record.title)
+    created = await heygen.create_video_from_audio(
+        avatar_id=avatar_id,
+        audio_asset_id=asset_id,
+        title=record.title,
+        api_version=heygen_api_version,
+        engine=avatar_engine,
+        motion_prompt=motion_prompt,
+        expressiveness=expressiveness,
+    )
     await status_msg.edit_text(f"🎬 HeyGen принял задачу: {created.video_id}\nЖду готовый ролик...")
     ready = await heygen.wait_for_video(created.video_id)
     if not ready.video_url:
