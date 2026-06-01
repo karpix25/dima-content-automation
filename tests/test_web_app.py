@@ -4,11 +4,16 @@ from dataclasses import replace
 from fastapi.testclient import TestClient
 
 from content_automation import web_app
+from content_automation.media_assets import MediaAssetStore
 from content_automation.storage import Storage
 
 
 def make_storage(tmp_path: Path) -> Storage:
     return Storage(tmp_path / "web.sqlite3")
+
+
+def make_asset_store(tmp_path: Path) -> MediaAssetStore:
+    return MediaAssetStore(tmp_path / "web.sqlite3")
 
 
 def add_approved_script(storage: Storage, user_id: str = "42"):
@@ -103,3 +108,50 @@ def test_overlay_upload_and_preview(tmp_path, monkeypatch):
     assert uploaded.json()["has_file"] is True
     assert preview.status_code == 200
     assert preview.content == b"fake-png"
+
+
+def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+    monkeypatch.setattr(web_app, "settings", replace(web_app.settings, data_dir=tmp_path))
+    client = TestClient(web_app.app)
+
+    refs = client.post(
+        "/api/settings/thumbnail-references",
+        data={"user_id": "42", "target": "both"},
+        files=[("files", ("ref.png", b"ref", "image/png"))],
+    )
+    updated = client.patch(
+        f"/api/settings/thumbnail-references/{refs.json()[0]['id']}",
+        json={"user_id": "42", "target": "horizontal"},
+    )
+    faces = client.post(
+        "/api/settings/thumbnail-faces",
+        data={"user_id": "42"},
+        files=[("files", ("face.jpg", b"face", "image/jpeg"))],
+    )
+    activated = client.patch(
+        f"/api/settings/thumbnail-face-references/{faces.json()[0]['id']}",
+        json={"user_id": "42", "target": "vertical"},
+    )
+    audio = client.post(
+        "/api/settings/instagram-post-5s/audio",
+        data={"user_id": "42"},
+        files=[("files", ("sound.mp3", b"audio", "audio/mpeg"))],
+    )
+    record = add_approved_script(storage)
+    created_job = client.post(
+        f"/api/scripts/{record.id}/format-jobs",
+        json={"user_id": "42", "format_key": "avatar_horizontal"},
+    )
+    settings = client.get("/api/settings", params={"user_id": "42"})
+
+    assert refs.status_code == 200
+    assert updated.json()["target"] == "horizontal"
+    assert faces.status_code == 200
+    assert activated.status_code == 200
+    assert audio.json()["audio_tracks"][0]["file_name"] == "sound.mp3"
+    assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["thumbnail"]["style_references"][0]["file_name"] == "ref.png"
+    assert settings.json()["vertical_thumbnail_face_path"].endswith(".jpg")

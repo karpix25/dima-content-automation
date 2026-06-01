@@ -4,7 +4,7 @@ from .storage import ScriptRecord
 from .turan_formats import TuranFormat, build_turan_package
 
 
-def build_structured_payload(record: ScriptRecord, spec: TuranFormat) -> dict[str, object]:
+def build_structured_payload(record: ScriptRecord, spec: TuranFormat, visual_reference: dict[str, object] | None = None) -> dict[str, object]:
     base = {
         "source": {
             "kind": "notebooklm_approved_script",
@@ -31,6 +31,9 @@ def build_structured_payload(record: ScriptRecord, spec: TuranFormat) -> dict[st
         "turan_task_input": build_turan_task_input(record, spec),
         "package_text": build_turan_package(record, spec.key),
     }
+    if visual_reference:
+        base["visual_reference"] = visual_reference
+        base["turan_task_input"]["visual_reference"] = visual_reference
     if spec.key == "infographic_reels":
         base["infographic_reels"] = {
             "card": {

@@ -1,0 +1,447 @@
+export async function loadSettingsData(deps, render = true) {
+  const { state, api } = deps;
+  if (!state.userId) return;
+  const userQuery = encodeURIComponent(state.userId);
+  const [settings, refs, faces, inserts, fiveSecond] = await Promise.all([
+    api(`/api/settings?user_id=${userQuery}`),
+    api(`/api/settings/thumbnail-references?user_id=${userQuery}`),
+    api(`/api/settings/thumbnail-face-references?user_id=${userQuery}`),
+    api(`/api/settings/avatar-inserts?user_id=${userQuery}`),
+    api(`/api/settings/instagram-post-5s?user_id=${userQuery}`),
+  ]);
+  state.settings = settings;
+  state.thumbnailReferences = refs;
+  state.thumbnailFaces = faces;
+  state.avatarInserts = inserts;
+  state.fiveSecondSettings = fiveSecond;
+  if (render) renderSettingsPanel(deps);
+}
+
+export function renderSettingsPanel(deps) {
+  const root = document.getElementById("settings");
+  const { state } = deps;
+  if (!state.settings) {
+    root.innerHTML = `<p>Settings are loading.</p>`;
+    return;
+  }
+  root.innerHTML = `
+    ${renderSaveBar()}
+    ${renderIdentitySection(deps)}
+    ${renderCoverSection(deps)}
+    ${renderAvatarInsertSection(deps)}
+    ${renderFiveSecondSection(deps)}
+    ${renderTextSection(deps)}
+    ${renderOverlaySection(deps)}
+  `;
+  bindSettingsEvents(root, deps);
+}
+
+function renderSaveBar() {
+  return `
+    <div class="settings-sticky">
+      <div>
+        <strong>Основные настройки</strong>
+        <p>Аватар, голос, обложки, референсы и 5s assets</p>
+      </div>
+      <span class="mini-badge">Turan style</span>
+    </div>
+  `;
+}
+
+function renderIdentitySection({ state, escapeHtml }) {
+  const settings = state.settings;
+  return `
+    <details open class="tg-card settings-section">
+      <summary><span>Avatar & voice</span></summary>
+      <div class="settings-two">
+        <div class="soft-box">
+          <h3>HeyGen avatar</h3>
+          <p>${escapeHtml(settings.heygen_avatar_name || "Not selected")}</p>
+          <code>${escapeHtml(settings.heygen_avatar_id || "")}</code>
+          <button data-action="load-avatars">Load avatars</button>
+          <div class="asset-list">${renderAvatarList(state, escapeHtml)}</div>
+        </div>
+        <div class="soft-box">
+          <h3>ElevenLabs voice</h3>
+          <p>${escapeHtml(settings.elevenlabs_voice_name || "Not selected")}</p>
+          <code>${escapeHtml(settings.elevenlabs_voice_id || "")}</code>
+          <button data-action="load-voices">Load voices</button>
+          <div class="asset-list">${renderVoiceList(state, escapeHtml)}</div>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function renderCoverSection({ state, escapeHtml }) {
+  return `
+    <details open class="tg-card settings-section">
+      <summary><span>Обложки: лицо и референсы</span></summary>
+      <div class="settings-two cover-grid">
+        <div class="soft-box">
+          <div class="box-head">
+            <h3>Референс лица</h3>
+            <label class="upload-button">
+              Upload
+              <input type="file" multiple accept="image/png,image/jpeg,image/webp" data-upload="thumbnail-faces" />
+            </label>
+          </div>
+          ${renderFaceReferences(state, escapeHtml)}
+        </div>
+        <div class="soft-box">
+          <div class="box-head">
+            <h3>Референсы обложек</h3>
+            <label class="upload-button blue">
+              Add
+              <input type="file" multiple accept="image/png,image/jpeg,image/webp" data-upload="thumbnail-references" />
+            </label>
+          </div>
+          ${renderThumbnailReferences(state, escapeHtml)}
+          <p>Каждую картинку можно включить для YouTube, Shorts или обоих форматов.</p>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function renderAvatarInsertSection({ state, escapeHtml }) {
+  const settings = state.settings;
+  return `
+    <details class="tg-card settings-section">
+      <summary><span>Видео-вставки для avatar_youtube</span></summary>
+      <div class="settings-three">
+        ${numberField("avatar_insert_start_percent", "Старт вставок (%)", settings.avatar_insert_start_percent, 0, 99)}
+        ${numberField("avatar_insert_end_percent", "Финиш вставок (%)", settings.avatar_insert_end_percent, 1, 100)}
+        ${numberField("avatar_insert_clips_count", "Сколько вставок", settings.avatar_insert_clips_count, 0, 20)}
+      </div>
+      <div class="box-head">
+        <p>Видео для перебивок в горизонтальном avatar формате.</p>
+        <label class="upload-button blue">
+          Add video
+          <input type="file" multiple accept="video/mp4,video/quicktime,video/webm,video/x-matroska,video/x-m4v" data-upload="avatar-inserts" />
+        </label>
+      </div>
+      <div class="asset-list">${renderSimpleAssetList(state.avatarInserts, escapeHtml, "delete-avatar-insert")}</div>
+    </details>
+  `;
+}
+
+function renderFiveSecondSection({ state, escapeHtml }) {
+  const five = state.fiveSecondSettings || { audio_tracks: [] };
+  return `
+    <details open class="tg-card settings-section">
+      <summary><span>5 секунд</span></summary>
+      <label>CTA в нижнем белом фрейме</label>
+      <input data-setting="instagram_post_5s_cta_text" maxlength="180" value="${escapeHtml(five.cta_text || "")}" />
+      <button data-action="save-text" data-key="instagram_post_5s_cta_text">Save CTA</button>
+      <div class="settings-two">
+        <div class="soft-box">
+          <div class="box-head">
+            <h3>Аудиобиблиотека</h3>
+            <label class="upload-button blue">
+              Add
+              <input type="file" multiple accept="audio/*,video/mp4,video/quicktime" data-upload="five-second-audio" />
+            </label>
+          </div>
+          <span class="mini-badge">Треков ${five.audio_tracks.length}</span>
+          <div class="asset-list">${renderSimpleAssetList(five.audio_tracks, escapeHtml, "delete-five-audio")}</div>
+        </div>
+        <div class="soft-box">
+          <div class="box-head">
+            <h3>Плашка с 2 секунды</h3>
+            <label class="icon-button">
+              +
+              <input type="file" accept="image/png,image/jpeg,image/webp" data-upload="five-second-overlay" />
+            </label>
+          </div>
+          ${five.overlay_url ? `
+            <article class="asset-card">
+              <img src="${five.overlay_url}" alt="" />
+              <div><strong>${escapeHtml((five.overlay_path || "").split("/").pop())}</strong></div>
+              <button data-action="delete-five-overlay">Delete</button>
+            </article>
+          ` : `<p>Нет плашки. Если загрузить, появится на 2 секунде и будет до конца.</p>`}
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+function renderTextSection({ state, escapeHtml }) {
+  const rows = [
+    ["notebook_id", "NotebookLM ID", state.settings.notebook_id || ""],
+    ["author_style", "Author voice", state.settings.author_style || ""],
+    ["offer_context", "Offer context", state.settings.offer_context || ""],
+    ["cta_mix", "CTA mix", state.settings.cta_mix || ""],
+    ["youtube_description_template", "YouTube description template", state.settings.youtube_description_template || ""],
+  ];
+  return `
+    <details class="tg-card settings-section">
+      <summary><span>Text settings</span></summary>
+      ${rows.map(([key, label, value]) => `
+        <label>${label}</label>
+        <textarea data-setting="${key}" rows="${key === "notebook_id" ? 2 : 5}">${escapeHtml(value)}</textarea>
+        <button data-action="save-text" data-key="${key}">Save ${label}</button>
+      `).join("")}
+    </details>
+  `;
+}
+
+function renderOverlaySection({ state, escapeHtml }) {
+  return `
+    <details class="tg-card settings-section">
+      <summary><span>Final overlays</span></summary>
+      ${state.settings.overlays.map((overlay) => `
+        <article class="overlay-card">
+          <div>
+            <strong>${escapeHtml(overlay.label)}</strong>
+            <p>${overlay.has_file ? escapeHtml(overlay.file_name) : "No file"}</p>
+          </div>
+          ${overlay.has_file ? `<img src="/api/settings/overlay/file?user_id=${encodeURIComponent(state.userId)}&format=${encodeURIComponent(overlay.format)}&t=${Date.now()}" alt="" />` : ""}
+          <label>Start %</label>
+          <input type="number" min="0" max="100" value="${overlay.start_percent}" data-overlay-percent="${overlay.format}" />
+          <input type="file" accept="image/png,image/jpeg,image/webp" data-overlay-file="${overlay.format}" />
+          <div class="settings-actions">
+            <button data-action="save-overlay-percent" data-format="${overlay.format}">Save</button>
+            <button data-action="delete-overlay" data-format="${overlay.format}" ${overlay.has_file ? "" : "disabled"}>Delete</button>
+          </div>
+        </article>
+      `).join("")}
+    </details>
+  `;
+}
+
+function bindSettingsEvents(root, deps) {
+  root.querySelectorAll("[data-action='load-avatars']").forEach((button) => button.addEventListener("click", () => loadAvatars(deps).catch(deps.showError)));
+  root.querySelectorAll("[data-action='load-voices']").forEach((button) => button.addEventListener("click", () => loadVoices(deps).catch(deps.showError)));
+  root.querySelectorAll("[data-action='save-text']").forEach((button) => button.addEventListener("click", () => saveTextSetting(deps, button.dataset.key).catch(deps.showError)));
+  root.querySelectorAll("[data-action='select-avatar']").forEach((button) => button.addEventListener("click", () => selectAsset(deps, "heygen-avatar", button.dataset).catch(deps.showError)));
+  root.querySelectorAll("[data-action='select-voice']").forEach((button) => button.addEventListener("click", () => selectAsset(deps, "elevenlabs-voice", button.dataset).catch(deps.showError)));
+  root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => button.addEventListener("click", () => saveOverlayPercent(deps, button.dataset.format).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => button.addEventListener("click", () => deleteOverlay(deps, button.dataset.format).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-ref']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "thumbnail-references", button.dataset.id).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-face']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "thumbnail-face-references", button.dataset.id).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-avatar-insert']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "avatar-inserts", button.dataset.id).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-five-audio']").forEach((button) => button.addEventListener("click", () => deleteFiveAudio(deps, button.dataset.id).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-five-overlay']").forEach((button) => button.addEventListener("click", () => deleteFiveOverlay(deps).catch(deps.showError)));
+  root.querySelectorAll("[data-target-ref]").forEach((button) => button.addEventListener("click", () => toggleRefTarget(deps, button.dataset.id, button.dataset.targetRef).catch(deps.showError)));
+  root.querySelectorAll("[data-face-target]").forEach((button) => button.addEventListener("click", () => activateFace(deps, button.dataset.id, button.dataset.faceTarget).catch(deps.showError)));
+  root.querySelectorAll("[data-upload]").forEach((input) => input.addEventListener("change", () => handleUpload(deps, input).catch(deps.showError)));
+  root.querySelectorAll("[data-overlay-file]").forEach((input) => input.addEventListener("change", () => uploadOverlay(deps, input.dataset.overlayFile, input.files[0]).catch(deps.showError)));
+}
+
+async function loadAvatars({ state, api, setStatus }) {
+  setStatus("Avatars");
+  state.avatars = await api("/api/settings/heygen-avatars");
+  renderSettingsPanel(arguments[0]);
+  setStatus("Ready");
+}
+
+async function loadVoices({ state, api, setStatus }) {
+  setStatus("Voices");
+  state.voices = await api("/api/settings/elevenlabs-voices");
+  renderSettingsPanel(arguments[0]);
+  setStatus("Ready");
+}
+
+async function saveTextSetting(deps, key) {
+  const field = document.querySelector(`[data-setting="${key}"]`);
+  deps.setStatus("Saving");
+  deps.state.settings = await deps.api("/api/settings/text", {
+    method: "PATCH",
+    body: JSON.stringify({ user_id: deps.state.userId, key, value: field.value }),
+  });
+  await loadSettingsData(deps);
+  deps.setStatus("Saved");
+}
+
+async function selectAsset(deps, kind, dataset) {
+  deps.setStatus("Saving");
+  deps.state.settings = await deps.api(`/api/settings/${kind}`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: deps.state.userId, id: dataset.id, name: dataset.name }),
+  });
+  renderSettingsPanel(deps);
+  deps.setStatus("Saved");
+}
+
+async function saveOverlayPercent(deps, format) {
+  const field = document.querySelector(`[data-overlay-percent="${format}"]`);
+  deps.setStatus("Saving");
+  await deps.api("/api/settings/overlay", {
+    method: "PATCH",
+    body: JSON.stringify({ user_id: deps.state.userId, format, start_percent: Number(field.value || 70) }),
+  });
+  await loadSettingsData(deps);
+  deps.setStatus("Saved");
+}
+
+async function uploadOverlay(deps, format, file) {
+  if (!file) return;
+  const form = formWithUser(deps.state.userId);
+  form.append("format", format);
+  form.append("file", file);
+  await postForm("/api/settings/overlay", form);
+  await loadSettingsData(deps);
+}
+
+async function deleteOverlay(deps, format) {
+  await deps.api(`/api/settings/overlay?user_id=${encodeURIComponent(deps.state.userId)}&format=${encodeURIComponent(format)}`, { method: "DELETE" });
+  await loadSettingsData(deps);
+}
+
+async function handleUpload(deps, input) {
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const form = formWithUser(deps.state.userId);
+  files.forEach((file) => form.append(input.dataset.upload === "five-second-overlay" ? "file" : "files", file));
+  const paths = {
+    "thumbnail-references": "/api/settings/thumbnail-references",
+    "thumbnail-faces": "/api/settings/thumbnail-faces",
+    "avatar-inserts": "/api/settings/avatar-inserts",
+    "five-second-audio": "/api/settings/instagram-post-5s/audio",
+    "five-second-overlay": "/api/settings/instagram-post-5s/overlay",
+  };
+  await postForm(paths[input.dataset.upload], form);
+  input.value = "";
+  await loadSettingsData(deps);
+}
+
+async function toggleRefTarget(deps, id, target) {
+  const item = deps.state.thumbnailReferences.find((ref) => String(ref.id) === String(id));
+  const nextTarget = nextReferenceTarget(item?.target || "both", target);
+  await deps.api(`/api/settings/thumbnail-references/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ user_id: deps.state.userId, target: nextTarget }),
+  });
+  await loadSettingsData(deps);
+}
+
+async function activateFace(deps, id, target) {
+  await deps.api(`/api/settings/thumbnail-face-references/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ user_id: deps.state.userId, target }),
+  });
+  await loadSettingsData(deps);
+}
+
+async function deleteMedia(deps, endpoint, id) {
+  await deps.api(`/api/settings/${endpoint}/${id}?user_id=${encodeURIComponent(deps.state.userId)}`, { method: "DELETE" });
+  await loadSettingsData(deps);
+}
+
+async function deleteFiveAudio(deps, id) {
+  await deps.api(`/api/settings/instagram-post-5s/audio/${id}?user_id=${encodeURIComponent(deps.state.userId)}`, { method: "DELETE" });
+  await loadSettingsData(deps);
+}
+
+async function deleteFiveOverlay(deps) {
+  await deps.api(`/api/settings/instagram-post-5s/overlay?user_id=${encodeURIComponent(deps.state.userId)}`, { method: "DELETE" });
+  await loadSettingsData(deps);
+}
+
+function renderAvatarList(state, escapeHtml) {
+  return state.avatars.map((avatar) => `
+    <article class="asset-card">
+      ${avatar.preview_image_url ? `<img src="${escapeHtml(avatar.preview_image_url)}" alt="" />` : ""}
+      <div><strong>${escapeHtml(avatar.name)}</strong><small>${escapeHtml(avatar.id)}</small></div>
+      <button data-action="select-avatar" data-id="${escapeHtml(avatar.id)}" data-name="${escapeHtml(avatar.name)}">Use</button>
+    </article>
+  `).join("");
+}
+
+function renderVoiceList(state, escapeHtml) {
+  return state.voices.map((voice) => `
+    <article class="asset-card text-card">
+      <div><strong>${escapeHtml(voice.name)}</strong><small>${escapeHtml(voice.category || voice.id)}</small></div>
+      ${voice.preview_url ? `<a href="${escapeHtml(voice.preview_url)}" target="_blank" rel="noreferrer">Preview</a>` : ""}
+      <button data-action="select-voice" data-id="${escapeHtml(voice.id)}" data-name="${escapeHtml(voice.name)}">Use</button>
+    </article>
+  `).join("");
+}
+
+function renderFaceReferences(state, escapeHtml) {
+  if (!state.thumbnailFaces.length) return `<div class="empty-box">Фото лица не загружено</div>`;
+  return `<div class="asset-grid">${state.thumbnailFaces.map((item) => {
+    const isYoutube = item.url && itemUrlToPath(item) === state.settings.thumbnail_face_path;
+    const isShorts = item.url && itemUrlToPath(item) === state.settings.vertical_thumbnail_face_path;
+    return `
+      <article class="thumb-card">
+        <img src="${item.url}" alt="" />
+        <button class="delete-chip" data-action="delete-face" data-id="${item.id}">x</button>
+        <div class="target-row">
+          <button class="${isYoutube ? "active dark" : ""}" data-face-target="horizontal" data-id="${item.id}">YouTube</button>
+          <button class="${isShorts ? "active" : ""}" data-face-target="vertical" data-id="${item.id}">Shorts</button>
+        </div>
+      </article>
+    `;
+  }).join("")}</div>`;
+}
+
+function renderThumbnailReferences(state) {
+  if (!state.thumbnailReferences.length) return `<div class="empty-box">Референсы не загружены</div>`;
+  return `<div class="asset-grid">${state.thumbnailReferences.map((item) => {
+    const isYoutube = targetHas(item.target, "horizontal");
+    const isShorts = targetHas(item.target, "vertical");
+    return `
+      <article class="thumb-card">
+        <img src="${item.url}" alt="" />
+        <button class="delete-chip" data-action="delete-ref" data-id="${item.id}">x</button>
+        <div class="target-row">
+          <button class="${isYoutube ? "active dark" : ""}" data-target-ref="horizontal" data-id="${item.id}">YouTube</button>
+          <button class="${isShorts ? "active" : ""}" data-target-ref="vertical" data-id="${item.id}">Shorts</button>
+        </div>
+      </article>
+    `;
+  }).join("")}</div>`;
+}
+
+function renderSimpleAssetList(items, escapeHtml, action) {
+  if (!items.length) return `<p class="empty-text">Пока пусто.</p>`;
+  return items.map((item) => `
+    <article class="asset-card text-card">
+      <div><strong>${escapeHtml(item.file_name)}</strong><small>#${item.id}</small></div>
+      <button data-action="${action}" data-id="${item.id}">Delete</button>
+    </article>
+  `).join("");
+}
+
+function numberField(key, label, value, min, max) {
+  return `
+    <div>
+      <label>${label}</label>
+      <input type="number" min="${min}" max="${max}" value="${value}" data-setting="${key}" />
+      <button data-action="save-text" data-key="${key}">Save</button>
+    </div>
+  `;
+}
+
+function nextReferenceTarget(current, toggled) {
+  const hasHorizontal = targetHas(current, "horizontal");
+  const hasVertical = targetHas(current, "vertical");
+  const nextHorizontal = toggled === "horizontal" ? !hasHorizontal : hasHorizontal;
+  const nextVertical = toggled === "vertical" ? !hasVertical : hasVertical;
+  if (!nextHorizontal && !nextVertical) return current;
+  if (nextHorizontal && nextVertical) return "both";
+  return nextHorizontal ? "horizontal" : "vertical";
+}
+
+function targetHas(value, target) {
+  return value === "both" || value === target;
+}
+
+function itemUrlToPath(item) {
+  return item.file_path || "";
+}
+
+function formWithUser(userId) {
+  const form = new FormData();
+  form.append("user_id", userId);
+  return form;
+}
+
+async function postForm(path, form) {
+  const res = await fetch(path, { method: "POST", body: form });
+  if (!res.ok) throw new Error((await res.json()).detail || "Upload failed");
+  return res.json();
+}

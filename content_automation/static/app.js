@@ -1,3 +1,5 @@
+import { loadSettingsData, renderSettingsPanel } from "/static/settings.js";
+
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
 tg?.expand?.();
@@ -13,6 +15,10 @@ const state = {
   settings: null,
   avatars: [],
   voices: [],
+  thumbnailReferences: [],
+  thumbnailFaces: [],
+  avatarInserts: [],
+  fiveSecondSettings: null,
   tab: "formats",
   output: "",
 };
@@ -63,7 +69,7 @@ async function loadAll() {
   state.formats = formats;
   state.scripts = scripts;
   state.jobs = jobs;
-  await loadSettings(false);
+  await loadSettingsData(settingsDeps(), false);
   renderScripts();
   renderJobs();
   renderSettings();
@@ -71,10 +77,12 @@ async function loadAll() {
   setStatus("Ready");
 }
 
-async function loadSettings(render = true) {
-  if (!state.userId) return;
-  state.settings = await api(`/api/settings?user_id=${encodeURIComponent(state.userId)}`);
-  if (render) renderSettings();
+function settingsDeps() {
+  return { state, api, setStatus, showError, escapeHtml };
+}
+
+function renderSettings() {
+  renderSettingsPanel(settingsDeps());
 }
 
 function renderTabs() {
@@ -135,138 +143,6 @@ function renderJobs() {
   });
 }
 
-function renderSettings() {
-  const root = $("settings");
-  const settings = state.settings;
-  if (!settings) {
-    root.innerHTML = `<p>Settings are loading.</p>`;
-    return;
-  }
-  root.innerHTML = `
-    ${renderActiveAssets(settings)}
-    ${renderTextSettings(settings)}
-    ${renderOverlaySettings(settings)}
-  `;
-  bindSettingsEvents(root);
-}
-
-function renderActiveAssets(settings) {
-  return `
-    <section class="settings-section">
-      <h3>HeyGen avatar</h3>
-      <p>${escapeHtml(settings.heygen_avatar_name || "Not selected")}</p>
-      <code>${escapeHtml(settings.heygen_avatar_id || "")}</code>
-      <div class="settings-actions">
-        <button data-action="load-avatars">Load avatars</button>
-      </div>
-      <div id="avatars" class="asset-list">${renderAvatarList()}</div>
-    </section>
-    <section class="settings-section">
-      <h3>ElevenLabs voice</h3>
-      <p>${escapeHtml(settings.elevenlabs_voice_name || "Not selected")}</p>
-      <code>${escapeHtml(settings.elevenlabs_voice_id || "")}</code>
-      <div class="settings-actions">
-        <button data-action="load-voices">Load voices</button>
-      </div>
-      <div id="voices" class="asset-list">${renderVoiceList()}</div>
-    </section>
-  `;
-}
-
-function renderAvatarList() {
-  if (!state.avatars.length) return "";
-  return state.avatars.map((avatar) => `
-    <article class="asset-card">
-      ${avatar.preview_image_url ? `<img src="${escapeHtml(avatar.preview_image_url)}" alt="" />` : ""}
-      <div>
-        <strong>${escapeHtml(avatar.name)}</strong>
-        <small>${escapeHtml(avatar.id)}</small>
-      </div>
-      <button data-action="select-avatar" data-id="${escapeHtml(avatar.id)}" data-name="${escapeHtml(avatar.name)}">Use</button>
-    </article>
-  `).join("");
-}
-
-function renderVoiceList() {
-  if (!state.voices.length) return "";
-  return state.voices.map((voice) => `
-    <article class="asset-card text-card">
-      <div>
-        <strong>${escapeHtml(voice.name)}</strong>
-        <small>${escapeHtml(voice.category || voice.id)}</small>
-      </div>
-      ${voice.preview_url ? `<a href="${escapeHtml(voice.preview_url)}" target="_blank" rel="noreferrer">Preview</a>` : ""}
-      <button data-action="select-voice" data-id="${escapeHtml(voice.id)}" data-name="${escapeHtml(voice.name)}">Use</button>
-    </article>
-  `).join("");
-}
-
-function renderTextSettings(settings) {
-  const rows = [
-    ["notebook_id", "NotebookLM ID", settings.notebook_id || ""],
-    ["author_style", "Author voice", settings.author_style || ""],
-    ["offer_context", "Offer context", settings.offer_context || ""],
-    ["cta_mix", "CTA mix", settings.cta_mix || ""],
-  ];
-  return `
-    <section class="settings-section wide">
-      <h3>Content settings</h3>
-      ${rows.map(([key, label, value]) => `
-        <label>${label}</label>
-        <textarea data-setting="${key}" rows="${key === "notebook_id" ? 2 : 5}">${escapeHtml(value)}</textarea>
-        <button data-action="save-text" data-key="${key}">Save ${label}</button>
-      `).join("")}
-    </section>
-  `;
-}
-
-function renderOverlaySettings(settings) {
-  return `
-    <section class="settings-section wide">
-      <h3>Overlays</h3>
-      ${settings.overlays.map((overlay) => `
-        <article class="overlay-card">
-          <div>
-            <strong>${escapeHtml(overlay.label)}</strong>
-            <p>${overlay.has_file ? escapeHtml(overlay.file_name) : "No file"}</p>
-          </div>
-          ${overlay.has_file ? `<img src="/api/settings/overlay/file?user_id=${encodeURIComponent(state.userId)}&format=${encodeURIComponent(overlay.format)}&t=${Date.now()}" alt="" />` : ""}
-          <label>Start %</label>
-          <input type="number" min="0" max="100" value="${overlay.start_percent}" data-overlay-percent="${overlay.format}" />
-          <input type="file" accept="image/png,image/jpeg,image/webp" data-overlay-file="${overlay.format}" />
-          <div class="settings-actions">
-            <button data-action="save-overlay-percent" data-format="${overlay.format}">Save</button>
-            <button data-action="delete-overlay" data-format="${overlay.format}" ${overlay.has_file ? "" : "disabled"}>Delete</button>
-          </div>
-        </article>
-      `).join("")}
-    </section>
-  `;
-}
-
-function bindSettingsEvents(root) {
-  root.querySelectorAll("[data-action='load-avatars']").forEach((button) => button.addEventListener("click", () => loadAvatars().catch(showError)));
-  root.querySelectorAll("[data-action='load-voices']").forEach((button) => button.addEventListener("click", () => loadVoices().catch(showError)));
-  root.querySelectorAll("[data-action='save-text']").forEach((button) =>
-    button.addEventListener("click", () => saveTextSetting(button.dataset.key).catch(showError)),
-  );
-  root.querySelectorAll("[data-action='select-avatar']").forEach((button) =>
-    button.addEventListener("click", () => selectAsset("heygen-avatar", button.dataset).catch(showError)),
-  );
-  root.querySelectorAll("[data-action='select-voice']").forEach((button) =>
-    button.addEventListener("click", () => selectAsset("elevenlabs-voice", button.dataset).catch(showError)),
-  );
-  root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) =>
-    button.addEventListener("click", () => saveOverlayPercent(button.dataset.format).catch(showError)),
-  );
-  root.querySelectorAll("[data-action='delete-overlay']").forEach((button) =>
-    button.addEventListener("click", () => deleteOverlay(button.dataset.format).catch(showError)),
-  );
-  root.querySelectorAll("[data-overlay-file]").forEach((input) =>
-    input.addEventListener("change", () => uploadOverlay(input.dataset.overlayFile, input.files[0]).catch(showError)),
-  );
-}
-
 async function createJob(scriptId, formatKey) {
   setStatus("Working");
   const job = await api(`/api/scripts/${scriptId}/format-jobs`, {
@@ -278,72 +154,6 @@ async function createJob(scriptId, formatKey) {
   $("copy").disabled = false;
   await loadAll();
   setStatus("Ready");
-}
-
-async function loadAvatars() {
-  setStatus("Avatars");
-  state.avatars = await api("/api/settings/heygen-avatars");
-  renderSettings();
-  setStatus("Ready");
-}
-
-async function loadVoices() {
-  setStatus("Voices");
-  state.voices = await api("/api/settings/elevenlabs-voices");
-  renderSettings();
-  setStatus("Ready");
-}
-
-async function saveTextSetting(key) {
-  const field = document.querySelector(`[data-setting="${key}"]`);
-  setStatus("Saving");
-  state.settings = await api("/api/settings/text", {
-    method: "PATCH",
-    body: JSON.stringify({ user_id: state.userId, key, value: field.value }),
-  });
-  renderSettings();
-  setStatus("Saved");
-}
-
-async function selectAsset(kind, dataset) {
-  setStatus("Saving");
-  state.settings = await api(`/api/settings/${kind}`, {
-    method: "POST",
-    body: JSON.stringify({ user_id: state.userId, id: dataset.id, name: dataset.name }),
-  });
-  renderSettings();
-  setStatus("Saved");
-}
-
-async function saveOverlayPercent(format) {
-  const field = document.querySelector(`[data-overlay-percent="${format}"]`);
-  setStatus("Saving");
-  await api("/api/settings/overlay", {
-    method: "PATCH",
-    body: JSON.stringify({ user_id: state.userId, format, start_percent: Number(field.value || 70) }),
-  });
-  await loadSettings();
-  setStatus("Saved");
-}
-
-async function uploadOverlay(format, file) {
-  if (!file) return;
-  const form = new FormData();
-  form.append("user_id", state.userId);
-  form.append("format", format);
-  form.append("file", file);
-  setStatus("Uploading");
-  const res = await fetch("/api/settings/overlay", { method: "POST", body: form });
-  if (!res.ok) throw new Error((await res.json()).detail || "Upload failed");
-  await loadSettings();
-  setStatus("Uploaded");
-}
-
-async function deleteOverlay(format) {
-  setStatus("Deleting");
-  await api(`/api/settings/overlay?user_id=${encodeURIComponent(state.userId)}&format=${encodeURIComponent(format)}`, { method: "DELETE" });
-  await loadSettings();
-  setStatus("Deleted");
 }
 
 async function showJob(jobId) {
@@ -362,7 +172,7 @@ $("save-user").addEventListener("click", () => {
 });
 
 $("refresh").addEventListener("click", () => loadAll().catch(showError));
-$("refresh-settings").addEventListener("click", () => loadSettings().catch(showError));
+$("refresh-settings").addEventListener("click", () => loadSettingsData(settingsDeps()).catch(showError));
 
 document.querySelectorAll(".tab").forEach((button) => {
   button.addEventListener("click", () => {

@@ -8,7 +8,17 @@ from .prompts import DEFAULT_AUTHOR_STYLE, DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEX
 from .storage import Storage
 
 
-TEXT_SETTING_KEYS = {"offer_context", "author_style", "cta_mix", "notebook_id"}
+TEXT_SETTING_KEYS = {
+    "offer_context",
+    "author_style",
+    "cta_mix",
+    "notebook_id",
+    "youtube_description_template",
+    "instagram_post_5s_cta_text",
+    "avatar_insert_start_percent",
+    "avatar_insert_end_percent",
+    "avatar_insert_clips_count",
+}
 OVERLAY_FORMATS = {"short", "youtube"}
 
 
@@ -31,6 +41,14 @@ class UserSettingsState:
     heygen_avatar_name: str | None
     elevenlabs_voice_id: str | None
     elevenlabs_voice_name: str
+    thumbnail_face_path: str | None
+    vertical_thumbnail_face_path: str | None
+    youtube_description_template: str
+    avatar_insert_start_percent: int
+    avatar_insert_end_percent: int
+    avatar_insert_clips_count: int
+    instagram_post_5s_cta_text: str
+    instagram_post_5s_overlay_path: str | None
     overlays: list[OverlayState]
 
 
@@ -44,6 +62,14 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         heygen_avatar_name=storage.get_setting(user_id, "heygen_avatar_name"),
         elevenlabs_voice_id=storage.get_setting(user_id, "elevenlabs_voice_id") or settings.elevenlabs_voice_id,
         elevenlabs_voice_name=storage.get_setting(user_id, "elevenlabs_voice_name") or settings.elevenlabs_voice_name,
+        thumbnail_face_path=storage.get_setting(user_id, "thumbnail_face_path"),
+        vertical_thumbnail_face_path=storage.get_setting(user_id, "vertical_thumbnail_face_path"),
+        youtube_description_template=storage.get_setting(user_id, "youtube_description_template") or "",
+        avatar_insert_start_percent=get_percent_setting(storage, user_id, "avatar_insert_start_percent", default=50, minimum=0, maximum=99),
+        avatar_insert_end_percent=get_percent_setting(storage, user_id, "avatar_insert_end_percent", default=95, minimum=1, maximum=100),
+        avatar_insert_clips_count=get_int_setting(storage, user_id, "avatar_insert_clips_count", default=2, minimum=0, maximum=20),
+        instagram_post_5s_cta_text=storage.get_setting(user_id, "instagram_post_5s_cta_text") or "",
+        instagram_post_5s_overlay_path=storage.get_setting(user_id, "instagram_post_5s_overlay_path"),
         overlays=[get_overlay_state(storage, user_id, item) for item in ("short", "youtube")],
     )
 
@@ -55,7 +81,8 @@ def get_notebook_ref(storage: Storage, settings: Settings, user_id: str) -> str 
 def set_text_setting(storage: Storage, user_id: str, key: str, value: str) -> None:
     if key not in TEXT_SETTING_KEYS:
         raise ValueError("Unknown setting")
-    storage.set_setting(user_id, key, value.strip())
+    normalized = normalize_text_setting(key, value)
+    storage.set_setting(user_id, key, normalized)
 
 
 def set_active_heygen_avatar(storage: Storage, user_id: str, avatar_id: str, avatar_name: str) -> None:
@@ -66,6 +93,36 @@ def set_active_heygen_avatar(storage: Storage, user_id: str, avatar_id: str, ava
 def set_active_elevenlabs_voice(storage: Storage, user_id: str, voice_id: str, voice_name: str) -> None:
     storage.set_setting(user_id, "elevenlabs_voice_id", voice_id)
     storage.set_setting(user_id, "elevenlabs_voice_name", voice_name)
+
+
+def set_active_thumbnail_face(storage: Storage, user_id: str, file_path: str | None, target: str) -> None:
+    normalized = (target or "both").strip().lower()
+    if normalized in {"youtube", "horizontal", "landscape"}:
+        storage.set_setting(user_id, "thumbnail_face_path", file_path or "")
+    elif normalized in {"shorts", "reels", "vertical", "portrait", "9:16"}:
+        storage.set_setting(user_id, "vertical_thumbnail_face_path", file_path or "")
+    elif normalized == "both":
+        storage.set_setting(user_id, "thumbnail_face_path", file_path or "")
+        storage.set_setting(user_id, "vertical_thumbnail_face_path", file_path or "")
+    else:
+        raise ValueError("Unsupported face target")
+
+
+def set_instagram_post_5s_overlay(storage: Storage, user_id: str, file_path: str | None) -> None:
+    storage.set_setting(user_id, "instagram_post_5s_overlay_path", file_path or "")
+
+
+def normalize_text_setting(key: str, value: str) -> str:
+    stripped = value.strip()
+    if key == "instagram_post_5s_cta_text":
+        return " ".join(stripped.split())[:180]
+    if key == "avatar_insert_start_percent":
+        return str(max(0, min(99, parse_int(stripped, 50))))
+    if key == "avatar_insert_end_percent":
+        return str(max(1, min(100, parse_int(stripped, 95))))
+    if key == "avatar_insert_clips_count":
+        return str(max(0, min(20, parse_int(stripped, 2))))
+    return stripped
 
 
 def get_overlay_state(storage: Storage, user_id: str, format: str) -> OverlayState:
@@ -115,13 +172,28 @@ def set_overlay_start_percent(storage: Storage, user_id: str, format: str, value
 
 def get_overlay_start_percent(storage: Storage, user_id: str, format: str) -> int:
     validate_overlay_format(format)
-    value = storage.get_setting(user_id, f"{format}_overlay_start_percent")
+    return get_percent_setting(storage, user_id, f"{format}_overlay_start_percent", default=70, minimum=0, maximum=100)
+
+
+def get_percent_setting(storage: Storage, user_id: str, key: str, *, default: int, minimum: int, maximum: int) -> int:
+    value = storage.get_setting(user_id, key)
     if not value:
-        return 70
+        return default
+    return max(minimum, min(maximum, parse_int(value, default)))
+
+
+def get_int_setting(storage: Storage, user_id: str, key: str, *, default: int, minimum: int, maximum: int) -> int:
+    value = storage.get_setting(user_id, key)
+    if not value:
+        return default
+    return max(minimum, min(maximum, parse_int(value, default)))
+
+
+def parse_int(value: str, default: int) -> int:
     try:
-        return max(0, min(100, int(value)))
-    except ValueError:
-        return 70
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def overlay_directory(settings: Settings, user_id: str) -> Path:

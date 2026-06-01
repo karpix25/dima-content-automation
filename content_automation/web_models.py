@@ -51,6 +51,34 @@ class OverlayOut(BaseModel):
     start_percent: int
 
 
+class MediaAssetOut(BaseModel):
+    id: int
+    user_id: str
+    kind: str
+    file_path: str
+    file_name: str
+    target: str
+    url: str
+    created_at: str
+
+
+class MediaTargetIn(BaseModel):
+    user_id: str
+    target: str
+
+
+class FaceActivateIn(BaseModel):
+    user_id: str
+    target: str = "both"
+
+
+class InstagramPost5sOut(BaseModel):
+    cta_text: str
+    overlay_path: str | None = None
+    overlay_url: str | None = None
+    audio_tracks: list[MediaAssetOut]
+
+
 class UserSettingsOut(BaseModel):
     notebook_id: str | None = None
     author_style: str
@@ -60,6 +88,14 @@ class UserSettingsOut(BaseModel):
     heygen_avatar_name: str | None = None
     elevenlabs_voice_id: str | None = None
     elevenlabs_voice_name: str
+    thumbnail_face_path: str | None = None
+    vertical_thumbnail_face_path: str | None = None
+    youtube_description_template: str
+    avatar_insert_start_percent: int
+    avatar_insert_end_percent: int
+    avatar_insert_clips_count: int
+    instagram_post_5s_cta_text: str
+    instagram_post_5s_overlay_path: str | None = None
     overlays: list[OverlayOut]
 
 

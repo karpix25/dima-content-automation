@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 
+from .config import Settings
+from .media_assets import MediaAssetStore
 from .storage import FormatJob, ScriptRecord, Storage
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format
 from .turan_payloads import build_structured_payload
+from .visual_reference_payload import build_visual_reference_payload
 
 
 class TuranServiceError(ValueError):
@@ -15,7 +18,15 @@ def list_approved_scripts(storage: Storage, user_id: str, *, limit: int = 50) ->
     return storage.list_approved_scripts(user_id, limit=limit)
 
 
-def create_format_job(storage: Storage, user_id: str, script_id: int, format_key: str) -> FormatJob:
+def create_format_job(
+    storage: Storage,
+    user_id: str,
+    script_id: int,
+    format_key: str,
+    *,
+    asset_store: MediaAssetStore | None = None,
+    settings: Settings | None = None,
+) -> FormatJob:
     record = storage.get_script(user_id, script_id)
     if not record:
         raise TuranServiceError("Script not found")
@@ -24,7 +35,7 @@ def create_format_job(storage: Storage, user_id: str, script_id: int, format_key
 
     normalized_format_key = (format_key or "").strip()
     if normalized_format_key == "all":
-        payloads = [build_structured_payload(record, item) for item in _all_specs()]
+        payloads = [build_structured_payload(record, item, _visual_reference(storage, asset_store, settings, user_id, item.key)) for item in _all_specs()]
         output_text = _with_input_json(
             build_all_turan_packages(record),
             {"formats": [item["turan_task_input"] for item in payloads]},
@@ -43,7 +54,7 @@ def create_format_job(storage: Storage, user_id: str, script_id: int, format_key
     if not spec:
         raise TuranServiceError("Unknown Turan format")
 
-    raw = build_structured_payload(record, spec)
+    raw = build_structured_payload(record, spec, _visual_reference(storage, asset_store, settings, user_id, spec.key))
     output_text = _with_input_json(build_turan_package(record, format_key), raw["turan_task_input"])
     return storage.add_format_job(
         user_id,
@@ -60,6 +71,18 @@ def _all_specs():
     from .turan_formats import list_turan_formats
 
     return list_turan_formats()
+
+
+def _visual_reference(
+    storage: Storage,
+    asset_store: MediaAssetStore | None,
+    settings: Settings | None,
+    user_id: str,
+    format_key: str,
+) -> dict[str, object] | None:
+    if not asset_store or not settings:
+        return None
+    return build_visual_reference_payload(storage, asset_store, settings, user_id, format_key)
 
 
 def _with_input_json(package_text: str, payload: object) -> str:
