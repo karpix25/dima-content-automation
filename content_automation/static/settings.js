@@ -39,11 +39,13 @@ export function renderSettingsPanel(deps) {
 function renderSaveBar() {
   return `
     <div class="settings-sticky">
-      <div>
-        <strong>Основные настройки</strong>
-        <p>Аватар, голос, обложки, референсы, вставки и формат 5 секунд</p>
+      <div class="settings-toolbar-card">
+        <div>
+          <strong>Основные настройки</strong>
+          <p>Аватар, голос, обложки, референсы, вставки и формат 5 секунд</p>
+        </div>
+        <span class="mini-badge">Turan UI</span>
       </div>
-      <span class="mini-badge">как в Turan</span>
     </div>
   `;
 }

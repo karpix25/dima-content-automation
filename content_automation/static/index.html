@@ -9,23 +9,36 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
-    <div class="app">
+    <div class="app app-container">
       <header class="topbar">
-        <div>
-          <h1>DIMA контент</h1>
-          <p>Одобренные сценарии из NotebookLM</p>
+        <div class="brand-row">
+          <div class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18">
+              <path d="M5 15.5 12 3l7 12.5-7-3.5-7 3.5Z" fill="currentColor" />
+              <path d="M8 17.5h8l-4 3-4-3Z" fill="currentColor" opacity=".72" />
+            </svg>
+          </div>
+          <div>
+            <h1 id="page-title">Форматы</h1>
+            <p>Content Studio</p>
+          </div>
         </div>
-        <span id="status-pill" class="pill">Загрузка</span>
+        <div class="top-actions">
+          <span id="status-pill" class="pill">Загрузка</span>
+          <button id="logout" class="ghost-button">Выход</button>
+        </div>
       </header>
 
       <main>
-        <nav class="tabs">
-          <button class="tab active" data-tab="formats">Форматы</button>
-          <button class="tab" data-tab="settings">Настройки</button>
-          <button class="tab" data-tab="history">История</button>
-        </nav>
-
         <section id="login" class="panel hidden">
+          <div class="login-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="32" height="32">
+              <path d="M5 15.5 12 3l7 12.5-7-3.5-7 3.5Z" fill="currentColor" />
+              <path d="M8 17.5h8l-4 3-4-3Z" fill="currentColor" opacity=".72" />
+            </svg>
+          </div>
+          <h2>Вход в систему</h2>
+          <p>Откройте приложение через Telegram бота или введите свой ID вручную.</p>
           <label for="tg-id">Telegram ID</label>
           <div class="login-row">
             <input id="tg-id" inputmode="numeric" placeholder="123456789" />
@@ -33,7 +46,7 @@
           </div>
         </section>
 
-        <section id="formats-panel" class="panel">
+        <section id="formats-panel" class="screen-panel">
           <div class="section-head">
             <h2>Одобренные сценарии</h2>
             <button id="refresh">Обновить</button>
@@ -41,7 +54,7 @@
           <div id="scripts" class="list"></div>
         </section>
 
-        <section id="settings-panel" class="panel hidden">
+        <section id="settings-panel" class="screen-panel hidden">
           <div class="section-head">
             <h2>Настройки</h2>
             <button id="refresh-settings">Обновить</button>
@@ -49,7 +62,7 @@
           <div id="settings" class="settings-grid"></div>
         </section>
 
-        <section class="panel">
+        <section id="result-panel" class="screen-panel hidden">
           <div class="section-head">
             <h2>Результат</h2>
             <button id="copy" disabled>Копировать</button>
@@ -57,13 +70,43 @@
           <pre id="output">Выберите сценарий и формат.</pre>
         </section>
 
-        <section id="history-panel" class="panel">
+        <section id="history-panel" class="screen-panel hidden">
           <div class="section-head">
             <h2>История</h2>
           </div>
           <div id="jobs" class="list compact"></div>
         </section>
       </main>
+      <nav class="bottom-nav" aria-label="Главное меню">
+        <button class="nav-item active" data-tab="formats">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span class="nav-label">Форматы</span>
+        </button>
+        <button class="nav-item" data-tab="result">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M6 4h12v16H6z" fill="none" stroke="currentColor" stroke-width="2" />
+            <path d="M9 8h6M9 12h6M9 16h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span class="nav-label">Результат</span>
+        </button>
+        <button class="nav-item" data-tab="history">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M12 8v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M4 12a8 8 0 1 0 2.35-5.65" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M4 4v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span class="nav-label">История</span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z" fill="none" stroke="currentColor" stroke-width="2" />
+            <path d="M19 12a7.3 7.3 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a7.5 7.5 0 0 0-2-1.2L14.2 3h-4.4l-.4 2.7a7.5 7.5 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.5A7.3 7.3 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.4-1a7.5 7.5 0 0 0 2 1.2l.4 2.7h4.4l.4-2.7a7.5 7.5 0 0 0 2-1.2l2.4 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+          </svg>
+          <span class="nav-label">Настройки</span>
+        </button>
+      </nav>
     </div>
     <script type="module" src="/static/app.js"></script>
   </body>

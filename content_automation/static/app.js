@@ -19,8 +19,15 @@ const state = {
   thumbnailFaces: [],
   avatarInserts: [],
   fiveSecondSettings: null,
-  tab: "formats",
+  tab: localStorage.getItem("dima_active_tab") || "formats",
   output: "",
+};
+
+const tabTitles = {
+  formats: "Форматы",
+  result: "Результат",
+  history: "История",
+  settings: "Настройки",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -63,11 +70,17 @@ async function api(path, options = {}) {
 
 async function loadAll() {
   if (!state.userId) {
+    document.querySelector(".app").classList.add("login-mode");
     $("login").classList.remove("hidden");
+    $("formats-panel").classList.add("hidden");
+    $("result-panel").classList.add("hidden");
+    $("settings-panel").classList.add("hidden");
+    $("history-panel").classList.add("hidden");
     setStatus("Login");
     return;
   }
   localStorage.setItem("dima_tg_id", state.userId);
+  document.querySelector(".app").classList.remove("login-mode");
   $("login").classList.add("hidden");
   setStatus("Loading");
   const userQuery = encodeURIComponent(state.userId);
@@ -96,10 +109,14 @@ function renderSettings() {
 }
 
 function renderTabs() {
-  document.querySelectorAll(".tab").forEach((button) => {
+  if (!tabTitles[state.tab]) state.tab = "formats";
+  localStorage.setItem("dima_active_tab", state.tab);
+  $("page-title").textContent = tabTitles[state.tab] || "DIMA";
+  document.querySelectorAll(".nav-item").forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === state.tab);
   });
   $("formats-panel").classList.toggle("hidden", state.tab !== "formats");
+  $("result-panel").classList.toggle("hidden", state.tab !== "result");
   $("settings-panel").classList.toggle("hidden", state.tab !== "settings");
   $("history-panel").classList.toggle("hidden", state.tab !== "history");
 }
@@ -162,6 +179,7 @@ async function createJob(scriptId, formatKey) {
   state.output = job.output_text;
   $("output").textContent = state.output;
   $("copy").disabled = false;
+  state.tab = "result";
   await loadAll();
   setStatus("Ready");
 }
@@ -184,11 +202,25 @@ $("save-user").addEventListener("click", () => {
 $("refresh").addEventListener("click", () => loadAll().catch(showError));
 $("refresh-settings").addEventListener("click", () => loadSettingsData(settingsDeps()).catch(showError));
 
-document.querySelectorAll(".tab").forEach((button) => {
+document.querySelectorAll(".nav-item").forEach((button) => {
   button.addEventListener("click", () => {
     state.tab = button.dataset.tab;
     renderTabs();
   });
+});
+
+$("logout").addEventListener("click", () => {
+  if (!window.confirm("Выйти из аккаунта?")) return;
+  localStorage.removeItem("dima_tg_id");
+  state.userId = "";
+  $("tg-id").value = "";
+  document.querySelector(".app").classList.add("login-mode");
+  $("login").classList.remove("hidden");
+  $("formats-panel").classList.add("hidden");
+  $("result-panel").classList.add("hidden");
+  $("settings-panel").classList.add("hidden");
+  $("history-panel").classList.add("hidden");
+  setStatus("Login");
 });
 
 $("copy").addEventListener("click", async () => {
