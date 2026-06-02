@@ -76,39 +76,40 @@ function renderAvatarList(state, escapeHtml, target) {
     return `<div class="empty-box">Нажмите “Загрузить аватары”, чтобы получить список HeyGen.</div>`;
   }
   const model = selectedModel(state.settings);
-  return state.avatars.map((avatar) => {
+  const avatars = state.avatars.filter((avatar) => supportsModel(avatar, model));
+  if (!avatars.length) {
+    return `<div class="empty-box">Для ${escapeHtml(modelLabel(model))} нет подходящих аватаров.</div>`;
+  }
+  return avatars.map((avatar) => {
     const isHorizontal = avatar.id === state.settings.heygen_avatar_id;
     const isVertical = avatar.id === state.settings.heygen_vertical_avatar_id;
-    const supported = supportsModel(avatar, model);
     return `
-      <article class="avatar-tile ${isHorizontal || isVertical ? "active" : ""} ${supported ? "" : "disabled"}">
+      <article class="avatar-tile ${isHorizontal || isVertical ? "active" : ""}">
         ${renderTilePreview(avatar, escapeHtml)}
         <div class="avatar-tile-info">
           <strong>${escapeHtml(avatar.name)}</strong>
           <small>${escapeHtml(avatarMeta(avatar))}</small>
         </div>
-        ${supported ? "" : `<div class="avatar-model-lock">Нужен Avatar IV/V</div>`}
-        <div class="avatar-tile-actions">${renderAvatarActions(avatar, { isHorizontal, isVertical, supported, target, escapeHtml })}</div>
+        <div class="avatar-tile-actions">${renderAvatarActions(avatar, { isHorizontal, isVertical, target, escapeHtml })}</div>
       </article>
     `;
   }).join("");
 }
 
 function renderAvatarActions(avatar, options) {
-  const { isHorizontal, isVertical, supported, target, escapeHtml } = options;
-  if (target === "horizontal") return avatarActionButton(avatar, "horizontal", "YouTube", isHorizontal, "youtube", supported, escapeHtml);
-  if (target === "vertical") return avatarActionButton(avatar, "vertical", "Shorts", isVertical, "shorts", supported, escapeHtml);
+  const { isHorizontal, isVertical, target, escapeHtml } = options;
+  if (target === "horizontal") return avatarActionButton(avatar, "horizontal", "YouTube", isHorizontal, "youtube", escapeHtml);
+  if (target === "vertical") return avatarActionButton(avatar, "vertical", "Shorts", isVertical, "shorts", escapeHtml);
   return `
-    ${avatarActionButton(avatar, "horizontal", "YouTube", isHorizontal, "youtube", supported, escapeHtml)}
-    ${avatarActionButton(avatar, "vertical", "Shorts", isVertical, "shorts", supported, escapeHtml)}
+    ${avatarActionButton(avatar, "horizontal", "YouTube", isHorizontal, "youtube", escapeHtml)}
+    ${avatarActionButton(avatar, "vertical", "Shorts", isVertical, "shorts", escapeHtml)}
   `;
 }
 
-function avatarActionButton(avatar, target, label, active, activeClass, supported, escapeHtml) {
+function avatarActionButton(avatar, target, label, active, activeClass, escapeHtml) {
   return `
     <button
       class="${active ? `active ${activeClass}` : ""}"
-      ${supported ? "" : "disabled"}
       data-action="select-avatar"
       data-target="${target}"
       data-id="${escapeHtml(avatar.id)}"
@@ -140,6 +141,12 @@ function supportsModel(avatar, model) {
   if (!engines.length) return true;
   if (model === "avatar_iii") return engines.some((engine) => ["avatar_iii", "avatar_3", "avatar3", "v2"].includes(engine));
   return engines.includes(model);
+}
+
+function modelLabel(model) {
+  if (model === "avatar_iii") return "Avatar III";
+  if (model === "avatar_v") return "Avatar V";
+  return "Avatar IV";
 }
 
 function avatarMeta(avatar) {

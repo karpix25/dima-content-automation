@@ -89,7 +89,7 @@ class HeyGenClient:
             if self.private_avatars_only and not _is_private_avatar(item, trusted_private_endpoint=True):
                 continue
             avatar = _parse_avatar(item)
-            if avatar and _supports_motion_prompt(item, avatar):
+            if avatar:
                 avatars.append(avatar)
         if avatars:
             return avatars
@@ -114,7 +114,7 @@ class HeyGenClient:
             if self.private_avatars_only and not _is_private_avatar(item, trusted_private_endpoint=False):
                 continue
             avatar = _parse_avatar(item)
-            if avatar and _supports_motion_prompt(item, avatar):
+            if avatar:
                 avatars.append(avatar)
         return avatars
 
@@ -354,19 +354,6 @@ def _is_private_avatar(item: dict[str, Any], *, trusted_private_endpoint: bool) 
     if ownership:
         return ownership in {"private", "custom", "user", "personal", "digital_twin", "photo_avatar"}
     return trusted_private_endpoint
-
-
-def _supports_motion_prompt(item: dict[str, Any], avatar: HeyGenAvatar) -> bool:
-    engines = {engine.strip().lower() for engine in avatar.supported_engines}
-    if "avatar_iv" in engines:
-        return True
-    for key in ("motion_prompt", "supports_motion_prompt", "motion_prompt_supported", "support_motion_prompt"):
-        value = item.get(key)
-        if value is True:
-            return True
-        if isinstance(value, str) and value.strip().lower() in {"true", "yes", "supported", "1"}:
-            return True
-    return False
 
 
 def _first_text(payload: Any, *paths: tuple[str, ...]) -> str | None:

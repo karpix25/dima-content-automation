@@ -48,10 +48,10 @@ class FakeAsyncClient:
 
 
 @pytest.mark.asyncio
-async def test_list_avatar_looks_only_returns_motion_prompt_avatars(monkeypatch):
+async def test_list_avatar_looks_returns_supported_avatar_versions(monkeypatch):
     monkeypatch.setattr("content_automation.heygen.httpx.AsyncClient", FakeAsyncClient)
 
     client = HeyGenClient(api_key="key")
     avatars = await client.list_avatar_looks()
 
-    assert [avatar.id for avatar in avatars] == ["motion-avatar"]
+    assert [avatar.id for avatar in avatars] == ["motion-avatar", "static-avatar"]
