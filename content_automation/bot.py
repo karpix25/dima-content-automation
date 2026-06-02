@@ -32,6 +32,7 @@ from .turan_formats import build_all_turan_packages, build_turan_package, get_tu
 from .post_heygen_video import apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_reference_paths
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
+from .voiceover_timing import analyze_voiceover_timing
 from .visual_assets import generate_post_heygen_assets
 
 
@@ -748,19 +749,55 @@ def format_bank_status(user_id: str) -> str:
 
 
 async def generate_voiceover_audio(record: ScriptRecord, user_id: str) -> str:
-    result = await asyncio.to_thread(
+    user_settings = get_user_settings(storage, settings, user_id)
+    word_budget = (
+        youtube_word_budget(user_settings.youtube_long_duration_minutes)
+        if record.format == "youtube"
+        else vertical_word_budget(user_settings.vertical_avatar_duration_mode)
+    )
+    result = await _generate_elevenlabs_audio(record, user_id, speed=settings.elevenlabs_speed)
+    if result.file_path:
+        try:
+            analysis = analyze_voiceover_timing(
+                text=record.voiceover,
+                audio_path=Path(result.file_path),
+                budget=word_budget,
+                current_speed=settings.elevenlabs_speed,
+            )
+            logger.info(
+                "Voiceover timing: script=%s words=%s duration=%.2fs wpm=%.1f target=%.2fs speed=%.3f",
+                record.id,
+                analysis.words,
+                analysis.duration_seconds,
+                analysis.words_per_minute,
+                analysis.target_duration_seconds,
+                analysis.current_speed,
+            )
+            if analysis.should_regenerate:
+                logger.info(
+                    "Regenerating voiceover with adjusted ElevenLabs speed: %.3f -> %.3f",
+                    analysis.current_speed,
+                    analysis.recommended_speed,
+                )
+                result = await _generate_elevenlabs_audio(record, user_id, speed=analysis.recommended_speed)
+        except VideoOverlayError:
+            logger.exception("Voiceover timing analysis failed; using first generated audio")
+    return result.file_path or result.message
+
+
+async def _generate_elevenlabs_audio(record: ScriptRecord, user_id: str, *, speed: float):
+    return await asyncio.to_thread(
         elevenlabs.text_to_speech,
         text=record.voiceover,
         voice_name=get_active_elevenlabs_voice_name(user_id),
         voice_id=get_active_elevenlabs_voice_id(user_id),
         model_id=settings.elevenlabs_model_id,
-        speed=settings.elevenlabs_speed,
+        speed=speed,
         stability=settings.elevenlabs_stability,
         similarity_boost=settings.elevenlabs_similarity_boost,
         style=settings.elevenlabs_style,
         language=settings.elevenlabs_language,
     )
-    return result.file_path or result.message
 
 
 async def send_generated_audio(chat_id: int, thread_id: int | None, audio_path: str) -> None:

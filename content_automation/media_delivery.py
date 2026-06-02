@@ -17,9 +17,11 @@ from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
 from .post_heygen_video import apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_reference_paths
+from .script_length import WordBudget, vertical_word_budget, youtube_word_budget
 from .settings_service import get_overlay_path, get_overlay_start_percent, get_user_settings
 from .storage import ScriptRecord, Storage
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video
+from .voiceover_timing import analyze_voiceover_timing
 from .visual_assets import generate_post_heygen_assets
 
 logger = logging.getLogger(__name__)
@@ -50,7 +52,19 @@ def create_and_send_avatar_video(
     if not avatar_id:
         raise RuntimeError(f"HeyGen avatar для {target} не выбран")
 
-    audio_path = _generate_audio(record, user_id, settings, state.elevenlabs_voice_id, state.elevenlabs_voice_name)
+    word_budget = (
+        youtube_word_budget(state.youtube_long_duration_minutes)
+        if target == "horizontal"
+        else vertical_word_budget(state.vertical_avatar_duration_mode)
+    )
+    audio_path = _generate_audio(
+        record,
+        user_id,
+        settings,
+        state.elevenlabs_voice_id,
+        state.elevenlabs_voice_name,
+        word_budget=word_budget,
+    )
     heygen = _heygen_client(settings, target)
     if not heygen.is_configured():
         raise RuntimeError("HEYGEN_API_KEY не задан")
@@ -119,27 +133,87 @@ def create_and_send_existing_heygen_video(
     return AvatarDeliveryResult(video_path=final_path, telegram_message_id=message_id, heygen_video_id=ready.video_id)
 
 
-def _generate_audio(record: ScriptRecord, user_id: str, settings: Settings, voice_id: str | None, voice_name: str) -> str:
+def _generate_audio(
+    record: ScriptRecord,
+    user_id: str,
+    settings: Settings,
+    voice_id: str | None,
+    voice_name: str,
+    *,
+    word_budget: WordBudget,
+) -> str:
     elevenlabs = ElevenLabsMCPClient(
         api_key=settings.elevenlabs_api_key,
         command=settings.elevenlabs_mcp_command,
         output_directory=settings.elevenlabs_output_directory,
         timeout_seconds=180,
     )
-    result = elevenlabs.text_to_speech(
+    result = _text_to_speech(
+        elevenlabs,
+        record=record,
+        voice_id=voice_id,
+        voice_name=voice_name,
+        settings=settings,
+        speed=settings.elevenlabs_speed,
+    )
+    if result.file_path:
+        try:
+            analysis = analyze_voiceover_timing(
+                text=record.voiceover,
+                audio_path=Path(result.file_path),
+                budget=word_budget,
+                current_speed=settings.elevenlabs_speed,
+            )
+            logger.info(
+                "Voiceover timing: script=%s words=%s duration=%.2fs wpm=%.1f target=%.2fs speed=%.3f",
+                record.id,
+                analysis.words,
+                analysis.duration_seconds,
+                analysis.words_per_minute,
+                analysis.target_duration_seconds,
+                analysis.current_speed,
+            )
+            if analysis.should_regenerate:
+                logger.info(
+                    "Regenerating voiceover with adjusted ElevenLabs speed: %.3f -> %.3f",
+                    analysis.current_speed,
+                    analysis.recommended_speed,
+                )
+                result = _text_to_speech(
+                    elevenlabs,
+                    record=record,
+                    voice_id=voice_id,
+                    voice_name=voice_name,
+                    settings=settings,
+                    speed=analysis.recommended_speed,
+                )
+        except VideoOverlayError:
+            logger.exception("Voiceover timing analysis failed; using first generated audio")
+    if not result.file_path:
+        raise RuntimeError(f"ElevenLabs не вернул audio file для пользователя {user_id}: {result.message}")
+    return result.file_path
+
+
+def _text_to_speech(
+    elevenlabs: ElevenLabsMCPClient,
+    *,
+    record: ScriptRecord,
+    voice_id: str | None,
+    voice_name: str,
+    settings: Settings,
+    speed: float,
+):
+    return elevenlabs.text_to_speech(
         text=record.voiceover,
         voice_name=voice_name,
         voice_id=voice_id,
         model_id=settings.elevenlabs_model_id,
-        speed=settings.elevenlabs_speed,
+        speed=speed,
         stability=settings.elevenlabs_stability,
         similarity_boost=settings.elevenlabs_similarity_boost,
         style=settings.elevenlabs_style,
         language=settings.elevenlabs_language,
     )
-    if not result.file_path:
-        raise RuntimeError(f"ElevenLabs не вернул audio file для пользователя {user_id}: {result.message}")
-    return result.file_path
 
 
 def _heygen_client(settings: Settings, target: str) -> HeyGenClient:
