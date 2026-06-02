@@ -28,6 +28,26 @@ def test_vertical_director_uses_transcript_language_for_titles():
     assert all(scene["evidenceLabel"] for scene in plan.scenes)
 
 
+def test_vertical_director_subtitle_ends_on_complete_phrase():
+    plan = build_montage_plan(
+        _record(),
+        duration_seconds=18,
+        max_scenes=2,
+        transcript_words=_words(
+            "If by 12PM, sales drop by more than 50%, the product is price sensitive.",
+            "But if velocity holds, we keep the bump.",
+        ),
+    )
+
+    assert plan.scenes
+    subtitles = [scene["subtitle"] for scene in plan.scenes if scene["subtitle"]]
+    assert not any(subtitle.endswith("the product is") for subtitle in subtitles)
+    assert not any(
+        subtitle.split()[-1].lower() in {"from", "is", "the", "because", "of", "to"}
+        for subtitle in subtitles
+    )
+
+
 def test_prepare_vertical_montage_assets_generates_expected_kie_files(tmp_path, monkeypatch):
     client = FakeKieClient()
     monkeypatch.setattr(montage_assets, "KieImageClient", FakeKieClient)

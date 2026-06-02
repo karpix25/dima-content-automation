@@ -755,14 +755,14 @@ const html = `<!doctype html>
         overflow-wrap: anywhere;
       }
       body.layout-vertical-heygen .director-card {
-        left: 36px;
+        left: 40px;
         right: auto;
-        top: 15%;
-        width: calc(100% - 72px);
-        height: 70%;
-        padding: 42px;
-        grid-template-rows: 36% 1fr;
-        gap: 30px;
+        top: 10%;
+        width: calc(100% - 80px);
+        height: 76%;
+        padding: 34px 38px 38px;
+        grid-template-rows: auto 1fr;
+        gap: 22px;
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(244, 247, 251, 0.95)),
           #f8fafc;
@@ -770,47 +770,49 @@ const html = `<!doctype html>
         box-shadow: 0 38px 86px rgba(0, 0, 0, 0.38);
       }
       body.layout-vertical-heygen .director-card.motion-2 {
-        top: 11%;
-        height: 66%;
-        grid-template-rows: 32% 1fr;
+        top: 9%;
+        height: 76%;
+        grid-template-rows: auto 1fr;
       }
       body.layout-vertical-heygen .director-card.motion-3 {
-        top: 20%;
-        height: 64%;
-        grid-template-rows: 38% 1fr;
+        top: 12%;
+        height: 74%;
+        grid-template-rows: auto 1fr;
       }
       body.layout-vertical-heygen .director-copy {
         padding-left: 26px;
+        justify-content: flex-start;
+        min-height: 154px;
       }
       body.layout-vertical-heygen .director-copy::before {
-        top: 14px;
-        bottom: 14px;
+        top: 4px;
+        bottom: 4px;
         width: 6px;
       }
       body.layout-vertical-heygen .director-card h2 {
-        font-size: 56px;
+        font-size: 52px;
         line-height: 1.05;
-        -webkit-line-clamp: 3;
+        -webkit-line-clamp: 2;
       }
       body.layout-vertical-heygen .director-card.title-compact h2 {
-        font-size: 48px;
+        font-size: 45px;
       }
       body.layout-vertical-heygen .director-card.title-dense h2 {
-        font-size: 42px;
-        -webkit-line-clamp: 4;
+        font-size: 39px;
+        -webkit-line-clamp: 3;
       }
       body.layout-vertical-heygen .director-card p {
-        font-size: 34px;
-        line-height: 1.18;
-        -webkit-line-clamp: 3;
+        font-size: 29px;
+        line-height: 1.16;
+        -webkit-line-clamp: 2;
       }
       body.layout-vertical-heygen .director-card.title-dense p,
       body.layout-vertical-heygen .director-card.title-compact p {
-        font-size: 29px;
+        font-size: 26px;
       }
       body.layout-vertical-heygen .director-visual {
         position: relative;
-        width: min(100%, 780px);
+        width: min(100%, 800px);
         border-radius: 8px;
       }
       body.layout-vertical-heygen .director-image {

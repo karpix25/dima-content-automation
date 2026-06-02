@@ -6,6 +6,31 @@ from dataclasses import dataclass
 from .storage import ScriptRecord
 
 
+_SUBTITLE_TRAILING_STOPS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "because",
+    "but",
+    "by",
+    "for",
+    "from",
+    "if",
+    "in",
+    "is",
+    "of",
+    "or",
+    "that",
+    "the",
+    "this",
+    "to",
+    "with",
+    "your",
+}
+
+
 @dataclass(frozen=True)
 class DirectedScene:
     scenes: list[dict]
@@ -140,8 +165,28 @@ def _fit_subtitle(text: str, *, title: str) -> str:
     clean = _clean(text)
     if clean.lower().startswith(title.lower()):
         clean = _clean(clean[len(title) :])
+    clean = _trim_incomplete_subtitle(clean)
     words = clean.split()
-    return " ".join(words[:12]).rstrip(".,;:") if words else title
+    words = words[:12]
+    while words and words[-1].lower().strip(".,;:") in _SUBTITLE_TRAILING_STOPS:
+        words.pop()
+    return " ".join(words).rstrip(".,;:") if words else ""
+
+
+def _trim_incomplete_subtitle(value: str) -> str:
+    clean = _clean(value).lstrip(" ,.;:-")
+    if not clean:
+        return ""
+    clean = re.sub(r"^(but\s+if|if)\s+", "", clean, flags=re.I)
+    first_clause = re.split(r"(?<=[.!?])\s+|[,;]\s+", clean, maxsplit=1)[0]
+    words = first_clause.split()
+    if len(words) > 14:
+        words = words[:14]
+    while words and words[-1].lower().strip(".,;:") in _SUBTITLE_TRAILING_STOPS:
+        words.pop()
+    if len(words) < 4:
+        return ""
+    return " ".join(words)
 
 
 def _headline_rewrite(text: str) -> str:
