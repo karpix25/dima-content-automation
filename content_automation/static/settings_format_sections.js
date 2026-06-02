@@ -89,7 +89,7 @@ function renderShortsTab({ state, escapeHtml }) {
         ${renderAvatarSelectors(state, escapeHtml, { target: "vertical" })}
       </div>
       <div class="settings-two">
-        ${durationCard("vertical_avatar_duration_mode", "Длина вертикального AI-аватара", verticalLabel(settings.vertical_avatar_duration_mode), "", [
+        ${durationCard("vertical_avatar_duration_mode", "Длина вертикального AI-аватара", settings.vertical_avatar_duration_mode || "original", "", [
           ["original", "по оригиналу"],
           ["30", "30 сек"],
           ["45", "45 сек"],
@@ -164,7 +164,7 @@ function durationCard(key, title, value, suffix, options, escapeHtml) {
       <h3>${escapeHtml(title)}</h3>
       <select data-setting="${escapeHtml(key)}">
         ${options.map(([optionValue, label]) => `
-          <option value="${escapeHtml(optionValue)}" ${String(value) === optionValue || label.startsWith(`${value} `) ? "selected" : ""}>${escapeHtml(label)}</option>
+          <option value="${escapeHtml(optionValue)}" ${String(value) === optionValue ? "selected" : ""}>${escapeHtml(label)}</option>
         `).join("")}
       </select>
       ${suffix ? `<span class="duration-suffix">${escapeHtml(suffix)}</span>` : ""}

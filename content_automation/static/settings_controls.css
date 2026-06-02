@@ -1,0 +1,166 @@
+.format-tab-panel {
+  padding: 2px;
+}
+
+.format-settings-head,
+.settings-stack > .soft-box,
+.settings-two > .soft-box,
+.settings-two > .overlay-card,
+.duration-card {
+  border-color: #d9e3ee;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+}
+
+.settings-stack > .soft-box,
+.settings-two > .soft-box {
+  gap: 12px;
+  padding: 14px;
+}
+
+.soft-box h3,
+.overlay-card strong,
+.duration-card h3 {
+  color: #0f172a;
+}
+
+.soft-box p,
+.overlay-card p {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.soft-box label,
+.duration-card label,
+.overlay-card label {
+  color: #475569;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.soft-box input:not([type="file"]),
+.soft-box textarea,
+.duration-card select,
+.overlay-card input[type="number"],
+.voice-row select {
+  width: 100%;
+  min-height: 44px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+.soft-box input:not([type="file"]),
+.overlay-card input[type="number"],
+.voice-row select {
+  padding: 0 12px;
+}
+
+.soft-box textarea {
+  padding: 10px 12px;
+  line-height: 1.35;
+}
+
+.duration-card select,
+.voice-row select {
+  appearance: auto;
+}
+
+.soft-box input:focus,
+.soft-box textarea:focus,
+.duration-card select:focus,
+.overlay-card input[type="number"]:focus,
+.voice-row select:focus {
+  border-color: var(--blue);
+  outline: 3px solid rgba(36, 161, 222, 0.16);
+}
+
+.duration-card {
+  grid-template-columns: 42px minmax(0, 1fr);
+}
+
+.duration-card select {
+  grid-column: 2 / -1;
+  padding: 0 10px;
+  font-size: 15px;
+}
+
+.duration-suffix {
+  grid-column: 2 / -1;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.duration-card button {
+  grid-column: 2 / -1;
+}
+
+.target-row,
+.heygen-model-grid,
+.format-tabbar {
+  border: 1px solid #dbeafe;
+  background: #eef6ff;
+}
+
+.target-row button,
+.heygen-model-grid button,
+.format-tabbar button {
+  border: 1px solid transparent;
+  color: #475569;
+}
+
+.heygen-model-grid button:not(.active),
+.format-tabbar button:not(.active) {
+  border-color: #dbeafe;
+  background: #f8fbff;
+}
+
+.target-row button {
+  background: #fff;
+  border-color: #cbd5e1;
+}
+
+.target-row button.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(36, 161, 222, 0.22);
+}
+
+.target-row button.dark.active,
+.target-row button.dark {
+  background: #111827;
+  border-color: #111827;
+  color: #fff;
+}
+
+.heygen-model-grid button.active,
+.format-tabbar button.active {
+  border-color: rgba(36, 161, 222, 0.35);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12);
+}
+
+.upload-button,
+.icon-button,
+.mini-badge {
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.10);
+}
+
+.empty-box {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+@media (max-width: 620px) {
+  .settings-stack > .soft-box,
+  .settings-two > .soft-box {
+    padding: 12px;
+  }
+}

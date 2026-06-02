@@ -12,36 +12,89 @@ def build_turan_infographic_prompt(
     has_face_references: bool = False,
     has_design_references: bool = False,
 ) -> str:
-    title = limit_chars(record.hook or record.title or "Main insight", 64)
-    subtitle = limit_chars(record.angle or record.trigger or record.source_basis, 86)
-    items = [limit_chars(item, 86) for item in bullets[:7] if clean_prompt_text(item)]
-    final_thought = clean_prompt_text(record.why_it_works or record.source_basis or record.cta)
-    cta = clean_prompt_text(cta_text or record.cta or "Follow for more")
+    copy = build_social_card_copy(record=record, bullets=bullets, cta_text=cta_text)
     reference_rule = reference_instruction(has_references, has_face_references, has_design_references)
     return (
         "Create a finished vertical Instagram/Reels business infographic card, 9:16. "
         f"{reference_rule}"
-        "Use this exact text on the card, do not invent new facts and do not rewrite it. "
-        "Text fit rules: H1 max 64 characters, H2/subtitle max 86 characters, no cropped words, no broken words, "
-        "no ellipses, no text outside safe margins; if needed reduce font size while keeping hierarchy. "
-        f"H1/top headline exact text: {title}. "
-        f"H2/subtitle exact text: {subtitle}. "
-        f"Main block items: {'; '.join(items)}. "
-        f"Final thought: {final_thought}. "
-        f"CTA window text: {cta}. "
+        "Use only the exact text below on the card. Do not invent new facts and do not rewrite it. "
+        "Social hook rules: the card must feel like a sharp social post, not a document. "
+        "H1 max 34 characters, 3-7 words, direct, trigger-driven, high contrast. "
+        "Subtitle max 58 characters. Main block: exactly 2-3 short points, max 42 characters each. "
+        "No final thought paragraph, no long explanations, no numbered list above 3 items, no dense transcript text. "
+        "Maximum total visible words: 42. "
+        "Text fit rules: no cropped words, no broken words, no ellipses, no text outside safe margins; "
+        "if needed reduce copy density before reducing hierarchy. "
+        f'H1/top headline exact text: "{copy.headline}". '
+        f'H2/subtitle exact text: "{copy.subtitle}". '
+        f"Main block items: {'; '.join(copy.items)}. "
+        f'CTA window text: "{copy.cta}". '
         "Design style: one solid warm golden-sand background, exact color #EBC97C, no gradient and no shade shift. "
         "Minimal premium business infographic, no logos, no watermarks, no fake UI, no extra colors, no decorative clutter. "
         "At the top, place a large black headline directly on the gold background. "
-        "Below it, place one large off-white/milky rounded rectangle block with the main text. "
+        "Below it, place one large off-white/milky rounded rectangle block with only the 2-3 short points. "
         "At the bottom, place a separate off-white CTA window. "
         "Use strictly Montserrat or Montserrat-like geometric sans-serif: headline ExtraBold/Black, body SemiBold, CTA ExtraBold. "
         "Do not use serif, handwritten, condensed, decorative, Arial-like, or Instagram UI fonts. "
         "Add a realistic cutout sticker of the author: man with dark hair, thick dark beard, expressive eyebrows, "
         "confident or engaged expression, pointing at the main block or CTA, 18-22% of frame height. "
         "The author must not cover important text. "
-        "Text must be large, clean, readable, aligned, and not overloaded. "
+        "Text must be large, clean, readable, aligned, and intentionally sparse. "
         "The final image must look like a polished Turan five-second infographic card, ready for video."
     )
+
+
+class SocialCardCopy:
+    def __init__(self, *, headline: str, subtitle: str, items: list[str], cta: str) -> None:
+        self.headline = headline
+        self.subtitle = subtitle
+        self.items = items
+        self.cta = cta
+
+
+def build_social_card_copy(*, record: ScriptRecord, bullets: list[str], cta_text: str | None = None) -> SocialCardCopy:
+    source = " ".join(
+        clean_prompt_text(item)
+        for item in [record.title, record.hook, record.angle, record.trigger, record.voiceover, record.cta, record.source_basis]
+        if clean_prompt_text(item)
+    )
+    headline = trigger_headline(source, fallback=record.hook or record.title)
+    subtitle = limit_chars(record.trigger or record.angle or record.voiceover or "Fix the bottleneck first", 58)
+    items = concise_items(bullets, record)
+    cta = limit_chars(cta_text or record.cta or "Follow for more", 48)
+    return SocialCardCopy(headline=headline, subtitle=subtitle, items=items, cta=cta)
+
+
+def trigger_headline(source: str, *, fallback: str | None) -> str:
+    normalized = source.lower()
+    if any(word in normalized for word in ("cash", "margin", "profit")) and any(word in normalized for word in ("sales", "revenue")):
+        return "Sales Are Up. Cash Is Down."
+    if "ppc" in normalized or "ad spend" in normalized or "ads" in normalized:
+        return "Your PPC Is Eating Margin."
+    if "agency" in normalized or "agencies" in normalized:
+        return "Your Agency Missed This."
+    if "sqp" in normalized or "search query" in normalized:
+        return "Check SQP Before Ads."
+    if "margin" in normalized or "profit" in normalized:
+        return "Your Profit Is Leaking."
+    return title_case(limit_chars(remove_soft_opening(fallback or "Fix This Before Scaling"), 34))
+
+
+def concise_items(bullets: list[str], record: ScriptRecord) -> list[str]:
+    candidates = [*bullets, record.trigger, record.cta, record.angle]
+    items: list[str] = []
+    for candidate in candidates:
+        clean = clean_prompt_text(candidate)
+        if not clean or should_skip_item(clean):
+            continue
+        short = limit_chars(clean, 42).rstrip(".")
+        if short and short.lower() not in {item.lower() for item in items}:
+            items.append(short)
+        if len(items) == 3:
+            break
+    if len(items) < 2:
+        items.extend(["Find the bottleneck", "Fix it before scaling"][len(items):])
+    return items[:3]
 
 
 def clean_prompt_text(value: str | None) -> str:
@@ -61,6 +114,25 @@ def limit_chars(value: str | None, limit: int) -> str:
     return " ".join(words) or clean[:limit].rstrip()
 
 
+def remove_soft_opening(value: str) -> str:
+    clean = clean_prompt_text(value)
+    lowered = clean.lower()
+    for prefix in ("if your ", "if you ", "stop listening to ", "why "):
+        if lowered.startswith(prefix):
+            return clean[len(prefix) :]
+    return clean
+
+
+def title_case(value: str) -> str:
+    return " ".join(word[:1].upper() + word[1:] for word in value.split())
+
+
+def should_skip_item(value: str) -> bool:
+    lowered = value.lower()
+    skip_markers = ("derived from", "webinar transcripts", "source", "notebooklm", "excerpt")
+    return any(marker in lowered for marker in skip_markers)
+
+
 def reference_instruction(has_references: bool, has_face_references: bool, has_design_references: bool) -> str:
     if not has_references:
         return ""
@@ -68,6 +140,9 @@ def reference_instruction(has_references: bool, has_face_references: bool, has_d
     if has_face_references:
         parts.append("Use the uploaded face reference image only for author identity and face likeness.")
     if has_design_references:
-        parts.append("Use uploaded infographic design references only for layout, hierarchy, spacing, visual rhythm, and composition style.")
+        parts.append(
+            "Use uploaded infographic design references as a style board: extract the common layout, hierarchy, spacing, visual rhythm, and composition style. "
+            "If references differ, choose the cleanest least text-heavy direction."
+        )
     parts.append("Do not copy old text, logos, numbers, faces, or identities from design references; replace all text with the exact text below.")
     return " ".join(parts) + " "
