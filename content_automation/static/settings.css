@@ -405,6 +405,18 @@
 }
 
 @media (max-width: 620px) {
+  .format-tabbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .format-settings-head {
+    grid-template-columns: 1fr;
+  }
+
+  .format-settings-head h2 {
+    font-size: 18px;
+  }
+
   .settings-section summary {
     grid-template-columns: 1fr;
     padding: 14px 42px 14px 14px;

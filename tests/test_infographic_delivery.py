@@ -37,8 +37,41 @@ def test_generate_gold_card_with_kie_passes_reference_paths(tmp_path: Path):
     )
 
     assert client.reference_paths == [reference]
-    assert "face/style reference images" in client.prompts[0]
+    assert "face reference image only" in client.prompts[0]
     assert "realistic cutout sticker of the author" in client.prompts[0]
+
+
+def test_generate_gold_card_with_kie_passes_face_and_design_references(tmp_path: Path):
+    client = FakeKieClient(configured=True)
+    face = tmp_path / "face.jpg"
+    design = tmp_path / "layout.png"
+    face.write_text("face")
+    design.write_text("design")
+
+    generate_gold_card_with_kie(
+        record=_record(),
+        path=tmp_path / "card.png",
+        kie_client=client,
+        face_reference_paths=[face],
+        design_reference_paths=[design],
+    )
+
+    assert client.reference_paths == [face, design]
+    assert "author identity and face likeness" in client.prompts[0]
+    assert "infographic design references only for layout" in client.prompts[0]
+
+
+def test_gold_card_prompt_limits_h1_h2_and_prevents_broken_words():
+    record = _record(
+        hook="If your Amazon margins are shrinking stop listening to agencies telling you to increase ad spend immediately",
+        angle="This is an extremely long subtitle that should be reduced before it reaches the Kie design prompt",
+    )
+
+    prompt = gold_card_prompt(record)
+
+    assert "Text fit rules: H1 max 64 characters, H2/subtitle max 86 characters" in prompt
+    assert "immediately" not in prompt
+    assert "Kie design prompt" not in prompt
 
 
 def test_generate_gold_card_with_kie_uses_configured_cta(tmp_path: Path):
@@ -101,15 +134,20 @@ class FakeKieClient:
         return output_path
 
 
-def _record() -> ScriptRecord:
+def _record(**overrides) -> ScriptRecord:
+    values = {
+        "hook": "Revenue is not profit",
+        "angle": "Profit angle",
+    }
+    values.update(overrides)
     return ScriptRecord(
         id=1,
         user_id="42",
         format="short",
         status="approved",
         title="Margin trap",
-        angle="Profit angle",
-        hook="Revenue is not profit",
+        angle=values["angle"],
+        hook=values["hook"],
         trigger="Cash conversion",
         voiceover="Your revenue can grow while your cash disappears.",
         cta="Check contribution margin.",

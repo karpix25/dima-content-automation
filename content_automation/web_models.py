@@ -82,9 +82,8 @@ class FaceActivateIn(BaseModel):
 
 class InstagramPost5sOut(BaseModel):
     cta_text: str
-    overlay_path: str | None = None
-    overlay_url: str | None = None
     audio_tracks: list[MediaAssetOut]
+    infographic_references: list[MediaAssetOut] = []
 
 
 class UserSettingsOut(BaseModel):
@@ -113,7 +112,6 @@ class UserSettingsOut(BaseModel):
     youtube_long_duration_minutes: int
     vertical_avatar_duration_mode: str
     instagram_post_5s_cta_text: str
-    instagram_post_5s_overlay_path: str | None = None
     overlays: list[OverlayOut]
 
 

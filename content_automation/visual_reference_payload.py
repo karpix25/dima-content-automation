@@ -46,8 +46,8 @@ def build_visual_reference_payload(
         },
         "instagram_post_5s": {
             "cta_text": state.instagram_post_5s_cta_text,
-            "overlay_path": state.instagram_post_5s_overlay_path,
             "audio_tracks": [asset_payload(item) for item in asset_store.list_assets(user_id, "instagram_post_5s_audio")],
+            "design_references": [asset_payload(item) for item in asset_store.list_assets(user_id, "instagram_post_5s_reference")],
         },
         "youtube_description_template": state.youtube_description_template,
     }

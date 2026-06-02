@@ -96,6 +96,7 @@ def test_infographic_reels_job_sends_video_instead_of_prompt(tmp_path, monkeypat
     monkeypatch.setattr(web_app, "asset_store", asset_store)
 
     def fake_delivery(**kwargs):
+        assert "overlay_path" not in kwargs
         return SimpleNamespace(video_path=tmp_path / "gold.mp4", telegram_message_id="777")
 
     monkeypatch.setattr(web_format_jobs, "create_and_send_infographic_reels", fake_delivery)
@@ -112,6 +113,69 @@ def test_infographic_reels_job_sends_video_instead_of_prompt(tmp_path, monkeypat
     assert opened.json()["status"] == "delivered"
     assert opened.json()["external_task_id"] == "777"
     assert "отправлена в Telegram" in opened.json()["output_text"]
+
+
+def test_infographic_reels_uses_face_reference_not_cover_reference(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
+    record = add_approved_script(storage)
+    face_path = tmp_path / "face.jpg"
+    cover_path = tmp_path / "cover.jpg"
+    face_path.write_bytes(b"face")
+    cover_path.write_bytes(b"cover")
+    storage.set_setting(record.user_id, "vertical_thumbnail_face_path", str(face_path))
+    asset_store.add_asset(record.user_id, kind="thumbnail_reference", file_path=cover_path, file_name="cover.jpg", target="vertical")
+    design = asset_store.add_asset(record.user_id, kind="instagram_post_5s_reference", file_path=cover_path, file_name="cover.jpg", target="vertical")
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+    seen = {}
+
+    def fake_delivery(**kwargs):
+        assert "overlay_path" not in kwargs
+        seen["face_reference_paths"] = kwargs["face_reference_paths"]
+        seen["design_reference_paths"] = kwargs["design_reference_paths"]
+        return SimpleNamespace(video_path=tmp_path / "gold.mp4", telegram_message_id="777")
+
+    monkeypatch.setattr(web_format_jobs, "create_and_send_infographic_reels", fake_delivery)
+    client = TestClient(web_app.app)
+
+    created = client.post(
+        f"/api/scripts/{record.id}/format-jobs",
+        json={"user_id": record.user_id, "format_key": "infographic_reels"},
+    )
+    opened = client.get(f"/api/format-jobs/{created.json()['id']}", params={"user_id": record.user_id})
+
+    assert opened.json()["status"] == "delivered"
+    assert seen["face_reference_paths"] == [face_path]
+    assert seen["design_reference_paths"] == [cover_path]
+    assert design.file_name == "cover.jpg"
+
+
+def test_instagram_post_5s_infographic_references_flow(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+    monkeypatch.setattr(web_app, "settings", replace(web_app.settings, data_dir=tmp_path))
+    client = TestClient(web_app.app)
+
+    uploaded = client.post(
+        "/api/settings/instagram-post-5s/references",
+        data={"user_id": "42"},
+        files=[("files", ("layout.png", b"layout", "image/png"))],
+    )
+    loaded = client.get("/api/settings/instagram-post-5s", params={"user_id": "42"})
+    deleted = client.delete(
+        f"/api/settings/instagram-post-5s/references/{uploaded.json()['infographic_references'][0]['id']}",
+        params={"user_id": "42"},
+    )
+
+    assert uploaded.status_code == 200
+    assert "overlay_url" not in loaded.json()
+    assert "overlay_path" not in loaded.json()
+    assert uploaded.json()["infographic_references"][0]["file_name"] == "layout.png"
+    assert loaded.json()["infographic_references"][0]["file_name"] == "layout.png"
+    assert deleted.json()["infographic_references"] == []
 
 
 def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):

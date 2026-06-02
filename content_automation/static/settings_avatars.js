@@ -1,10 +1,21 @@
-export function renderAvatarSelectors(state, escapeHtml) {
+export function renderAvatarSelectors(state, escapeHtml, options = {}) {
   const settings = state.settings;
   const model = selectedModel(settings);
   const horizontal = findAvatar(state, settings.heygen_avatar_id);
   const vertical = findAvatar(state, settings.heygen_vertical_avatar_id);
-  const hasMismatch = !supportsModel(horizontal, model) || !supportsModel(vertical, model);
-  const usesPhotoAvatar = model === "avatar_iii" && [horizontal, vertical].some((avatar) => avatar?.avatar_type === "photo_avatar");
+  const visibleAvatars = visibleSelectedAvatars(options.target, horizontal, vertical);
+  const hasMismatch = visibleAvatars.some((avatar) => !supportsModel(avatar, model));
+  const usesPhotoAvatar = model === "avatar_iii" && visibleAvatars.some((avatar) => avatar?.avatar_type === "photo_avatar");
+  if (options.mode === "model") {
+    return `
+      <div class="heygen-model-grid">
+        ${modelButton("avatar_iii", "Avatar III", "$1/min 1080p", model, escapeHtml)}
+        ${modelButton("avatar_iv", "Avatar IV", "TURAN ~$4/min", model, escapeHtml)}
+        ${modelButton("avatar_v", "Avatar V", "TURAN ~$4/min", model, escapeHtml)}
+      </div>
+      <p>Модель общая для горизонтального и вертикального HeyGen avatar.</p>
+    `;
+  }
   return `
     <div class="heygen-model-grid">
       ${modelButton("avatar_iii", "Avatar III", "$1/min 1080p", model, escapeHtml)}
@@ -22,10 +33,10 @@ export function renderAvatarSelectors(state, escapeHtml) {
       </div>
     ` : ""}
     <div class="box-head avatar-load-row">
-      <p>Выберите отдельный avatar для каждого формата, как в Turan.</p>
+      <p>${escapeHtml(avatarHint(options.target))}</p>
       <button data-action="load-avatars">Загрузить аватары</button>
     </div>
-    <div class="avatar-gallery">${renderAvatarList(state, escapeHtml)}</div>
+    <div class="avatar-gallery">${renderAvatarList(state, escapeHtml, options.target)}</div>
   `;
 }
 
@@ -60,7 +71,7 @@ function modelButton(id, label, hint, selected, escapeHtml) {
   `;
 }
 
-function renderAvatarList(state, escapeHtml) {
+function renderAvatarList(state, escapeHtml, target) {
   if (!state.avatars.length) {
     return `<div class="empty-box">Нажмите “Загрузить аватары”, чтобы получить список HeyGen.</div>`;
   }
@@ -77,31 +88,35 @@ function renderAvatarList(state, escapeHtml) {
           <small>${escapeHtml(avatarMeta(avatar))}</small>
         </div>
         ${supported ? "" : `<div class="avatar-model-lock">Нужен Avatar IV/V</div>`}
-        <div class="avatar-tile-actions">
-          <button
-            class="${isHorizontal ? "active youtube" : ""}"
-            ${supported ? "" : "disabled"}
-            data-action="select-avatar"
-            data-target="horizontal"
-            data-id="${escapeHtml(avatar.id)}"
-            data-name="${escapeHtml(avatar.name)}"
-            data-preview-image-url="${escapeHtml(avatar.preview_image_url || "")}"
-            data-preview-video-url="${escapeHtml(avatar.preview_video_url || "")}"
-          >YouTube</button>
-          <button
-            class="${isVertical ? "active shorts" : ""}"
-            ${supported ? "" : "disabled"}
-            data-action="select-avatar"
-            data-target="vertical"
-            data-id="${escapeHtml(avatar.id)}"
-            data-name="${escapeHtml(avatar.name)}"
-            data-preview-image-url="${escapeHtml(avatar.preview_image_url || "")}"
-            data-preview-video-url="${escapeHtml(avatar.preview_video_url || "")}"
-          >Shorts</button>
-        </div>
+        <div class="avatar-tile-actions">${renderAvatarActions(avatar, { isHorizontal, isVertical, supported, target, escapeHtml })}</div>
       </article>
     `;
   }).join("");
+}
+
+function renderAvatarActions(avatar, options) {
+  const { isHorizontal, isVertical, supported, target, escapeHtml } = options;
+  if (target === "horizontal") return avatarActionButton(avatar, "horizontal", "YouTube", isHorizontal, "youtube", supported, escapeHtml);
+  if (target === "vertical") return avatarActionButton(avatar, "vertical", "Shorts", isVertical, "shorts", supported, escapeHtml);
+  return `
+    ${avatarActionButton(avatar, "horizontal", "YouTube", isHorizontal, "youtube", supported, escapeHtml)}
+    ${avatarActionButton(avatar, "vertical", "Shorts", isVertical, "shorts", supported, escapeHtml)}
+  `;
+}
+
+function avatarActionButton(avatar, target, label, active, activeClass, supported, escapeHtml) {
+  return `
+    <button
+      class="${active ? `active ${activeClass}` : ""}"
+      ${supported ? "" : "disabled"}
+      data-action="select-avatar"
+      data-target="${target}"
+      data-id="${escapeHtml(avatar.id)}"
+      data-name="${escapeHtml(avatar.name)}"
+      data-preview-image-url="${escapeHtml(avatar.preview_image_url || "")}"
+      data-preview-video-url="${escapeHtml(avatar.preview_video_url || "")}"
+    >${label}</button>
+  `;
 }
 
 function renderTilePreview(avatar, escapeHtml) {
@@ -132,6 +147,18 @@ function avatarMeta(avatar) {
     return `${avatar.avatar_type || "avatar"} · ${avatar.supported_engines.join(", ")}`;
   }
   return avatar.id;
+}
+
+function visibleSelectedAvatars(target, horizontal, vertical) {
+  if (target === "horizontal") return [horizontal];
+  if (target === "vertical") return [vertical];
+  return [horizontal, vertical];
+}
+
+function avatarHint(target) {
+  if (target === "horizontal") return "Выберите avatar только для горизонтального YouTube формата.";
+  if (target === "vertical") return "Выберите avatar только для вертикальных Shorts/Reels.";
+  return "Выберите отдельный avatar для каждого формата, как в Turan.";
 }
 
 async function loadAvatars(deps, renderSettingsPanel) {

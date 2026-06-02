@@ -1,0 +1,98 @@
+.format-settings-shell {
+  display: grid;
+  gap: 12px;
+}
+
+.format-tabbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f1f5f9;
+}
+
+.format-tabbar button {
+  display: grid;
+  min-height: 56px;
+  align-content: center;
+  gap: 2px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  text-align: left;
+}
+
+.format-tabbar button.active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.format-tabbar strong,
+.format-tabbar span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.format-tabbar strong {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.format-tabbar span {
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.format-tab-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.format-settings-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.format-settings-head h2 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.15;
+}
+
+.format-settings-head p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.settings-stack {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 620px) {
+  .format-tabbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .format-settings-head {
+    grid-template-columns: 1fr;
+  }
+
+  .format-settings-head h2 {
+    font-size: 18px;
+  }
+}

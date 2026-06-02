@@ -60,7 +60,6 @@ class UserSettingsState:
     youtube_long_duration_minutes: int
     vertical_avatar_duration_mode: str
     instagram_post_5s_cta_text: str
-    instagram_post_5s_overlay_path: str | None
     overlays: list[OverlayState]
 
 
@@ -91,7 +90,6 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         youtube_long_duration_minutes=get_int_setting(storage, user_id, "youtube_long_duration_minutes", default=10, minimum=3, maximum=30),
         vertical_avatar_duration_mode=get_duration_mode(storage, user_id),
         instagram_post_5s_cta_text=storage.get_setting(user_id, "instagram_post_5s_cta_text") or "",
-        instagram_post_5s_overlay_path=storage.get_setting(user_id, "instagram_post_5s_overlay_path"),
         overlays=[get_overlay_state(storage, user_id, item) for item in ("short", "youtube")],
     )
 
@@ -178,10 +176,6 @@ def set_active_thumbnail_face(storage: Storage, user_id: str, file_path: str | N
         storage.set_setting(user_id, "vertical_thumbnail_face_path", file_path or "")
     else:
         raise ValueError("Unsupported face target")
-
-
-def set_instagram_post_5s_overlay(storage: Storage, user_id: str, file_path: str | None) -> None:
-    storage.set_setting(user_id, "instagram_post_5s_overlay_path", file_path or "")
 
 
 def normalize_text_setting(key: str, value: str) -> str:

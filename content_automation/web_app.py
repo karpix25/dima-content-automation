@@ -28,7 +28,6 @@ from .settings_service import (
     set_active_heygen_avatar,
     set_active_thumbnail_face,
     set_heygen_generation_model,
-    set_instagram_post_5s_overlay,
     set_overlay_start_percent,
     set_text_setting,
 )
@@ -348,22 +347,20 @@ def delete_instagram_post_5s_audio(asset_id: int, user_id: str = Query(..., min_
     return instagram_post_5s_out(user_id)
 
 
-@app.post("/api/settings/instagram-post-5s/overlay", response_model=InstagramPost5sOut)
-async def upload_instagram_post_5s_overlay(user_id: str = Form(...), file: UploadFile = File(...)) -> InstagramPost5sOut:
-    previous = storage.get_setting(user_id, "instagram_post_5s_overlay_path")
-    asset = await save_upload(file, user_id, "instagram_post_5s_overlay", IMAGE_EXTENSIONS)
-    set_instagram_post_5s_overlay(storage, user_id, asset.file_path)
-    if previous and previous != asset.file_path and Path(previous).exists():
-        Path(previous).unlink()
+@app.post("/api/settings/instagram-post-5s/references", response_model=InstagramPost5sOut)
+async def upload_instagram_post_5s_references(user_id: str = Form(...), files: list[UploadFile] = File(...)) -> InstagramPost5sOut:
+    for item in files:
+        await save_upload(item, user_id, "instagram_post_5s_reference", IMAGE_EXTENSIONS, target="vertical")
     return instagram_post_5s_out(user_id)
 
 
-@app.delete("/api/settings/instagram-post-5s/overlay", response_model=InstagramPost5sOut)
-def delete_instagram_post_5s_overlay(user_id: str = Query(..., min_length=1)) -> InstagramPost5sOut:
-    previous = storage.get_setting(user_id, "instagram_post_5s_overlay_path")
-    set_instagram_post_5s_overlay(storage, user_id, None)
-    if previous and Path(previous).exists():
-        Path(previous).unlink()
+@app.delete("/api/settings/instagram-post-5s/references/{asset_id}", response_model=InstagramPost5sOut)
+def delete_instagram_post_5s_reference(asset_id: int, user_id: str = Query(..., min_length=1)) -> InstagramPost5sOut:
+    try:
+        asset = asset_store.delete_asset(user_id, asset_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    delete_asset_file(asset)
     return instagram_post_5s_out(user_id)
 
 
@@ -410,21 +407,11 @@ def asset_to_out(asset: MediaAsset) -> MediaAssetOut:
 
 def instagram_post_5s_out(user_id: str) -> InstagramPost5sOut:
     settings_state = get_user_settings(storage, settings, user_id)
-    overlay_path = settings_state.instagram_post_5s_overlay_path
-    overlay_url = None
-    if overlay_path:
-        overlay_asset = find_asset_by_path(user_id, "instagram_post_5s_overlay", overlay_path)
-        overlay_url = f"/api/settings/media/{overlay_asset.id}?user_id={user_id}" if overlay_asset else None
     return InstagramPost5sOut(
         cta_text=settings_state.instagram_post_5s_cta_text,
-        overlay_path=overlay_path,
-        overlay_url=overlay_url,
         audio_tracks=[asset_to_out(item) for item in asset_store.list_assets(user_id, "instagram_post_5s_audio")],
+        infographic_references=[asset_to_out(item) for item in asset_store.list_assets(user_id, "instagram_post_5s_reference")],
     )
-
-
-def find_asset_by_path(user_id: str, kind: str, path: str) -> MediaAsset | None:
-    return next((item for item in asset_store.list_assets(user_id, kind) if item.file_path == path), None)
 
 
 @app.post("/api/scripts/{script_id}/format-jobs", response_model=FormatJobOut)

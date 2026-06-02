@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from .config import Settings
 from .infographic_delivery import build_kie_client, create_and_send_infographic_reels
 from .media_delivery import create_and_send_avatar_video
 from .media_assets import MediaAssetStore
-from .reference_paths import thumbnail_reference_paths
+from .reference_paths import infographic_design_reference_paths, thumbnail_face_reference_paths
 from .settings_service import get_user_settings
 from .storage import FormatJob, Storage
 from .turan_client import TuranApiClient, submit_format_job
@@ -311,21 +310,19 @@ def _deliver_infographic_job(
         raise ScriptNotFoundError("Script not found")
     try:
         state = get_user_settings(storage, settings, user_id)
-        overlay_path = Path(state.instagram_post_5s_overlay_path) if state.instagram_post_5s_overlay_path else None
         result = create_and_send_infographic_reels(
             record=record,
             user_id=user_id,
             settings=settings,
             asset_store=asset_store,
             cta_text=state.instagram_post_5s_cta_text,
-            overlay_path=overlay_path,
-            reference_paths=thumbnail_reference_paths(
+            face_reference_paths=thumbnail_face_reference_paths(
                 storage=storage,
-                asset_store=asset_store,
                 settings=settings,
                 user_id=user_id,
                 target="vertical",
             ),
+            design_reference_paths=infographic_design_reference_paths(asset_store=asset_store, user_id=user_id),
         )
         job = storage.update_format_job_delivery(
             user_id,
