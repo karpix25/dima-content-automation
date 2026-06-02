@@ -5,6 +5,13 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {FORENSICS_CSS, forensicsVisualMarkup} from './render-auto-forensics.mjs';
 import {createRenderLayout} from './render-auto-layouts.mjs';
+import {
+  createCompositeFilter,
+  createOverlayRenderSizing,
+  overlayScaleCss,
+  wrapOverlayClips,
+} from './render-auto-overlay-scale.mjs';
+import {createHyperframesRuntime} from './render-auto-hyperframes-runtime.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,7 +92,10 @@ const renderVideoBitrate = getArgValue(
 const ffmpegPreset = process.env.FFMPEG_X264_PRESET || 'veryfast';
 const ffmpegCompositeTimeoutMs = envNumber('FFMPEG_ENCODE_TIMEOUT_MS', 7200000);
 const dryRun = hasFlag('dry-run');
-const {width: compositionWidth, height: compositionHeight, generatedCompositionName} = renderLayout;
+const {generatedCompositionName} = renderLayout;
+const overlaySizing = createOverlayRenderSizing({renderLayout, envNumber});
+const {compositionWidth, compositionHeight} = overlaySizing;
+const hyperframesRuntime = createHyperframesRuntime({isVerticalHeygenLayout, envNumber});
 
 const browserPathCandidates = [
   process.env.HYPERFRAMES_BROWSER_PATH,
@@ -775,6 +785,7 @@ const html = `<!doctype html>
       body.layout-vertical-heygen .chapter-ribbon {
         display: none;
       }
+${overlayScaleCss(overlaySizing)}
 ${FORENSICS_CSS}
     </style>
   </head>
@@ -790,7 +801,7 @@ ${FORENSICS_CSS}
     >
 ${sourceMediaClips}
       ${isYoutubeLayout ? '<div class="scene-vignette"></div>' : ''}
-${overlayClips}
+${wrapOverlayClips(overlayClips, overlaySizing)}
     </div>
 
     <script>
@@ -828,6 +839,7 @@ const renderArgs = [
   String(renderFps),
   '--quality',
   renderQuality,
+  ...hyperframesRuntime.renderArgs,
 ];
 
 if (compositeSourceVideo) {
@@ -847,7 +859,7 @@ const ffmpegArgs = [
   '-i',
   overlayOutputPath,
   '-filter_complex',
-  `[0:v]scale=${compositionWidth}:${compositionHeight}:force_original_aspect_ratio=increase,crop=${compositionWidth}:${compositionHeight},scale=ceil(iw*1.01/2)*2:ceil(ih*1.01/2)*2,crop=${compositionWidth}:${compositionHeight}[base];[base][1:v]overlay=0:0:eof_action=pass:format=auto[v]`,
+  createCompositeFilter(overlaySizing),
   '-map',
   '[v]',
   '-map',
@@ -877,6 +889,15 @@ console.log(`  output: ${outputPath}`);
 console.log(`  duration: ${rootDuration}s`);
 console.log(`  layout: ${layout}`);
 console.log(`  quality: ${renderQuality}`);
+if (hyperframesRuntime.summary) {
+  console.log(`  hyperframes-runtime: ${hyperframesRuntime.summary}`);
+}
+console.log(
+  `  render-size: ${compositionWidth}x${compositionHeight}` +
+  (overlaySizing.usesScaledOverlay
+    ? ` scaled overlay -> ${overlaySizing.outputWidth}x${overlaySizing.outputHeight}`
+    : '')
+);
 console.log(`  source-composite: ${compositeSourceVideo ? 'ffmpeg' : 'hyperframes'}`);
 
 if (dryRun) {
@@ -892,6 +913,7 @@ if (dryRun) {
 const result = spawnSync(renderCommand, renderArgs, {
   cwd: projectRoot,
   stdio: 'inherit',
+  env: hyperframesRuntime.env,
 });
 
 if (result.error) {
