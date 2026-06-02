@@ -34,6 +34,11 @@ const envNumber = (name, fallback) => {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 };
 
+const normalizeHyperframesFps = (value, fallback = 24) => {
+  const fpsValue = Math.round(Number(value));
+  return [24, 30, 60].includes(fpsValue) ? fpsValue : fallback;
+};
+
 const defaultVideo = '../hf-montage-test/source_optimized_45s.mp4';
 const defaultScenePlan = '../hf-montage-test/data/scene-plan.generated.json';
 const defaultWordCues = '../hf-montage-test/data/scene-word-cues.generated.json';
@@ -53,9 +58,9 @@ const isSmartDirectorLayout = renderLayout.isSmartDirector;
 const defaultFps = isYoutubeLayout
   ? (process.env.HYPERFRAMES_YOUTUBE_FPS || process.env.HYPERFRAMES_RENDER_FPS || '24')
   : isVerticalHeygenLayout
-    ? (process.env.HYPERFRAMES_VERTICAL_FPS || process.env.HYPERFRAMES_RENDER_FPS || '10')
+    ? (process.env.HYPERFRAMES_VERTICAL_FPS || process.env.HYPERFRAMES_RENDER_FPS || '24')
     : (process.env.HYPERFRAMES_RENDER_FPS || '30');
-const fps = Number(getArgValue('fps', defaultFps));
+const fps = normalizeHyperframesFps(getArgValue('fps', defaultFps), isYoutubeLayout || isVerticalHeygenLayout ? 24 : 30);
 const compositeSourceVideo = renderLayout.compositeSourceVideo;
 const youtubeCaptionsEnabled =
   isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_CAPTIONS', false);
@@ -275,7 +280,7 @@ const timelineDurationSec = compositeSourceVideo
 const maxDurationSec = Number.isFinite(maxDurationSecArg) ? maxDurationSecArg : 0;
 const durationSec = maxDurationSec > 0 ? Math.min(timelineDurationSec, maxDurationSec) : timelineDurationSec;
 const rootDuration = assertFinitePositive(durationSec, 1);
-const renderFps = Math.round(assertFinitePositive(fps, 30));
+const renderFps = normalizeHyperframesFps(assertFinitePositive(fps, 30), 30);
 
 const wordCues = readJsonArray(copiedWordCuesPath, 'Word cues');
 if (youtubeRequireAllImages || verticalRequireAllImages) {
