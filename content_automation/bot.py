@@ -16,6 +16,7 @@ from .config import load_settings
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
+from .heygen_video_input import extract_heygen_video_id
 from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
@@ -1052,6 +1053,54 @@ async def send_final_video(chat_id: int, thread_id: int | None, user_id: str, re
     await send_generated_video(chat_id, thread_id, video_url, caption)
 
 
+async def render_existing_heygen_video(
+    chat_id: int,
+    thread_id: int | None,
+    user_id: str,
+    record: ScriptRecord,
+    heygen_video_id: str,
+) -> None:
+    if not heygen.is_configured():
+        await send_to_chat_thread(chat_id, "⚠️ HEYGEN_API_KEY не задан.", thread_id=thread_id)
+        return
+
+    status_msg = await send_to_chat_thread(
+        chat_id,
+        (
+            f"🎬 Принял HeyGen video id: {heygen_video_id}\n"
+            f"Беру сценарий #{record.id} и собираю vertical smart montage без повторной генерации HeyGen."
+        ),
+        thread_id=thread_id,
+    )
+    ready = await heygen.wait_for_video(heygen_video_id)
+    if not ready.video_url:
+        raise HeyGenError(f"HeyGen не вернул ссылку на видео: {ready.raw}")
+
+    cleanup_old_videos(settings.video_output_directory, keep_days=settings.video_keep_days)
+    raw_path = settings.video_output_directory / f"existing_heygen_{record.id}_{heygen_video_id}.mp4"
+    await download_video(ready.video_url, raw_path)
+    montage_path = await asyncio.to_thread(
+        render_montage_if_configured,
+        record=record,
+        video_path=raw_path,
+        output_dir=settings.video_output_directory / "existing_montage" / str(record.id),
+        config=montage_renderer_config,
+    )
+    if not montage_path:
+        raise VideoOverlayError("Smart montage renderer не вернул файл.")
+
+    final_path = montage_path
+    overlay_path = await process_overlay_if_configured(user_id, record, final_path)
+    final_path = overlay_path or final_path
+    await status_msg.edit_text("✅ Smart montage готов. Отправляю видео в эту тему.")
+    await bot.send_document(
+        chat_id,
+        FSInputFile(final_path),
+        caption=f"🎬 Smart montage из HeyGen #{heygen_video_id}\nСценарий #{record.id}: {record.title}",
+        message_thread_id=thread_id,
+    )
+
+
 async def create_and_send_video(chat_id: int, thread_id: int | None, user_id: str, record: ScriptRecord, audio_path: str) -> None:
     path = Path(audio_path)
     if not path.exists() or not path.is_file():
@@ -1890,6 +1939,31 @@ async def turan_formats(message: Message) -> None:
         reply_markup=turan_formats_keyboard(record.id),
         disable_web_page_preview=True,
     )
+
+
+@dp.message(F.text, lambda message: bool(extract_heygen_video_id(message.text)))
+async def existing_heygen_video_message(message: Message) -> None:
+    user_id = activate_from_message(message)
+    clear_pending_edit(user_id)
+    video_id = extract_heygen_video_id(message.text)
+    if not video_id:
+        return
+    records = storage.list_scripts(user_id, format="short", status="approved", limit=1)
+    record = records[0] if records else None
+    if not record:
+        await answer_in_same_thread(message, "Нет одобренного short-сценария. Сначала прими сценарий через /review.")
+        return
+    try:
+        await render_existing_heygen_video(
+            message.chat.id,
+            message_thread_id(message),
+            user_id,
+            record,
+            video_id,
+        )
+    except (HeyGenError, VideoOverlayError) as exc:
+        logger.exception("Failed to render existing HeyGen video")
+        await answer_in_same_thread(message, f"⚠️ Не удалось собрать montage из HeyGen video id {video_id}: {exc}")
 
 
 @dp.callback_query(F.data.startswith("turan:format:"))
