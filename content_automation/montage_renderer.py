@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,6 +9,8 @@ from pathlib import Path
 from .montage_plan import build_montage_plan
 from .storage import ScriptRecord
 from .video_overlay import VideoOverlayError, probe_duration_seconds
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,13 @@ def render_montage_if_configured(
 
     for name, project_dir in candidates:
         if project_dir and (project_dir / "package.json").exists():
+            logger.info(
+                "Starting %s montage render for script %s format=%s project_dir=%s",
+                name,
+                record.id,
+                record.format,
+                project_dir,
+            )
             rendered = _render(
                 name=name,
                 project_dir=project_dir,
@@ -45,7 +55,10 @@ def render_montage_if_configured(
                 max_scenes=config.max_scenes,
             )
             if rendered:
+                logger.info("%s montage render completed for script %s: %s", name, record.id, rendered)
                 return rendered
+        else:
+            logger.info("%s montage renderer is not configured or package.json is missing: %s", name, project_dir)
     return None
 
 
@@ -75,6 +88,7 @@ def _render(
         word_cues_path=word_cues_path,
         output_path=output_path,
     )
+    logger.info("Running %s montage command: %s", name, " ".join(cmd))
     try:
         result = subprocess.run(
             cmd,
@@ -86,7 +100,12 @@ def _render(
     except Exception as exc:
         raise VideoOverlayError(f"{name} render failed to start: {exc}") from exc
     if result.returncode != 0:
-        raise VideoOverlayError(f"{name} render failed: {(result.stderr or result.stdout)[-2000:]}")
+        output = "\n".join(part for part in (result.stdout, result.stderr) if part)
+        raise VideoOverlayError(f"{name} render failed with code {result.returncode}: {output[-4000:]}")
+    if result.stdout:
+        logger.info("%s montage stdout tail: %s", name, result.stdout[-1000:])
+    if result.stderr:
+        logger.info("%s montage stderr tail: %s", name, result.stderr[-1000:])
     return output_path if output_path.exists() else None
 
 

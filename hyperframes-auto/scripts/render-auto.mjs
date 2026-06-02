@@ -800,9 +800,13 @@ const outputExtension = path.extname(outputPath) || '.mp4';
 const outputStem = outputPath.slice(0, -outputExtension.length) || outputPath;
 const overlayOutputPath = `${outputStem}.overlay.webm`;
 const hyperframesOutputPath = compositeSourceVideo ? overlayOutputPath : outputPath;
+const hyperframesBin = path.join(projectRoot, 'node_modules', '.bin', 'hyperframes');
+const hasLocalHyperframesBin = fs.existsSync(hyperframesBin);
+const renderCommand = hasLocalHyperframesBin ? hyperframesBin : 'npx';
+const renderCommandPrefix = hasLocalHyperframesBin ? [] : ['--no-install', 'hyperframes'];
 
 const renderArgs = [
-  'hyperframes',
+  ...renderCommandPrefix,
   'render',
   '--composition',
   generatedCompositionName,
@@ -865,7 +869,7 @@ console.log(`  source-composite: ${compositeSourceVideo ? 'ffmpeg' : 'hyperframe
 
 if (dryRun) {
   console.log('[render-auto] Dry run mode enabled. Render command:');
-  console.log(`npx ${renderArgs.join(' ')}`);
+  console.log(`${renderCommand} ${renderArgs.join(' ')}`);
   if (compositeSourceVideo) {
     console.log('[render-auto] Composite command:');
     console.log(`ffmpeg ${ffmpegArgs.join(' ')}`);
@@ -873,7 +877,7 @@ if (dryRun) {
   process.exit(0);
 }
 
-const result = spawnSync('npx', renderArgs, {
+const result = spawnSync(renderCommand, renderArgs, {
   cwd: projectRoot,
   stdio: 'inherit',
 });

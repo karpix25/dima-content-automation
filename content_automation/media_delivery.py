@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -19,6 +20,8 @@ from .settings_service import get_overlay_path, get_overlay_start_percent, get_u
 from .storage import ScriptRecord, Storage
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video
 from .visual_assets import generate_post_heygen_assets
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -162,8 +165,11 @@ def _post_heygen_visuals(
     video_path: Path,
 ) -> Path:
     if not settings.post_heygen_visuals_enabled:
+        logger.info("Post-HeyGen visuals disabled for script %s format=%s", record.id, record.format)
         return video_path
+    montage_error: VideoOverlayError | None = None
     try:
+        logger.info("Starting post-HeyGen montage for script %s format=%s", record.id, record.format)
         montage_path = render_montage_if_configured(
             record=record,
             video_path=video_path,
@@ -177,9 +183,21 @@ def _post_heygen_visuals(
             ),
         )
         if montage_path:
+            logger.info("Post-HeyGen montage rendered for script %s: %s", record.id, montage_path)
             return montage_path
-    except VideoOverlayError:
-        pass
+    except VideoOverlayError as exc:
+        montage_error = exc
+        logger.warning(
+            "Post-HeyGen montage failed for script %s format=%s: %s",
+            record.id,
+            record.format,
+            montage_error,
+        )
+    if _requires_smart_montage(record):
+        raise VideoOverlayError(
+            f"Smart montage is required for vertical HeyGen format, but renderer failed: {montage_error}"
+        )
+    logger.info("Falling back to primitive KIE+ffmpeg visuals for script %s format=%s", record.id, record.format)
     assets = generate_post_heygen_assets(
         record=record,
         output_dir=settings.video_output_directory / "miniapp_visual_assets" / str(record.id),
@@ -201,6 +219,13 @@ def _post_heygen_visuals(
         broll_seconds=settings.post_heygen_broll_seconds,
     )
     return result.output_path
+
+
+def _requires_smart_montage(record: ScriptRecord) -> bool:
+    if record.format != "short":
+        return False
+    raw = (os.getenv("ALLOW_PRIMITIVE_VERTICAL_HEYGEN_FALLBACK") or "").strip().lower()
+    return raw not in {"1", "true", "yes", "on"}
 
 
 def send_video_document_to_telegram(*, token: str, chat_id: str, video_path: Path, caption: str) -> str | None:
