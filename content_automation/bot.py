@@ -146,7 +146,7 @@ async def answer_in_same_thread(
 ) -> Message:
     return await bot.send_message(
         message.chat.id,
-        text,
+        telegram_safe_text(text),
         message_thread_id=message_thread_id(message),
         reply_markup=reply_markup,
         disable_web_page_preview=disable_web_page_preview,
@@ -163,11 +163,18 @@ async def send_to_chat_thread(
 ) -> Message:
     return await bot.send_message(
         chat_id,
-        text,
+        telegram_safe_text(text),
         message_thread_id=thread_id,
         reply_markup=reply_markup,
         disable_web_page_preview=disable_web_page_preview,
     )
+
+
+def telegram_safe_text(text: str, *, limit: int = 3900) -> str:
+    if len(text) <= limit:
+        return text
+    suffix = "\n\n…сообщение обрезано, полный лог смотри в Coolify/контейнере."
+    return text[: max(0, limit - len(suffix))].rstrip() + suffix
 
 
 async def edit_or_send_text(
