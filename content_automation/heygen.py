@@ -261,9 +261,21 @@ class HeyGenClient:
             status=(_first_text(payload, ("data", "status"), ("status",)) or "unknown").lower(),
             video_url=_first_text(
                 payload,
+                ("data", "video_url", "caption"),
+                ("data", "video_url", "video_url"),
+                ("data", "video_url", "download_url"),
+                ("data", "video_url", "url"),
                 ("data", "video_url"),
                 ("data", "url"),
                 ("data", "download_url"),
+                ("data", "video", "url"),
+                ("data", "video", "video_url"),
+                ("data", "video", "download_url"),
+                ("data", "video", "asset_url"),
+                ("video_url", "caption"),
+                ("video_url", "video_url"),
+                ("video_url", "download_url"),
+                ("video_url", "url"),
                 ("video_url",),
                 ("url",),
                 ("download_url",),
@@ -364,6 +376,8 @@ def _first_text(payload: Any, *paths: tuple[str, ...]) -> str | None:
                 current = None
                 break
             current = current.get(key)
+        if isinstance(current, (dict, list, tuple)):
+            continue
         if current is not None and str(current).strip():
             return str(current).strip()
     return None

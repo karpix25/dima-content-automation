@@ -1948,7 +1948,7 @@ async def existing_heygen_video_message(message: Message) -> None:
     video_id = extract_heygen_video_id(message.text)
     if not video_id:
         return
-    records = storage.list_scripts(user_id, format="short", status="approved", limit=1)
+    records = storage.list_approved_scripts(user_id, limit=1)
     record = records[0] if records else None
     if not record:
         await answer_in_same_thread(message, "Нет одобренного short-сценария. Сначала прими сценарий через /review.")
