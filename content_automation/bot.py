@@ -1943,22 +1943,6 @@ async def script_review(callback: CallbackQuery) -> None:
         updated = storage.update_script_status(user_id, script_id, "approved")
         await callback.answer("Принято")
         if updated and updated.format == "short":
-            if callback.message:
-                await send_to_chat_thread(
-                    callback.message.chat.id,
-                    f"Сценарий #{updated.id} принят. Можно собрать его в Turan-форматы:",
-                    thread_id=message_thread_id(callback.message),
-                    reply_markup=turan_formats_keyboard(updated.id),
-                    disable_web_page_preview=True,
-                )
-            asyncio.create_task(
-                produce_media_for_approved_script(
-                    callback.message.chat.id,
-                    message_thread_id(callback.message),
-                    user_id,
-                    updated,
-                )
-            )
             advance_review_progress(user_id)
             await edit_to_next_review_card(callback, user_id)
             return
