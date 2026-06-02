@@ -18,11 +18,13 @@ def build_turan_infographic_prompt(
         "Create a finished vertical Instagram/Reels business infographic card, 9:16. "
         f"{reference_rule}"
         "Use only the exact text below on the card. Do not invent new facts and do not rewrite it. "
-        "Social hook rules: the card must feel like a sharp social post, not a document. "
-        "H1 max 34 characters, 3-7 words, direct, trigger-driven, high contrast. "
-        "Subtitle max 58 characters. Main block: exactly 2-3 short points, max 42 characters each. "
-        "No final thought paragraph, no long explanations, no numbered list above 3 items, no dense transcript text. "
-        "Maximum total visible words: 42. "
+        "Retention strategy: this is a 5-second video card designed to take 14-16 seconds to read, encouraging pause, rewatch, and longer average view duration. "
+        "Social hook rules: the card must feel like a sharp expert social post, not a document. "
+        "Keep the expert meaning from the source: Amazon margins, SQP, PPC caps, Lost Keywords, operations, or cash conversion. "
+        "H1 max 48 characters, 5-9 words, direct, specific, pain-first, trigger-driven, high contrast. "
+        "Subtitle max 82 characters. Main block: exactly 5 expert points, max 68 characters each. "
+        "No final thought paragraph, no generic motivation, no vague claims, no numbered list above 5 items. "
+        "Target 52-68 visible words total so the viewer needs longer than the 5-second video to read it. "
         "Text fit rules: no cropped words, no broken words, no ellipses, no text outside safe margins; "
         "if needed reduce copy density before reducing hierarchy. "
         f'H1/top headline exact text: "{copy.headline}". '
@@ -32,14 +34,14 @@ def build_turan_infographic_prompt(
         "Design style: one solid warm golden-sand background, exact color #EBC97C, no gradient and no shade shift. "
         "Minimal premium business infographic, no logos, no watermarks, no fake UI, no extra colors, no decorative clutter. "
         "At the top, place a large black headline directly on the gold background. "
-        "Below it, place one large off-white/milky rounded rectangle block with only the 2-3 short points. "
+        "Below it, place one large off-white/milky rounded rectangle block with only the 5 useful expert points. "
         "At the bottom, place a separate off-white CTA window. "
         "Use strictly Montserrat or Montserrat-like geometric sans-serif: headline ExtraBold/Black, body SemiBold, CTA ExtraBold. "
         "Do not use serif, handwritten, condensed, decorative, Arial-like, or Instagram UI fonts. "
         "Add a realistic cutout sticker of the author: man with dark hair, thick dark beard, expressive eyebrows, "
         "confident or engaged expression, pointing at the main block or CTA, 18-22% of frame height. "
         "The author must not cover important text. "
-        "Text must be large, clean, readable, aligned, and intentionally sparse. "
+        "Text must be large, clean, readable, aligned, useful, and dense enough to reward reading without looking cluttered. "
         "The final image must look like a polished Turan five-second infographic card, ready for video."
     )
 
@@ -55,11 +57,20 @@ class SocialCardCopy:
 def build_social_card_copy(*, record: ScriptRecord, bullets: list[str], cta_text: str | None = None) -> SocialCardCopy:
     source = " ".join(
         clean_prompt_text(item)
-        for item in [record.title, record.hook, record.angle, record.trigger, record.voiceover, record.cta, record.source_basis]
+        for item in [
+            record.title,
+            record.hook,
+            record.angle,
+            record.trigger,
+            record.voiceover,
+            record.cta,
+            record.source_basis,
+            *bullets,
+        ]
         if clean_prompt_text(item)
     )
     headline = trigger_headline(source, fallback=record.hook or record.title)
-    subtitle = limit_chars(record.trigger or record.angle or record.voiceover or "Fix the bottleneck first", 58)
+    subtitle = limit_chars(record.trigger or record.angle or record.voiceover or "Fix the bottleneck first", 70)
     items = concise_items(bullets, record)
     cta = limit_chars(cta_text or record.cta or "Follow for more", 48)
     return SocialCardCopy(headline=headline, subtitle=subtitle, items=items, cta=cta)
@@ -67,34 +78,65 @@ def build_social_card_copy(*, record: ScriptRecord, bullets: list[str], cta_text
 
 def trigger_headline(source: str, *, fallback: str | None) -> str:
     normalized = source.lower()
-    if any(word in normalized for word in ("cash", "margin", "profit")) and any(word in normalized for word in ("sales", "revenue")):
-        return "Sales Are Up. Cash Is Down."
-    if "ppc" in normalized or "ad spend" in normalized or "ads" in normalized:
+    if ("sqp" in normalized or "search query" in normalized) and ("margin" in normalized or "profit" in normalized):
+        return "Your Margins Are Bleeding In SQP."
+    if ("agency" in normalized or "agencies" in normalized) and ("sqp" in normalized or "search query" in normalized):
+        return "Your Agency Missed The SQP Leak."
+    if ("ppc" in normalized or "ad spend" in normalized or "ads" in normalized) and (
+        "margin" in normalized or "profit" in normalized
+    ):
         return "Your PPC Is Eating Margin."
-    if "agency" in normalized or "agencies" in normalized:
-        return "Your Agency Missed This."
     if "sqp" in normalized or "search query" in normalized:
-        return "Check SQP Before Ads."
+        return "Check SQP Before Scaling."
+    if any(word in normalized for word in ("cash", "margin", "profit")) and any(word in normalized for word in ("sales", "revenue")):
+        return "Sales Up. Margin Down."
+    if "agency" in normalized or "agencies" in normalized:
+        return "Your Agency Missed The Leak."
     if "margin" in normalized or "profit" in normalized:
         return "Your Profit Is Leaking."
-    return title_case(limit_chars(remove_soft_opening(fallback or "Fix This Before Scaling"), 34))
+    return title_case(limit_chars(remove_soft_opening(fallback or "Fix This Before Scaling"), 48))
 
 
 def concise_items(bullets: list[str], record: ScriptRecord) -> list[str]:
+    source = " ".join(clean_prompt_text(item) for item in [*bullets, record.voiceover, record.trigger, record.angle] if item)
+    items = expert_items_from_source(source)
     candidates = [*bullets, record.trigger, record.cta, record.angle]
-    items: list[str] = []
     for candidate in candidates:
         clean = clean_prompt_text(candidate)
         if not clean or should_skip_item(clean):
             continue
-        short = limit_chars(clean, 42).rstrip(".")
+        short = limit_chars(clean, 68).rstrip(".")
         if short and short.lower() not in {item.lower() for item in items}:
             items.append(short)
-        if len(items) == 3:
+        if len(items) == 5:
             break
-    if len(items) < 2:
-        items.extend(["Find the bottleneck", "Fix it before scaling"][len(items):])
-    return items[:3]
+    fallbacks = [
+        "Find the operational bottleneck before scaling",
+        "Fix margin before increasing ad spend",
+        "Use data before agency opinions",
+        "Separate revenue growth from cash conversion",
+        "Turn seller chaos into a repeatable system",
+    ]
+    while len(items) < 5:
+        items.append(fallbacks[len(items)])
+    return items[:5]
+
+
+def expert_items_from_source(source: str) -> list[str]:
+    normalized = source.lower()
+    items: list[str] = []
+    rules = [
+        (("high sales", "sales volume", "revenue"), ("margin", "profit"), "High sales can hide a broken contribution margin"),
+        (("agency", "agencies"), ("sqp", "search query"), "SQP exposes the leaks agency reports miss"),
+        (("ppc cap", "capping", "cap on your daily ppc"), ("ppc",), "Daily PPC caps protect cash before scale"),
+        (("lost keywords", "lost keyword"), ("sqp", "search query"), "Lost Keywords show where profit is leaking"),
+        (("operator burnout", "burnout"), ("bottleneck", "operational"), "Operator burnout usually means an ops bottleneck"),
+        (("cash conversion", "cash disappears"), ("revenue", "sales"), "Revenue growth means nothing without cash conversion"),
+    ]
+    for primary, secondary, text in rules:
+        if any(token in normalized for token in primary) and any(token in normalized for token in secondary):
+            items.append(text)
+    return items
 
 
 def clean_prompt_text(value: str | None) -> str:

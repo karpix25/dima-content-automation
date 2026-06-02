@@ -19,7 +19,7 @@ def test_generate_gold_card_with_kie_uses_prompt_and_output_path(tmp_path: Path)
     assert "exact color #EBC97C" in client.prompts[0]
     assert "off-white/milky rounded rectangle block" in client.prompts[0]
     assert "Montserrat" in client.prompts[0]
-    assert 'H1/top headline exact text: "Sales Are Up. Cash Is Down."' in client.prompts[0]
+    assert 'H1/top headline exact text: "Sales Up. Margin Down."' in client.prompts[0]
     assert "Revenue is not profit" not in client.prompts[0]
     assert client.reference_paths == []
 
@@ -71,8 +71,8 @@ def test_gold_card_prompt_limits_h1_h2_and_prevents_broken_words():
 
     prompt = gold_card_prompt(record)
 
-    assert "H1 max 34 characters" in prompt
-    assert "Maximum total visible words: 42" in prompt
+    assert "H1 max 48 characters" in prompt
+    assert "Target 52-68 visible words" in prompt
     assert "immediately" not in prompt
     assert "Kie design prompt" not in prompt
     assert "Final thought:" not in prompt
@@ -82,14 +82,14 @@ def test_gold_card_prompt_uses_trigger_headline_for_social_card():
     record = _record(
         hook="If your Amazon margins are shrinking, stop listening to agencies.",
         voiceover="Your revenue can grow while your cash disappears.",
-        trigger="Fix the bottleneck before scaling ads.",
+        trigger="Fix the bottleneck before scaling PPC ads.",
     )
 
     prompt = gold_card_prompt(record)
 
-    assert 'H1/top headline exact text: "Sales Are Up. Cash Is Down."' in prompt
-    assert "exactly 2-3 short points" in prompt
-    assert "no dense transcript text" in prompt
+    assert 'H1/top headline exact text: "Your PPC Is Eating Margin."' in prompt
+    assert "exactly 5 expert points" in prompt
+    assert "5-second video card designed to take 14-16 seconds to read" in prompt
 
 
 def test_generate_gold_card_with_kie_uses_configured_cta(tmp_path: Path):
@@ -108,10 +108,34 @@ def test_generate_gold_card_with_kie_requires_api_key(tmp_path: Path):
 def test_gold_card_prompt_includes_script_fields():
     prompt = gold_card_prompt(_record())
 
-    assert 'H1/top headline exact text: "Sales Are Up. Cash Is Down."' in prompt
+    assert 'H1/top headline exact text: "Sales Up. Margin Down."' in prompt
     assert "Cash conversion" in prompt
     assert "Check contribution margin" in prompt
     assert "#EBC97C" in prompt
+
+
+def test_gold_card_prompt_keeps_expert_specificity_from_bullets():
+    record = _record(
+        hook="If your Amazon margins are shrinking, stop listening to agencies.",
+        trigger="Stop listening to agencies and fix the bottleneck using SQP.",
+    )
+
+    prompt = gold_card_prompt(
+        _record(
+            hook="If your Amazon margins are shrinking, stop listening to agencies.",
+            trigger="Stop listening to agencies and fix the bottleneck using SQP.",
+            source_basis=(
+                "Decreasing profit margins despite high sales volume and operator burnout. "
+                "First, put a hard cap on your daily PPC so it never exceeds your daily profit. "
+                "Second, pull your Search Query Performance report and filter by Lost Keywords."
+            ),
+        )
+    )
+
+    assert 'H1/top headline exact text: "Your Margins Are Bleeding In SQP."' in prompt
+    assert "High sales can hide a broken contribution margin" in prompt
+    assert "Daily PPC caps protect cash before scale" in prompt
+    assert "Lost Keywords show where profit is leaking" in prompt
 
 
 def test_render_five_second_video_normalizes_kie_image_size(tmp_path: Path, monkeypatch):
@@ -154,8 +178,14 @@ class FakeKieClient:
 
 def _record(**overrides) -> ScriptRecord:
     values = {
+        "title": "Margin trap",
         "hook": "Revenue is not profit",
         "angle": "Profit angle",
+        "trigger": "Cash conversion",
+        "voiceover": "Your revenue can grow while your cash disappears.",
+        "cta": "Check contribution margin.",
+        "why_it_works": "Sharp seller pain.",
+        "source_basis": "NotebookLM notes.",
     }
     values.update(overrides)
     return ScriptRecord(
@@ -163,13 +193,13 @@ def _record(**overrides) -> ScriptRecord:
         user_id="42",
         format="short",
         status="approved",
-        title="Margin trap",
+        title=values["title"],
         angle=values["angle"],
         hook=values["hook"],
-        trigger="Cash conversion",
-        voiceover="Your revenue can grow while your cash disappears.",
-        cta="Check contribution margin.",
-        why_it_works="Sharp seller pain.",
-        source_basis="NotebookLM notes.",
+        trigger=values["trigger"],
+        voiceover=values["voiceover"],
+        cta=values["cta"],
+        why_it_works=values["why_it_works"],
+        source_basis=values["source_basis"],
         raw={},
     )
