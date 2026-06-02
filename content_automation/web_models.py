@@ -25,6 +25,12 @@ class CreateFormatJobIn(BaseModel):
     format_key: str
 
 
+class CreateExistingHeyGenJobIn(BaseModel):
+    user_id: str
+    format_key: str = "avatar_reels"
+    heygen_video_id: str
+
+
 class TextSettingIn(BaseModel):
     user_id: str
     key: str

@@ -88,6 +88,41 @@ def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     assert "gold.mp4" in opened.json()["output_text"]
 
 
+def test_existing_heygen_job_reuses_video_id(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
+    record = add_approved_script(storage)
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+    calls = []
+
+    def fake_existing_delivery(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(
+            video_path=tmp_path / "existing.mp4",
+            telegram_message_id="tg-existing",
+            heygen_video_id=kwargs["heygen_video_id"],
+        )
+
+    monkeypatch.setattr(web_format_jobs, "create_and_send_existing_heygen_video", fake_existing_delivery)
+    client = TestClient(web_app.app)
+
+    created = client.post(
+        f"/api/scripts/{record.id}/format-jobs/existing-heygen",
+        json={"user_id": record.user_id, "format_key": "avatar_reels", "heygen_video_id": "video-123"},
+    )
+    opened = client.get(f"/api/format-jobs/{created.json()['id']}", params={"user_id": record.user_id})
+
+    assert created.status_code == 200
+    assert created.json()["status"] == "queued"
+    assert created.json()["external_task_id"] == "video-123"
+    assert created.json()["raw"]["existing_heygen_video_id"] == "video-123"
+    assert calls[0]["heygen_video_id"] == "video-123"
+    assert calls[0]["format_key"] == "avatar_reels"
+    assert opened.json()["status"] == "delivered"
+    assert opened.json()["output_url"].endswith("existing.mp4")
+
+
 def test_infographic_reels_job_sends_video_instead_of_prompt(tmp_path, monkeypatch):
     storage = make_storage(tmp_path)
     asset_store = make_asset_store(tmp_path)

@@ -4,7 +4,7 @@ import logging
 
 from .config import Settings
 from .infographic_delivery import build_kie_client, create_and_send_infographic_reels
-from .media_delivery import create_and_send_avatar_video
+from .media_delivery import create_and_send_avatar_video, create_and_send_existing_heygen_video
 from .media_assets import MediaAssetStore
 from .reference_paths import infographic_design_reference_paths, thumbnail_face_reference_paths
 from .settings_service import get_user_settings
@@ -36,6 +36,36 @@ def create_queued_format_job(
         job.id,
         status="queued",
         output_text=_queued_output(job),
+    )
+
+
+def create_queued_existing_heygen_job(
+    *,
+    storage: Storage,
+    asset_store: MediaAssetStore,
+    settings: Settings,
+    user_id: str,
+    script_id: int,
+    format_key: str,
+    heygen_video_id: str,
+) -> FormatJob:
+    video_id = heygen_video_id.strip()
+    if not video_id:
+        raise ValueError("HeyGen video id is required")
+    if format_key not in {"avatar_reels", "avatar_horizontal"}:
+        raise ValueError("Existing HeyGen video can be used only with avatar formats")
+    job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
+    return storage.update_format_job_delivery(
+        user_id,
+        job.id,
+        status="queued",
+        external_task_id=video_id,
+        output_text=(
+            f"Задача #{job.id} поставлена в очередь.\n"
+            f"Использую готовый HeyGen video id: {video_id}.\n"
+            "Новый HeyGen ролик генерироваться не будет."
+        ),
+        raw={**job.raw, "existing_heygen_video_id": video_id},
     )
 
 
@@ -83,6 +113,38 @@ def deliver_existing_format_job(
             error=str(exc),
             output_text=f"⚠️ Не удалось выполнить формат: {exc}",
         )
+
+
+def deliver_existing_heygen_video_job(
+    *,
+    storage: Storage,
+    asset_store: MediaAssetStore,
+    settings: Settings,
+    user_id: str,
+    job_id: int,
+    heygen_video_id: str,
+) -> None:
+    existing = storage.get_format_job(user_id, job_id)
+    if existing and existing.status != "queued":
+        logger.info("Existing HeyGen job skipped because status is %s: job_id=%s", existing.status, job_id)
+        return
+    job = storage.claim_queued_format_job(
+        user_id,
+        job_id,
+        output_text=f"Скачиваю готовый HeyGen video id {heygen_video_id}, собираю smart montage и отправляю в Telegram.",
+    ) if existing else None
+    if not job:
+        logger.warning("Queued existing HeyGen job disappeared before delivery: user_id=%s job_id=%s", user_id, job_id)
+        return
+    _deliver_avatar_job(
+        storage=storage,
+        asset_store=asset_store,
+        settings=settings,
+        user_id=user_id,
+        script_id=job.script_id,
+        job=job,
+        existing_heygen_video_id=heygen_video_id,
+    )
 
 
 def create_and_deliver_format_job(
@@ -262,27 +324,45 @@ def _deliver_avatar_job(
     user_id: str,
     script_id: int,
     job: FormatJob,
+    existing_heygen_video_id: str | None = None,
 ) -> FormatJob:
     record = storage.get_script(user_id, script_id)
     if not record:
         raise ScriptNotFoundError("Script not found")
     try:
-        result = create_and_send_avatar_video(
-            record=record,
-            user_id=user_id,
-            format_key=job.format_key,
-            settings=settings,
-            storage=storage,
-            asset_store=asset_store,
-            kie_client=build_kie_client(settings),
-        )
+        if existing_heygen_video_id:
+            result = create_and_send_existing_heygen_video(
+                record=record,
+                user_id=user_id,
+                format_key=job.format_key,
+                heygen_video_id=existing_heygen_video_id,
+                settings=settings,
+                storage=storage,
+                asset_store=asset_store,
+                kie_client=build_kie_client(settings),
+            )
+        else:
+            result = create_and_send_avatar_video(
+                record=record,
+                user_id=user_id,
+                format_key=job.format_key,
+                settings=settings,
+                storage=storage,
+                asset_store=asset_store,
+                kie_client=build_kie_client(settings),
+            )
+        heygen_line = f"HeyGen video id: {existing_heygen_video_id}\n" if existing_heygen_video_id else ""
         return storage.update_format_job_delivery(
             user_id,
             job.id,
             status="delivered",
             external_task_id=result.telegram_message_id or result.heygen_video_id,
             output_url=str(result.video_path),
-            output_text=f"✅ Avatar формат создан и отправлен в Telegram.\nФайл: {result.video_path}",
+            output_text=(
+                "✅ Avatar формат создан и отправлен в Telegram.\n"
+                f"{heygen_line}"
+                f"Файл: {result.video_path}"
+            ),
         )
     except Exception as exc:
         logger.exception("Avatar format job failed: job_id=%s", job.id)

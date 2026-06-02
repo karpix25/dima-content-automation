@@ -76,6 +76,48 @@ def create_and_send_avatar_video(
     return AvatarDeliveryResult(video_path=final_path, telegram_message_id=message_id, heygen_video_id=ready.video_id)
 
 
+def create_and_send_existing_heygen_video(
+    *,
+    record: ScriptRecord,
+    user_id: str,
+    format_key: str,
+    heygen_video_id: str,
+    settings: Settings,
+    storage: Storage,
+    asset_store: MediaAssetStore,
+    kie_client: KieImageClient,
+) -> AvatarDeliveryResult:
+    target = "horizontal" if format_key == "avatar_horizontal" else "vertical"
+    output_record = replace(record, format="youtube" if target == "horizontal" else "short")
+    video_id = heygen_video_id.strip()
+    if not video_id:
+        raise RuntimeError("HeyGen video id не задан")
+    heygen = _heygen_client(settings, target)
+    if not heygen.is_configured():
+        raise RuntimeError("HEYGEN_API_KEY не задан")
+
+    ready = asyncio.run(heygen.wait_for_video(video_id))
+    if not ready.video_url:
+        raise RuntimeError(f"HeyGen не вернул ссылку на готовое видео: {ready.raw}")
+
+    final_path = _download_and_finish_video(
+        record=output_record,
+        user_id=user_id,
+        settings=settings,
+        storage=storage,
+        asset_store=asset_store,
+        kie_client=kie_client,
+        video_url=ready.video_url,
+    )
+    message_id = send_video_document_to_telegram(
+        token=settings.telegram_bot_token,
+        chat_id=user_id,
+        video_path=final_path,
+        caption=f"🎬 HeyGen #{video_id}\nСценарий #{record.id}: {record.title or record.hook}",
+    )
+    return AvatarDeliveryResult(video_path=final_path, telegram_message_id=message_id, heygen_video_id=ready.video_id)
+
+
 def _generate_audio(record: ScriptRecord, user_id: str, settings: Settings, voice_id: str | None, voice_name: str) -> str:
     elevenlabs = ElevenLabsMCPClient(
         api_key=settings.elevenlabs_api_key,

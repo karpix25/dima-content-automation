@@ -34,9 +34,16 @@ from .settings_service import (
 from .storage import Storage
 from .turan_formats import list_turan_formats
 from .turan_service import TuranServiceError, list_approved_scripts
-from .web_format_jobs import ScriptNotFoundError, create_queued_format_job, deliver_existing_format_job
+from .web_format_jobs import (
+    ScriptNotFoundError,
+    create_queued_existing_heygen_job,
+    create_queued_format_job,
+    deliver_existing_format_job,
+    deliver_existing_heygen_video_job,
+)
 from .web_models import (
     CreateFormatJobIn,
+    CreateExistingHeyGenJobIn,
     ElevenLabsVoiceOut,
     FormatJobOut,
     FormatOut,
@@ -438,6 +445,40 @@ def create_script_format_job(
             job_id=job.id,
         )
     except TuranServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ScriptNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return job_to_out(job)
+
+
+@app.post("/api/scripts/{script_id}/format-jobs/existing-heygen", response_model=FormatJobOut)
+def create_existing_heygen_format_job(
+    script_id: int,
+    payload: CreateExistingHeyGenJobIn,
+    background_tasks: BackgroundTasks,
+) -> FormatJobOut:
+    try:
+        job = create_queued_existing_heygen_job(
+            storage=storage,
+            asset_store=asset_store,
+            settings=settings,
+            user_id=payload.user_id,
+            script_id=script_id,
+            format_key=payload.format_key,
+            heygen_video_id=payload.heygen_video_id,
+        )
+        background_tasks.add_task(
+            deliver_existing_heygen_video_job,
+            storage=storage,
+            asset_store=asset_store,
+            settings=settings,
+            user_id=payload.user_id,
+            job_id=job.id,
+            heygen_video_id=payload.heygen_video_id,
+        )
+    except TuranServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ScriptNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
