@@ -32,17 +32,15 @@ export function renderAvatarSelectors(state, escapeHtml, options = {}) {
         Photo Avatar будет отправлен через Avatar III. Motion prompt применяется только для Avatar IV.
       </div>
     ` : ""}
-    <div class="box-head avatar-load-row">
-      <p>${escapeHtml(avatarHint(options.target))}</p>
-      <button data-action="load-avatars">Загрузить аватары</button>
-    </div>
-    <div class="avatar-gallery">${renderAvatarList(state, escapeHtml, options.target)}</div>
+    <div class="avatar-gallery" data-avatar-autoload="true">${renderAvatarList(state, escapeHtml, options.target)}</div>
   `;
 }
 
 export function bindAvatarEvents(root, deps, renderSettingsPanel) {
-  root.querySelectorAll("[data-action='load-avatars']").forEach((button) => {
-    button.addEventListener("click", () => loadAvatars(deps, renderSettingsPanel).catch(deps.showError));
+  root.querySelectorAll("[data-avatar-autoload='true']").forEach(() => {
+    if (!deps.state.avatars.length && !deps.state.avatarsLoading && !deps.state.avatarsLoadAttempted) {
+      loadAvatars(deps, renderSettingsPanel).catch(deps.showError);
+    }
   });
   root.querySelectorAll("[data-action='select-heygen-model']").forEach((button) => {
     button.addEventListener("click", () => selectModel(deps, button.dataset.model, renderSettingsPanel).catch(deps.showError));
@@ -72,8 +70,11 @@ function modelButton(id, label, hint, selected, escapeHtml) {
 }
 
 function renderAvatarList(state, escapeHtml, target) {
+  if (state.avatarsLoading) {
+    return `<div class="empty-box">Загружаю аватары HeyGen...</div>`;
+  }
   if (!state.avatars.length) {
-    return `<div class="empty-box">Нажмите “Загрузить аватары”, чтобы получить список HeyGen.</div>`;
+    return `<div class="empty-box">Список HeyGen avatars загрузится автоматически.</div>`;
   }
   const model = selectedModel(state.settings);
   const avatars = state.avatars.filter((avatar) => supportsModel(avatar, model));
@@ -116,7 +117,7 @@ function avatarActionButton(avatar, target, label, active, activeClass, escapeHt
       data-name="${escapeHtml(avatar.name)}"
       data-preview-image-url="${escapeHtml(avatar.preview_image_url || "")}"
       data-preview-video-url="${escapeHtml(avatar.preview_video_url || "")}"
-    >${label}</button>
+    ><span>${label}</span></button>
   `;
 }
 
@@ -170,10 +171,18 @@ function avatarHint(target) {
 
 async function loadAvatars(deps, renderSettingsPanel) {
   const { state, api, setStatus } = deps;
+  if (state.avatarsLoading) return;
+  state.avatarsLoadAttempted = true;
+  state.avatarsLoading = true;
   setStatus("Аватары");
-  state.avatars = await api("/api/settings/heygen-avatars");
   renderSettingsPanel(deps);
-  setStatus("Готово");
+  try {
+    state.avatars = await api("/api/settings/heygen-avatars");
+    setStatus("Готово");
+  } finally {
+    state.avatarsLoading = false;
+    renderSettingsPanel(deps);
+  }
 }
 
 async function selectAvatar(deps, dataset, renderSettingsPanel) {
