@@ -17,11 +17,11 @@ from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
 from .post_heygen_video import apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_reference_paths
-from .script_length import WordBudget, vertical_word_budget, youtube_word_budget
+from .script_length import WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .settings_service import get_overlay_path, get_overlay_start_percent, get_user_settings
 from .storage import ScriptRecord, Storage
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video
-from .voiceover_timing import analyze_voiceover_timing
+from .voiceover_timing import analyze_voiceover_timing, estimate_initial_voiceover_speed
 from .visual_assets import generate_post_heygen_assets
 
 logger = logging.getLogger(__name__)
@@ -148,13 +148,25 @@ def _generate_audio(
         output_directory=settings.elevenlabs_output_directory,
         timeout_seconds=180,
     )
+    initial_speed = estimate_initial_voiceover_speed(
+        text=record.voiceover,
+        budget=word_budget,
+        base_speed=settings.elevenlabs_speed,
+    )
+    logger.info(
+        "Initial voiceover speed estimate: script=%s words=%s target_seconds=%s speed=%.3f",
+        record.id,
+        count_spoken_words(record.voiceover),
+        word_budget.target_seconds,
+        initial_speed,
+    )
     result = _text_to_speech(
         elevenlabs,
         record=record,
         voice_id=voice_id,
         voice_name=voice_name,
         settings=settings,
-        speed=settings.elevenlabs_speed,
+        speed=initial_speed,
     )
     if result.file_path:
         try:
@@ -162,7 +174,7 @@ def _generate_audio(
                 text=record.voiceover,
                 audio_path=Path(result.file_path),
                 budget=word_budget,
-                current_speed=settings.elevenlabs_speed,
+                current_speed=initial_speed,
             )
             logger.info(
                 "Voiceover timing: script=%s words=%s duration=%.2fs wpm=%.1f target=%.2fs speed=%.3f",

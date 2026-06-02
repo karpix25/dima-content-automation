@@ -33,3 +33,27 @@ def test_analyze_voiceover_timing_keeps_speed_when_close(monkeypatch):
 
     assert analysis.should_regenerate is False
     assert analysis.recommended_speed == 1.085
+
+
+def test_estimate_initial_voiceover_speed_from_word_count_and_target_duration():
+    budget = vertical_word_budget("60")
+
+    speed = voiceover_timing.estimate_initial_voiceover_speed(
+        text=" ".join(["word"] * 165),
+        budget=budget,
+        base_speed=1.0,
+    )
+
+    assert speed == 1.1
+
+
+def test_estimate_initial_voiceover_speed_keeps_original_mode_base_speed():
+    budget = vertical_word_budget("original")
+
+    speed = voiceover_timing.estimate_initial_voiceover_speed(
+        text=" ".join(["word"] * 120),
+        budget=budget,
+        base_speed=1.05,
+    )
+
+    assert speed == 1.05

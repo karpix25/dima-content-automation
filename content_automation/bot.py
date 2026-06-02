@@ -32,7 +32,7 @@ from .turan_formats import build_all_turan_packages, build_turan_package, get_tu
 from .post_heygen_video import apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_reference_paths
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
-from .voiceover_timing import analyze_voiceover_timing
+from .voiceover_timing import analyze_voiceover_timing, estimate_initial_voiceover_speed
 from .visual_assets import generate_post_heygen_assets
 
 
@@ -762,14 +762,26 @@ async def generate_voiceover_audio(record: ScriptRecord, user_id: str) -> str:
         if record.format == "youtube"
         else vertical_word_budget(user_settings.vertical_avatar_duration_mode)
     )
-    result = await _generate_elevenlabs_audio(record, user_id, speed=settings.elevenlabs_speed)
+    initial_speed = estimate_initial_voiceover_speed(
+        text=record.voiceover,
+        budget=word_budget,
+        base_speed=settings.elevenlabs_speed,
+    )
+    logger.info(
+        "Initial voiceover speed estimate: script=%s words=%s target_seconds=%s speed=%.3f",
+        record.id,
+        count_spoken_words(record.voiceover),
+        word_budget.target_seconds,
+        initial_speed,
+    )
+    result = await _generate_elevenlabs_audio(record, user_id, speed=initial_speed)
     if result.file_path:
         try:
             analysis = analyze_voiceover_timing(
                 text=record.voiceover,
                 audio_path=Path(result.file_path),
                 budget=word_budget,
-                current_speed=settings.elevenlabs_speed,
+                current_speed=initial_speed,
             )
             logger.info(
                 "Voiceover timing: script=%s words=%s duration=%.2fs wpm=%.1f target=%.2fs speed=%.3f",

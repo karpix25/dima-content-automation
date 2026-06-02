@@ -48,6 +48,22 @@ def analyze_voiceover_timing(
     )
 
 
+def estimate_initial_voiceover_speed(
+    *,
+    text: str,
+    budget: WordBudget,
+    base_speed: float,
+    spoken_wpm: int = DEFAULT_SPOKEN_WORDS_PER_MINUTE,
+) -> float:
+    if not budget.target_seconds:
+        return clamp_speed(base_speed)
+    words = count_spoken_words(text)
+    if words <= 0:
+        return clamp_speed(base_speed)
+    required_wpm = words / budget.target_seconds * 60
+    return clamp_speed(base_speed * required_wpm / max(1, spoken_wpm))
+
+
 def target_duration_seconds(*, words: int, budget: WordBudget, spoken_wpm: int) -> float:
     if budget.target_seconds:
         return float(budget.target_seconds)
