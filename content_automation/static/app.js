@@ -1,4 +1,5 @@
 import { loadSettingsData, renderSettingsPanel } from "/static/settings.js";
+import { formatButtonState, usageSummary } from "/static/format_usage.js";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
@@ -85,7 +86,7 @@ async function loadAll() {
   const [formats, scripts, jobs] = await Promise.all([
     api("/api/formats"),
     api(`/api/scripts/approved?user_id=${userQuery}`),
-    api(`/api/format-jobs?user_id=${userQuery}`),
+    api(`/api/format-jobs?user_id=${userQuery}&limit=100`),
   ]);
   state.formats = formats;
   state.scripts = scripts;
@@ -134,41 +135,52 @@ function renderScripts() {
       <div class="formats">
         ${state.formats.map((format) => `
           <button class="${formatButtonClass(format.key, script.id)}"
+            ${formatButtonStateFor(script.id, format.key).disabled ? "disabled" : ""}
             data-script="${script.id}" data-format="${format.key}">
-            ${escapeHtml(formatButtonLabel(format, script.id))}
+            ${escapeHtml(formatButtonStateFor(script.id, format.key).label)}
           </button>
         `).join("")}
-        <button class="${formatButtonClass("all", script.id)}" data-script="${script.id}" data-format="all">
-          ${escapeHtml(formatButtonLabel({ key: "all", label: "Все форматы" }, script.id))}
+        <button class="${formatButtonClass("all", script.id)}"
+          ${formatButtonStateFor(script.id, "all").disabled ? "disabled" : ""}
+          data-script="${script.id}" data-format="all">
+          ${escapeHtml(formatButtonStateFor(script.id, "all").label)}
         </button>
       </div>
+      ${formatUsage(script.id)}
       ${formatReadiness(script.id)}
     </article>
   `).join("");
   root.querySelectorAll("button[data-script]").forEach((button) => {
-    if (state.creating) button.disabled = true;
+    if (state.creating || button.disabled) button.disabled = true;
     button.addEventListener("click", () => createJob(button.dataset.script, button.dataset.format).catch(showError));
   });
 }
 
 function formatButtonClass(formatKey, scriptId) {
+  const buttonState = formatButtonStateFor(scriptId, formatKey);
   const classes = [];
   if (formatKey === "infographic_reels") classes.push("gold");
   if (formatKey === "avatar_horizontal") classes.push("green");
   if (formatKey === "all") classes.push("bundle");
-  if (isCreating(scriptId, formatKey)) classes.push("busy");
+  if (buttonState.creating) classes.push("busy");
+  if (buttonState.used) classes.push("used");
+  if (buttonState.live) classes.push("live");
   return classes.join(" ");
 }
 
-function formatButtonLabel(format, scriptId) {
-  if (isCreating(scriptId, format.key)) return "Создаю...";
-  return format.label;
+function formatButtonStateFor(scriptId, formatKey) {
+  return formatButtonState({
+    jobs: state.jobs,
+    formats: state.formats,
+    scriptId,
+    formatKey,
+    creating: state.creating,
+  });
 }
 
-function isCreating(scriptId, formatKey) {
-  return state.creating
-    && String(state.creating.scriptId) === String(scriptId)
-    && state.creating.formatKey === formatKey;
+function formatUsage(scriptId) {
+  const summary = usageSummary(state.jobs, state.formats, scriptId);
+  return summary ? `<div class="usage-summary">${escapeHtml(summary)}</div>` : "";
 }
 
 function renderJobs() {
