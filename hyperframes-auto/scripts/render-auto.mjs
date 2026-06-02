@@ -51,7 +51,9 @@ const isVerticalHeygenLayout = renderLayout.isVerticalHeygen;
 const isSmartDirectorLayout = renderLayout.isSmartDirector;
 const defaultFps = isYoutubeLayout
   ? (process.env.HYPERFRAMES_YOUTUBE_FPS || process.env.HYPERFRAMES_RENDER_FPS || '24')
-  : (process.env.HYPERFRAMES_RENDER_FPS || '30');
+  : isVerticalHeygenLayout
+    ? (process.env.HYPERFRAMES_VERTICAL_FPS || process.env.HYPERFRAMES_RENDER_FPS || '10')
+    : (process.env.HYPERFRAMES_RENDER_FPS || '30');
 const fps = Number(getArgValue('fps', defaultFps));
 const compositeSourceVideo = renderLayout.compositeSourceVideo;
 const youtubeCaptionsEnabled =
