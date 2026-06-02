@@ -92,6 +92,7 @@ def _scene_from_sentence(
     start = max(0.8, float(sentence["start"]) - 0.05)
     end = min(duration_seconds, max(start + 3.8, float(sentence["end"]) + 2.2))
     terms = _visual_terms(text)
+    visual = _visual_story(title=title, text=text, index=index)
     return {
         "id": f"scene-{index + 1}",
         "start": round(start, 3),
@@ -104,7 +105,16 @@ def _scene_from_sentence(
         "cta": _clean(record.cta),
         "language": language,
         "visualElements": terms,
-        "imagePrompt": _image_prompt(title=title, subtitle=subtitle, terms=terms, language=language),
+        "cutawayRole": visual["role"],
+        "directorCue": visual["cue"],
+        "imagePrompt": _image_prompt(
+            title=title,
+            subtitle=subtitle,
+            terms=terms,
+            language=language,
+            visual_story=visual["story"],
+            role=visual["role"],
+        ),
     }
 
 
@@ -163,7 +173,55 @@ def _title_case(value: str) -> str:
     return " ".join(words)
 
 
-def _image_prompt(*, title: str, subtitle: str, terms: list[str], language: str) -> str:
+def _visual_story(*, title: str, text: str, index: int) -> dict[str, str]:
+    joined = f"{title} {text}".lower()
+    if "sales drop" in joined or "price sensitive" in joined:
+        return {
+            "role": "decision point",
+            "cue": "Demand reaction",
+            "story": "Show a sales velocity dashboard dipping sharply, with a red decision marker and product boxes slowing on a conveyor.",
+        }
+    if "velocity" in joined and ("hold" in joined or "keep" in joined):
+        return {
+            "role": "greenlight",
+            "cue": "Velocity check",
+            "story": "Show a steady green velocity line while product boxes continue moving through fulfillment, implying the price bump holds.",
+        }
+    if "profit" in joined or "sku" in joined:
+        return {
+            "role": "proof",
+            "cue": "Profit proof",
+            "story": "Show a SKU ledger where a single dollar flows into daily profit, with coins stacking beside a clean unit-economics sheet.",
+        }
+    if "elasticity" in joined or "test" in joined:
+        return {
+            "role": "diagnostic test",
+            "cue": "A/B price test setup",
+            "story": "Show an Amazon SKU testing station: two price cards, a BSR line, a small clock, and a seller hand comparing outcomes.",
+        }
+    if "$1" in joined or "exactly $1" in joined or "bump the price" in joined:
+        return {
+            "role": "price move",
+            "cue": "$1 price lever",
+            "story": "Show a close-up of a price tag being moved up by exactly one dollar beside a SKU card and margin calculator.",
+        }
+    cues = ["Audit point", "Hidden lever", "Margin check", "Operator move", "Proof frame"]
+    return {
+        "role": "analysis",
+        "cue": cues[index % len(cues)],
+        "story": "Show the practical Amazon operator consequence of this beat with one clear object-led scene, not an abstract decoration.",
+    }
+
+
+def _image_prompt(
+    *,
+    title: str,
+    subtitle: str,
+    terms: list[str],
+    language: str,
+    visual_story: str,
+    role: str,
+) -> str:
     text_rule = (
         "Do not include Russian text. If any readable text appears, it must be English and limited to tiny object labels."
         if language == "en"
@@ -171,10 +229,10 @@ def _image_prompt(*, title: str, subtitle: str, terms: list[str], language: str)
     )
     return (
         "Premium 1:1 editorial cutaway image for a vertical Amazon seller expert video. "
-        "No poster text, no headline text, no subtitles inside the image. "
+        "The image must advance the story: show the decision, consequence, or evidence from this exact beat. "
+        "No decorative filler, no generic business people, no poster text, no headline text, no subtitles inside the image. "
         f"{text_rule} "
-        "Create a concrete business visual metaphor with Amazon marketplace operations, packaging, FBA fees, SKU documents, "
-        "supplier negotiation, unit economics, dashboards, product boxes, warehouse details, or margin evidence. "
+        f"Director role: {role}. Required visual action: {visual_story} "
         "Use one clear central subject, clean off-white background, deep navy, muted red audit marks, premium magazine style. "
         f"Director headline context: {title}. Subtitle context: {subtitle}. Visual anchors: {', '.join(terms)}."
     )

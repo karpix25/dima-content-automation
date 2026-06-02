@@ -147,6 +147,8 @@ const titleDensityClass = (title) => {
   return 'title-roomy';
 };
 
+const motionClass = (index) => `motion-${(index % 3) + 1}`;
+
 const trimOpener = (value) => {
   const clean = normalizeText(value).replace(/["'«»]+/g, '').trim();
   if (!clean) return '';
@@ -343,6 +345,7 @@ const youtubeDirectorClips = scenes
     const title = pickSceneTitle(scene);
     const rawSubtitle = pickSceneSubtitle(scene);
     const subtitle = shouldHideSubtitle(title, rawSubtitle) ? '' : rawSubtitle;
+    const directorCue = normalizeText(scene.directorCue || scene.cutawayRole || '');
     if (!title && !subtitle) return '';
     const duration = sceneDuration(scene, index, 9);
     const imageExists = fs.existsSync(generatedImagePath(index));
@@ -358,7 +361,7 @@ const youtubeDirectorClips = scenes
     return `
       <div
         id="director-${index}"
-        class="clip director-card ${titleDensityClass(title)}"
+        class="clip director-card ${titleDensityClass(title)} ${motionClass(index)}"
         data-start="${scene.start.toFixed(3)}"
         data-duration="${duration.toFixed(3)}"
         data-track-index="1"
@@ -367,7 +370,11 @@ const youtubeDirectorClips = scenes
           <h2>${escapeHtml(title || pickSceneOpener(scene))}</h2>
           ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}
         </div>
-        <div class="director-visual">${imageMarkup}</div>
+        <div class="director-visual">
+          ${directorCue ? `<div class="director-cue">${escapeHtml(directorCue)}</div>` : ''}
+          <div class="visual-scan"></div>
+          ${imageMarkup}
+        </div>
       </div>`;
   })
   .filter(Boolean)
@@ -441,8 +448,13 @@ const youtubeTimelineTweens = [
     if (!title && !subtitle) return '';
     const duration = sceneDuration(scene, index, 9);
     const fadeOutAt = Math.max(scene.start + 0.6, scene.start + duration - 0.4);
+    const panStart = index % 2 === 0 ? -14 : 14;
+    const panEnd = index % 2 === 0 ? 18 : -18;
     return `
       tl.fromTo("#director-${index}", { opacity: 0, x: 64, scale: 0.985 }, { opacity: 1, x: 0, scale: 1, duration: 0.52, ease: "power3.out" }, ${scene.start.toFixed(3)});
+      tl.fromTo("#director-${index} .director-image", { scale: 1.06, x: ${panStart} }, { scale: 1.16, x: ${panEnd}, duration: ${Math.max(0.8, duration - 0.2).toFixed(3)}, ease: "none" }, ${scene.start.toFixed(3)});
+      tl.fromTo("#director-${index} .visual-scan", { opacity: 0, y: -90 }, { opacity: 0.36, y: 460, duration: 1.15, ease: "power2.out" }, ${(scene.start + 0.18).toFixed(3)});
+      tl.to("#director-${index} .visual-scan", { opacity: 0, duration: 0.28, ease: "power1.out" }, ${(scene.start + 1.35).toFixed(3)});
       tl.to("#director-${index}", { opacity: 0, x: 38, duration: 0.34, ease: "power2.in" }, ${fadeOutAt.toFixed(3)});`;
   }),
   ...(youtubeChapterRibbonEnabled ? scenes.map((scene, index) => {
@@ -749,6 +761,16 @@ const html = `<!doctype html>
         border-color: rgba(15, 23, 42, 0.16);
         box-shadow: 0 38px 86px rgba(0, 0, 0, 0.38);
       }
+      body.layout-vertical-heygen .director-card.motion-2 {
+        top: 11%;
+        height: 66%;
+        grid-template-rows: 32% 1fr;
+      }
+      body.layout-vertical-heygen .director-card.motion-3 {
+        top: 20%;
+        height: 64%;
+        grid-template-rows: 38% 1fr;
+      }
       body.layout-vertical-heygen .director-copy {
         padding-left: 26px;
       }
@@ -779,8 +801,45 @@ const html = `<!doctype html>
         font-size: 29px;
       }
       body.layout-vertical-heygen .director-visual {
+        position: relative;
         width: min(100%, 780px);
         border-radius: 8px;
+      }
+      body.layout-vertical-heygen .director-image {
+        transform-origin: center center;
+        will-change: transform;
+      }
+      body.layout-vertical-heygen .director-cue {
+        position: absolute;
+        left: 18px;
+        top: 18px;
+        max-width: calc(100% - 36px);
+        padding: 10px 13px;
+        border-radius: 4px;
+        background: rgba(15, 23, 42, 0.88);
+        color: #fff;
+        font-size: 23px;
+        line-height: 1;
+        font-weight: 900;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        z-index: 3;
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.24);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      body.layout-vertical-heygen .visual-scan {
+        position: absolute;
+        left: -8%;
+        right: -8%;
+        top: 0;
+        height: 76px;
+        background: linear-gradient(180deg, rgba(209, 63, 47, 0), rgba(209, 63, 47, 0.38), rgba(209, 63, 47, 0));
+        opacity: 0;
+        z-index: 2;
+        pointer-events: none;
+        mix-blend-mode: multiply;
       }
       body.layout-vertical-heygen .caption-strip,
       body.layout-vertical-heygen .chapter-ribbon {
