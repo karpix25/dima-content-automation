@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {FORENSICS_CSS, forensicsVisualMarkup} from './render-auto-forensics.mjs';
 import {createRenderLayout} from './render-auto-layouts.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -323,14 +324,25 @@ const youtubeDirectorClips = scenes
     if (!title && !subtitle) return '';
     const duration = sceneDuration(scene, index, 9);
     const imageExists = fs.existsSync(generatedImagePath(index));
-    const imageMarkup = imageExists
-      ? `<img class="director-image" src="./assets/generated/${escapeHtml(generatedImageFile(index))}" />`
-      : `<div class="director-fallback" aria-hidden="true">
+    let imageMarkup = `<div class="director-fallback" aria-hidden="true">
           <div class="fallback-panel"></div>
           <div class="fallback-line fallback-line-one"></div>
           <div class="fallback-line fallback-line-two"></div>
           <div class="fallback-line fallback-line-three"></div>
         </div>`;
+    if (imageExists) {
+      imageMarkup = `<img class="director-image" src="./assets/generated/${escapeHtml(generatedImageFile(index))}" />`;
+    }
+    if (isVerticalHeygenLayout) {
+      imageMarkup = forensicsVisualMarkup({
+        scene,
+        index,
+        title,
+        subtitle,
+        visualElements: visualElements(scene),
+        escapeHtml,
+      });
+    }
     return `
       <div
         id="director-${index}"
@@ -751,6 +763,7 @@ const html = `<!doctype html>
       body.layout-vertical-heygen .chapter-ribbon {
         display: none;
       }
+${FORENSICS_CSS}
     </style>
   </head>
   <body class="layout-${isVerticalHeygenLayout ? 'vertical-heygen' : isYoutubeLayout ? 'youtube' : 'simple'}">
