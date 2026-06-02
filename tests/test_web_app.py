@@ -76,13 +76,14 @@ def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     assert listed.status_code == 200
     assert listed.json()[0]["id"] == record.id
     assert created.status_code == 200
-    assert created.json()["status"] == "delivered"
+    assert created.json()["status"] == "queued"
     assert created.json()["task_type"] == "turan_bundle"
     assert created.json()["raw"]["formats"][0]["turan_task_input"]["source_url"] == f"notebooklm-script://{record.id}"
     assert jobs.status_code == 200
     assert {job["format_key"] for job in jobs.json()} >= {"all", "avatar_reels", "infographic_reels", "avatar_horizontal"}
     assert any(job["id"] == created.json()["id"] for job in jobs.json())
     assert opened.status_code == 200
+    assert opened.json()["status"] == "delivered"
     assert "Генерация всех форматов завершена" in opened.json()["output_text"]
     assert "gold.mp4" in opened.json()["output_text"]
 
@@ -106,9 +107,11 @@ def test_infographic_reels_job_sends_video_instead_of_prompt(tmp_path, monkeypat
     )
 
     assert created.status_code == 200
-    assert created.json()["status"] == "delivered"
-    assert created.json()["external_task_id"] == "777"
-    assert "отправлена в Telegram" in created.json()["output_text"]
+    assert created.json()["status"] == "queued"
+    opened = client.get(f"/api/format-jobs/{created.json()['id']}", params={"user_id": record.user_id})
+    assert opened.json()["status"] == "delivered"
+    assert opened.json()["external_task_id"] == "777"
+    assert "отправлена в Telegram" in opened.json()["output_text"]
 
 
 def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
@@ -232,8 +235,12 @@ def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
     assert model.json()["heygen_video_api_version"] == "v3"
     assert model.json()["heygen_avatar_engine"] == "avatar_iv"
     assert audio.json()["audio_tracks"][0]["file_name"] == "sound.mp3"
-    assert created_job.json()["status"] == "delivered"
-    assert created_vertical_job.json()["status"] == "delivered"
+    assert created_job.json()["status"] == "queued"
+    assert created_vertical_job.json()["status"] == "queued"
+    opened_job = client.get(f"/api/format-jobs/{created_job.json()['id']}", params={"user_id": "42"})
+    opened_vertical_job = client.get(f"/api/format-jobs/{created_vertical_job.json()['id']}", params={"user_id": "42"})
+    assert opened_job.json()["status"] == "delivered"
+    assert opened_vertical_job.json()["status"] == "delivered"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["thumbnail"]["style_references"][0]["file_name"] == "ref.png"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["id"] == "avatar-horizontal"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["engine"] == "avatar_iv"

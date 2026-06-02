@@ -20,13 +20,17 @@
 }
 
 .settings-section summary {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
   min-height: 56px;
-  padding: 16px 48px 16px 16px;
+  padding: 14px 46px 14px 16px;
   cursor: pointer;
   list-style: none;
   background: #fff;
-  font-size: 16px;
-  font-weight: 800;
+  line-height: 1.2;
 }
 
 .settings-section[open] summary {
@@ -73,6 +77,44 @@
 
 .settings-section summary::-webkit-details-marker {
   display: none;
+}
+
+.summary-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.summary-chips {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.summary-chip {
+  display: inline-flex;
+  max-width: 190px;
+  min-height: 24px;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #075985;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.summary-chip.muted {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
 }
 
 .settings-section h3 {
@@ -142,6 +184,14 @@
   background: var(--inset);
 }
 
+.asset-card.selected,
+.media-card.selected,
+.overlay-card.selected,
+.thumb-card.selected {
+  border-color: rgba(36, 161, 222, 0.75);
+  box-shadow: 0 0 0 2px rgba(36, 161, 222, 0.14);
+}
+
 .asset-card {
   grid-template-columns: 46px 1fr auto;
 }
@@ -188,6 +238,15 @@
   background: white;
 }
 
+.thumb-card.selected::after {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(36, 161, 222, 0.8);
+  border-radius: 12px;
+  pointer-events: none;
+  content: "";
+}
+
 .thumb-card img {
   display: block;
   width: 100%;
@@ -215,7 +274,7 @@
 }
 
 .target-row button {
-  height: 28px;
+  height: 32px;
   padding: 0 4px;
   background: #eef2f7;
   border-color: #eef2f7;
@@ -240,7 +299,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 32px;
+  min-height: 34px;
   padding: 0 10px;
   border-radius: 14px;
   font-size: 11px;
@@ -262,7 +321,7 @@
 }
 
 .icon-button {
-  width: 32px;
+  width: 34px;
   padding: 0;
   background: #e0f2fe;
   color: var(--blue);
@@ -283,6 +342,14 @@
   background: white;
   color: var(--muted);
   font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.compact-empty {
+  min-height: 72px;
+  padding: 12px;
 }
 
 .empty-text {
@@ -290,9 +357,58 @@
 }
 
 @media (max-width: 620px) {
+  .settings-section summary {
+    grid-template-columns: 1fr;
+    padding: 14px 42px 14px 14px;
+  }
+
+  .summary-title {
+    font-size: 15px;
+  }
+
+  .summary-chips {
+    justify-content: flex-start;
+  }
+
+  .summary-chip {
+    max-width: 100%;
+    min-height: 26px;
+    font-size: 10px;
+  }
+
   .settings-two,
   .settings-three {
     grid-template-columns: 1fr;
   }
 
+  .settings-section > :not(summary) {
+    margin: 10px;
+  }
+
+  .asset-card {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .asset-card.text-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .asset-card img,
+  .overlay-card img {
+    width: 52px;
+    height: 52px;
+  }
+
+  .asset-card button,
+  .overlay-card button,
+  .target-row button,
+  .upload-button,
+  .icon-button {
+    min-height: 40px;
+  }
+
+  .target-row {
+    gap: 8px;
+    padding: 8px;
+  }
 }

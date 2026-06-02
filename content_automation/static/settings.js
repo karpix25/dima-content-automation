@@ -42,7 +42,7 @@ function renderIdentitySection({ state, escapeHtml }) {
   const settings = state.settings;
   return `
     <details class="tg-card settings-section">
-      <summary><span>Аватар и голос</span></summary>
+      ${renderSummary("Аватар и голос", identitySummaryChips(settings), escapeHtml)}
       <div class="settings-two">
         <div class="soft-box">
           <h3>Аватары HeyGen</h3>
@@ -60,7 +60,7 @@ function renderIdentitySection({ state, escapeHtml }) {
 function renderCoverSection({ state, escapeHtml }) {
   return `
     <details class="tg-card settings-section">
-      <summary><span>Обложки: лицо и референсы</span></summary>
+      ${renderSummary("Обложки: лицо и референсы", coverSummaryChips(state), escapeHtml)}
       <div class="settings-two cover-grid">
         <div class="soft-box">
           <div class="box-head">
@@ -92,7 +92,7 @@ function renderAvatarInsertSection({ state, escapeHtml }) {
   const settings = state.settings;
   return `
     <details class="tg-card settings-section">
-      <summary><span>Видео-вставки для горизонтального аватара</span></summary>
+      ${renderSummary("Видео-вставки для горизонтального аватара", avatarInsertSummaryChips(state), escapeHtml)}
       <div class="settings-three">
         ${numberField("avatar_insert_start_percent", "Старт вставок (%)", settings.avatar_insert_start_percent, 0, 99)}
         ${numberField("avatar_insert_end_percent", "Финиш вставок (%)", settings.avatar_insert_end_percent, 1, 100)}
@@ -114,7 +114,7 @@ function renderFiveSecondSection({ state, escapeHtml }) {
   const five = state.fiveSecondSettings || { audio_tracks: [] };
   return `
     <details class="tg-card settings-section">
-      <summary><span>5 секунд</span></summary>
+      ${renderSummary("5 секунд", fiveSecondSummaryChips(five), escapeHtml)}
       <label>CTA в нижнем белом фрейме</label>
       <input data-setting="instagram_post_5s_cta_text" maxlength="180" value="${escapeHtml(five.cta_text || "")}" />
       <button data-action="save-text" data-key="instagram_post_5s_cta_text">Сохранить CTA</button>
@@ -139,12 +139,12 @@ function renderFiveSecondSection({ state, escapeHtml }) {
             </label>
           </div>
           ${five.overlay_url ? `
-            <article class="asset-card">
+            <article class="asset-card media-card selected">
               <img src="${five.overlay_url}" alt="" />
               <div><strong>${escapeHtml((five.overlay_path || "").split("/").pop())}</strong></div>
               <button data-action="delete-five-overlay">Удалить</button>
             </article>
-          ` : `<p>Нет плашки. Если загрузить, появится на 2 секунде и будет до конца.</p>`}
+          ` : `<div class="empty-box compact-empty">Плашка не загружена</div>`}
         </div>
       </div>
     </details>
@@ -161,7 +161,7 @@ function renderTextSection({ state, escapeHtml }) {
   ];
   return `
     <details class="tg-card settings-section">
-      <summary><span>Текстовые настройки</span></summary>
+      ${renderSummary("Текстовые настройки", textSummaryChips(rows), escapeHtml)}
       ${rows.map(([key, label, value]) => `
         <label>${label}</label>
         <textarea data-setting="${key}" rows="${key === "notebook_id" ? 2 : 5}">${escapeHtml(value)}</textarea>
@@ -174,9 +174,9 @@ function renderTextSection({ state, escapeHtml }) {
 function renderOverlaySection({ state, escapeHtml }) {
   return `
     <details class="tg-card settings-section">
-      <summary><span>Финальные плашки поверх видео</span></summary>
+      ${renderSummary("Финальные плашки поверх видео", overlaySummaryChips(state), escapeHtml)}
       ${state.settings.overlays.map((overlay) => `
-        <article class="overlay-card">
+        <article class="overlay-card ${overlay.has_file ? "selected" : ""}">
           <div>
             <strong>${escapeHtml(overlay.label)}</strong>
             <p>${overlay.has_file ? escapeHtml(overlay.file_name) : "Файл не загружен"}</p>
@@ -304,7 +304,7 @@ function renderFaceReferences(state, escapeHtml) {
     const isYoutube = item.url && itemUrlToPath(item) === state.settings.thumbnail_face_path;
     const isShorts = item.url && itemUrlToPath(item) === state.settings.vertical_thumbnail_face_path;
     return `
-      <article class="thumb-card">
+      <article class="thumb-card ${isYoutube || isShorts ? "selected" : ""}">
         <img src="${item.url}" alt="" />
         <button class="delete-chip" data-action="delete-face" data-id="${item.id}" title="Удалить">x</button>
         <div class="target-row">
@@ -322,7 +322,7 @@ function renderThumbnailReferences(state) {
     const isYoutube = targetHas(item.target, "horizontal");
     const isShorts = targetHas(item.target, "vertical");
     return `
-      <article class="thumb-card">
+      <article class="thumb-card ${isYoutube || isShorts ? "selected" : ""}">
         <img src="${item.url}" alt="" />
         <button class="delete-chip" data-action="delete-ref" data-id="${item.id}" title="Удалить">x</button>
         <div class="target-row">
@@ -335,13 +335,76 @@ function renderThumbnailReferences(state) {
 }
 
 function renderSimpleAssetList(items, escapeHtml, action) {
-  if (!items.length) return `<p class="empty-text">Пока пусто.</p>`;
+  if (!items.length) return `<div class="empty-box compact-empty">Пока пусто</div>`;
   return items.map((item) => `
-    <article class="asset-card text-card">
+    <article class="asset-card text-card media-card">
       <div><strong>${escapeHtml(item.file_name)}</strong><small>#${item.id}</small></div>
       <button data-action="${action}" data-id="${item.id}">Удалить</button>
     </article>
   `).join("");
+}
+
+function renderSummary(title, chips, escapeHtml) {
+  return `
+    <summary>
+      <span class="summary-title">${escapeHtml(title)}</span>
+      <span class="summary-chips">
+        ${chips.map((chip) => `<span class="summary-chip ${chip.muted ? "muted" : ""}">${escapeHtml(chip.label)}</span>`).join("")}
+      </span>
+    </summary>
+  `;
+}
+
+function identitySummaryChips(settings) {
+  return [
+    chip(settings.heygen_avatar_name ? `YT: ${settings.heygen_avatar_name}` : "YT avatar не выбран", !settings.heygen_avatar_name),
+    chip(settings.heygen_vertical_avatar_name ? `Shorts: ${settings.heygen_vertical_avatar_name}` : "Shorts avatar не выбран", !settings.heygen_vertical_avatar_name),
+    chip(settings.elevenlabs_voice_name || "Голос не выбран", !settings.elevenlabs_voice_name),
+  ];
+}
+
+function coverSummaryChips(state) {
+  const youtubeFace = Boolean(state.settings.thumbnail_face_path);
+  const shortsFace = Boolean(state.settings.vertical_thumbnail_face_path);
+  const activeRefs = state.thumbnailReferences.filter((item) => targetHas(item.target, "horizontal") || targetHas(item.target, "vertical")).length;
+  return [
+    chip(`Лицо: ${[youtubeFace && "YT", shortsFace && "Shorts"].filter(Boolean).join(" + ") || "не выбрано"}`, !youtubeFace && !shortsFace),
+    chip(`Референсов: ${state.thumbnailReferences.length}`),
+    chip(`Активных: ${activeRefs}`, activeRefs === 0),
+  ];
+}
+
+function avatarInsertSummaryChips(state) {
+  const settings = state.settings;
+  return [
+    chip(`Клипов: ${state.avatarInserts.length}`, state.avatarInserts.length === 0),
+    chip(`Вставок: ${settings.avatar_insert_clips_count ?? 0}`),
+    chip(`${settings.avatar_insert_start_percent ?? 0}-${settings.avatar_insert_end_percent ?? 100}%`),
+  ];
+}
+
+function fiveSecondSummaryChips(five) {
+  const audioCount = five.audio_tracks?.length || 0;
+  return [
+    chip(`Аудио: ${audioCount}`, audioCount === 0),
+    chip(five.overlay_url ? "Плашка есть" : "Плашки нет", !five.overlay_url),
+    chip(five.cta_text ? "CTA заполнен" : "CTA пустой", !five.cta_text),
+  ];
+}
+
+function textSummaryChips(rows) {
+  const filled = rows.filter(([, , value]) => String(value || "").trim()).length;
+  return [chip(`Заполнено: ${filled}/${rows.length}`, filled < rows.length)];
+}
+
+function overlaySummaryChips(state) {
+  const overlays = state.settings.overlays || [];
+  const ready = overlays.filter((overlay) => overlay.has_file).length;
+  return [chip(`Загружено: ${ready}/${overlays.length}`, ready === 0)];
+}
+
+function chip(label, muted = false) {
+  return { label, muted };
 }
 
 function numberField(key, label, value, min, max) {

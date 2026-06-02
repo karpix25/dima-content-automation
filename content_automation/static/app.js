@@ -21,7 +21,9 @@ const state = {
   fiveSecondSettings: null,
   tab: localStorage.getItem("dima_active_tab") || "formats",
   output: "",
+  activeJob: null,
   creating: null,
+  pollTimer: null,
 };
 
 const tabTitles = {
@@ -34,17 +36,11 @@ const tabTitles = {
 const $ = (id) => document.getElementById(id);
 
 function setStatus(text) {
-  const labels = {
-    Loading: "Загрузка",
-    Login: "Вход",
-    Ready: "Готово",
-    Working: "Создаю",
-    Opening: "Открываю",
-    Copied: "Скопировано",
-    Error: "Ошибка",
-    "Select text": "Выделите текст",
-  };
-  $("status-pill").textContent = labels[text] || text;
+  const states = { Loading: "loading", Login: "idle", Ready: "ready", Working: "working", Opening: "loading", Copied: "ready", Error: "error", "Select text": "error" };
+  const labels = { Loading: "Загрузка", Login: "Вход", Ready: "Готово", Working: "Создаю", Opening: "Открываю", Copied: "Скопировано", Error: "Ошибка", "Select text": "Выделите текст" };
+  const pill = $("status-pill");
+  pill.className = `pill ${states[text] || "ready"}`;
+  pill.textContent = labels[text] || text;
 }
 
 function escapeHtml(value) {
@@ -71,6 +67,7 @@ async function api(path, options = {}) {
 
 async function loadAll() {
   if (!state.userId) {
+    stopPolling();
     document.querySelector(".app").classList.add("login-mode");
     $("login").classList.remove("hidden");
     $("formats-panel").classList.add("hidden");
@@ -98,7 +95,9 @@ async function loadAll() {
   renderJobs();
   renderSettings();
   renderTabs();
-  setStatus("Ready");
+  const liveJob = state.jobs.find((job) => isLiveStatus(job.status));
+  if (liveJob) pollJob(liveJob.id);
+  setStatus(liveJob ? "Working" : "Ready");
 }
 
 function settingsDeps() {
@@ -125,7 +124,7 @@ function renderTabs() {
 function renderScripts() {
   const root = $("scripts");
   if (!state.scripts.length) {
-    root.innerHTML = `<p>Пока нет одобренных сценариев. Сначала одобрите сценарий в Telegram.</p>`;
+    root.innerHTML = emptyState("Нет одобренных сценариев", "Сначала одобрите сценарий в Telegram. После этого здесь появятся форматы для запуска.");
     return;
   }
   root.innerHTML = state.scripts.map((script) => `
@@ -143,6 +142,7 @@ function renderScripts() {
           ${escapeHtml(formatButtonLabel({ key: "all", label: "Все форматы" }, script.id))}
         </button>
       </div>
+      ${formatReadiness(script.id)}
     </article>
   `).join("");
   root.querySelectorAll("button[data-script]").forEach((button) => {
@@ -174,13 +174,18 @@ function isCreating(scriptId, formatKey) {
 function renderJobs() {
   const root = $("jobs");
   if (!state.jobs.length) {
-    root.innerHTML = `<p>Пока нет созданных форматов.</p>`;
+    root.innerHTML = emptyState("История пока пустая", "Запустите любой формат. Здесь появятся статусы, ошибки и готовые результаты.");
     return;
   }
   root.innerHTML = state.jobs.slice(0, 8).map((job) => `
     <article class="card job-card" data-job="${job.id}">
-      <h3>${escapeHtml(job.title)}</h3>
-      <p>${escapeHtml(job.task_type)} · сценарий #${job.script_id} · ${escapeHtml(jobStatusLabel(job.status))}</p>
+      <div class="job-row">
+        <h3>${escapeHtml(job.title)}</h3>
+        ${statusChip(job.status)}
+      </div>
+      <p>${escapeHtml(formatDisplayName(job.format_key, job.task_type))} · сценарий #${job.script_id}</p>
+      <p>${escapeHtml(formatDate(job.updated_at || job.created_at))}</p>
+      <button class="secondary-button" type="button">Открыть результат</button>
     </article>
   `).join("");
   root.querySelectorAll(".job-card").forEach((card) => {
@@ -192,8 +197,8 @@ async function createJob(scriptId, formatKey) {
   state.creating = { scriptId, formatKey };
   setStatus("Working");
   state.tab = "result";
-  state.output = pendingMessage(scriptId, formatKey);
-  $("output").textContent = state.output;
+  state.activeJob = null;
+  renderResultPending(scriptId, formatKey);
   $("copy").disabled = true;
   renderTabs();
   renderScripts();
@@ -202,11 +207,11 @@ async function createJob(scriptId, formatKey) {
       method: "POST",
       body: JSON.stringify({ user_id: state.userId, format_key: formatKey }),
     });
-    state.output = job.output_text || jobStatusMessage(job);
-    $("output").textContent = state.output;
-    $("copy").disabled = !state.output;
-    await loadAll();
-    setStatus(job.status === "failed" ? "Error" : "Ready");
+    upsertJob(job);
+    renderJobs();
+    renderResultJob(job);
+    pollJob(job.id);
+    setStatus(job.status === "failed" ? "Error" : "Working");
   } finally {
     state.creating = null;
     renderScripts();
@@ -217,10 +222,13 @@ async function showJob(jobId) {
   setStatus("Opening");
   const userQuery = encodeURIComponent(state.userId);
   const job = await api(`/api/format-jobs/${jobId}?user_id=${userQuery}`);
-  state.output = job.output_text;
-  $("output").textContent = state.output;
-  $("copy").disabled = false;
-  setStatus("Ready");
+  upsertJob(job);
+  state.tab = "result";
+  renderTabs();
+  renderJobs();
+  renderResultJob(job);
+  if (isLiveStatus(job.status)) pollJob(job.id);
+  setStatus(job.status === "failed" ? "Error" : isLiveStatus(job.status) ? "Working" : "Ready");
 }
 
 function pendingMessage(scriptId, formatKey) {
@@ -238,6 +246,86 @@ function pendingMessage(scriptId, formatKey) {
   return lines.join("\n");
 }
 
+function renderResultPending(scriptId, formatKey) {
+  const label = getFormatLabel(formatKey);
+  state.output = pendingMessage(scriptId, formatKey);
+  $("output").innerHTML = `
+    <article class="result-card working">
+      <div class="result-head">
+        <div>
+          <span class="eyebrow">Создание запущено</span>
+          <h3>${escapeHtml(label)}</h3>
+        </div>
+        ${statusChip("queued")}
+      </div>
+      <ol class="timeline">
+        <li class="active">Создаю задачу</li>
+        <li>Генерация Kie / HeyGen</li>
+        <li>Сборка видео</li>
+        <li>Отправка в Telegram</li>
+      </ol>
+      <p>Сценарий #${escapeHtml(scriptId)}. Можно оставить окно открытым: статус будет обновляться здесь.</p>
+    </article>
+  `;
+}
+
+function renderResultJob(job) {
+  state.activeJob = job;
+  state.output = resultCopyText(job);
+  $("copy").disabled = !state.output;
+  $("output").innerHTML = `
+    <article class="result-card ${escapeHtml(job.status || "")}">
+      <div class="result-head">
+        <div>
+          <span class="eyebrow">Задача #${job.id}</span>
+          <h3>${escapeHtml(formatDisplayName(job.format_key, job.task_type))}</h3>
+        </div>
+        ${statusChip(job.status)}
+      </div>
+      ${renderResultMeta(job)}
+      ${renderResultBody(job)}
+      ${renderResultActions(job)}
+    </article>
+  `;
+}
+
+function renderResultMeta(job) {
+  return `
+    <div class="result-meta">
+      <span>Сценарий #${job.script_id}</span>
+      <span>${escapeHtml(formatDate(job.updated_at || job.created_at))}</span>
+      ${job.external_task_id ? `<span>TG/ID: ${escapeHtml(job.external_task_id)}</span>` : ""}
+    </div>
+  `;
+}
+
+function renderResultBody(job) {
+  if (job.status === "failed") {
+    return `<div class="result-error">${escapeHtml(job.error || job.output_text || "Задача завершилась с ошибкой.")}</div>`;
+  }
+  if (isLiveStatus(job.status)) {
+    return `
+      <ol class="timeline">
+        <li class="done">Задача создана</li>
+        <li class="active">${job.status === "queued" ? "Ожидает запуска" : "Генерация и отправка"}</li>
+        <li>Готовый файл придёт в Telegram</li>
+      </ol>
+      <p>${escapeHtml(job.output_text || jobStatusMessage(job))}</p>
+    `;
+  }
+  return `
+    <div class="result-success">Готово. Видео отправлено в Telegram${job.output_url ? " и сохранено в файле." : "."}</div>
+    ${job.output_url ? `<p class="file-path">${escapeHtml(job.output_url)}</p>` : ""}
+    ${job.output_text ? `<pre class="result-text">${escapeHtml(job.output_text)}</pre>` : ""}
+  `;
+}
+
+function renderResultActions(job) {
+  const parts = [`<button class="secondary-button" type="button" data-refresh-job="${job.id}">Обновить статус</button>`];
+  if (job.output_url) parts.push(`<button class="secondary-button" type="button" data-copy-path>Скопировать путь</button>`);
+  return `<div class="result-actions">${parts.join("")}</div>`;
+}
+
 function jobStatusLabel(status) {
   const labels = {
     draft: "черновик",
@@ -248,6 +336,82 @@ function jobStatusLabel(status) {
     failed: "ошибка",
   };
   return labels[status] || status || "создано";
+}
+
+function statusChip(status) {
+  return `<span class="status-chip ${escapeHtml(status || "ready")}">${escapeHtml(jobStatusLabel(status))}</span>`;
+}
+
+function formatDisplayName(formatKey, fallback) {
+  return getFormatLabel(formatKey) || fallback || formatKey || "Формат";
+}
+
+function getFormatLabel(formatKey) {
+  if (formatKey === "all") return "Все форматы";
+  return state.formats.find((item) => item.key === formatKey)?.label || formatKey;
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const date = new Date(value.includes("T") ? value : value.replace(" ", "T"));
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function emptyState(title, text) {
+  return `<article class="empty-state"><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></article>`;
+}
+
+function formatReadiness() {
+  const items = [];
+  if (state.settings?.elevenlabs_voice_name) items.push(`Голос: ${state.settings.elevenlabs_voice_name}`);
+  if (state.settings?.heygen_avatar_name || state.settings?.heygen_vertical_avatar_name) items.push("Аватары выбраны");
+  if (state.thumbnailFaces?.length) items.push(`Лицо для обложек: ${state.thumbnailFaces.length}`);
+  if (state.thumbnailReferences?.length) items.push(`Стиль-референсы: ${state.thumbnailReferences.length}`);
+  if (!items.length) return "";
+  return `<div class="readiness">${items.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>`;
+}
+
+function isLiveStatus(status) {
+  return ["queued", "processing", "submitted"].includes(status);
+}
+
+function resultCopyText(job) {
+  return [
+    `Задача #${job.id}: ${formatDisplayName(job.format_key, job.task_type)}`,
+    `Статус: ${jobStatusLabel(job.status)}`,
+    job.output_url ? `Файл: ${job.output_url}` : "",
+    job.error ? `Ошибка: ${job.error}` : "",
+    job.output_text || "",
+  ].filter(Boolean).join("\n");
+}
+
+function upsertJob(job) {
+  state.jobs = [job, ...state.jobs.filter((item) => item.id !== job.id)];
+}
+
+function pollJob(jobId) {
+  stopPolling();
+  state.pollTimer = window.setInterval(async () => {
+    try {
+      const userQuery = encodeURIComponent(state.userId);
+      const job = await api(`/api/format-jobs/${jobId}?user_id=${userQuery}`);
+      upsertJob(job);
+      renderJobs();
+      if (state.tab === "result") renderResultJob(job);
+      setStatus(job.status === "failed" ? "Error" : isLiveStatus(job.status) ? "Working" : "Ready");
+      if (!isLiveStatus(job.status)) stopPolling();
+    } catch (error) {
+      stopPolling();
+      showError(error);
+    }
+  }, 5000);
+}
+
+function stopPolling() {
+  if (!state.pollTimer) return;
+  window.clearInterval(state.pollTimer);
+  state.pollTimer = null;
 }
 
 function jobStatusMessage(job) {
@@ -272,15 +436,13 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 
 $("logout").addEventListener("click", () => {
   if (!window.confirm("Выйти из аккаунта?")) return;
+  stopPolling();
   localStorage.removeItem("dima_tg_id");
   state.userId = "";
   $("tg-id").value = "";
   document.querySelector(".app").classList.add("login-mode");
   $("login").classList.remove("hidden");
-  $("formats-panel").classList.add("hidden");
-  $("result-panel").classList.add("hidden");
-  $("settings-panel").classList.add("hidden");
-  $("history-panel").classList.add("hidden");
+  ["formats-panel", "result-panel", "settings-panel", "history-panel"].forEach((id) => $(id).classList.add("hidden"));
   setStatus("Login");
 });
 
@@ -300,13 +462,21 @@ $("copy").addEventListener("click", async () => {
   }
 });
 
+$("output").addEventListener("click", (event) => {
+  const refresh = event.target.closest("[data-refresh-job]");
+  if (refresh) showJob(refresh.dataset.refreshJob).catch(showError);
+  if (!event.target.closest("[data-copy-path]") || !state.activeJob?.output_url) return;
+  state.output = state.activeJob.output_url;
+  $("copy").click();
+});
+
 function showError(error) {
   console.error(error);
   state.creating = null;
   setStatus("Error");
   state.tab = "result";
   state.output = error.message || String(error);
-  $("output").textContent = state.output;
+  $("output").innerHTML = `<article class="result-card failed"><div class="result-error">${escapeHtml(state.output)}</div></article>`;
   $("copy").disabled = !state.output;
   renderTabs();
   renderScripts();

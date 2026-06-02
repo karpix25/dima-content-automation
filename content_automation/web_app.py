@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -35,7 +35,7 @@ from .settings_service import (
 from .storage import Storage
 from .turan_formats import list_turan_formats
 from .turan_service import TuranServiceError, list_approved_scripts
-from .web_format_jobs import ScriptNotFoundError, create_and_deliver_format_job
+from .web_format_jobs import ScriptNotFoundError, create_queued_format_job, deliver_existing_format_job
 from .web_models import (
     CreateFormatJobIn,
     ElevenLabsVoiceOut,
@@ -428,15 +428,27 @@ def find_asset_by_path(user_id: str, kind: str, path: str) -> MediaAsset | None:
 
 
 @app.post("/api/scripts/{script_id}/format-jobs", response_model=FormatJobOut)
-def create_script_format_job(script_id: int, payload: CreateFormatJobIn) -> FormatJobOut:
+def create_script_format_job(
+    script_id: int,
+    payload: CreateFormatJobIn,
+    background_tasks: BackgroundTasks,
+) -> FormatJobOut:
     try:
-        job = create_and_deliver_format_job(
+        job = create_queued_format_job(
             storage=storage,
             asset_store=asset_store,
             settings=settings,
             user_id=payload.user_id,
             script_id=script_id,
             format_key=payload.format_key,
+        )
+        background_tasks.add_task(
+            deliver_existing_format_job,
+            storage=storage,
+            asset_store=asset_store,
+            settings=settings,
+            user_id=payload.user_id,
+            job_id=job.id,
         )
     except TuranServiceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

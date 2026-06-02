@@ -347,6 +347,18 @@ class Storage:
             raise RuntimeError("failed to load updated format job")
         return job
 
+    def claim_queued_format_job(self, user_id: str, job_id: int, *, output_text: str) -> FormatJob | None:
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE format_jobs
+                SET status = 'processing', output_text = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = ? AND id = ? AND status = 'queued'
+                """,
+                (output_text, user_id, job_id),
+            )
+        return self.get_format_job(user_id, job_id) if cursor.rowcount else None
+
     def get_format_job(self, user_id: str, job_id: int) -> FormatJob | None:
         with self._connect() as conn:
             row = conn.execute(

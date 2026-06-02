@@ -15,7 +15,7 @@
 
 .heygen-model-grid button {
   display: grid;
-  height: 48px;
+  min-height: 48px;
   align-content: center;
   padding: 0 10px;
   background: transparent;
@@ -103,6 +103,11 @@
   border-color: rgba(15, 23, 42, 0.24);
 }
 
+.avatar-current.blue,
+.avatar-current.dark {
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.03);
+}
+
 .avatar-load-row p {
   color: var(--muted);
   font-size: 12px;
@@ -114,8 +119,8 @@
 }
 
 .avatar-card.active {
-  border-color: #111827;
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+  border-color: rgba(36, 161, 222, 0.75);
+  box-shadow: 0 0 0 2px rgba(36, 161, 222, 0.14);
 }
 
 .avatar-card.disabled {
@@ -145,7 +150,7 @@
 }
 
 .avatar-target-row button {
-  height: 28px;
+  min-height: 32px;
   padding: 0 4px;
   background: #eef2f7;
   color: #475569;
@@ -188,7 +193,7 @@
 
 .voice-row select {
   min-width: 0;
-  height: 36px;
+  min-height: 38px;
   padding: 0 10px;
   border: 1px solid transparent;
   border-radius: 10px;
@@ -199,7 +204,7 @@
 }
 
 .voice-row button {
-  height: 36px;
+  min-height: 38px;
 }
 
 .voice-compact p {
@@ -209,6 +214,31 @@
 
 @media (max-width: 620px) {
   .avatar-current-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .heygen-model-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .heygen-model-grid button,
+  .avatar-target-row button,
+  .voice-row select,
+  .voice-row button {
+    min-height: 44px;
+  }
+
+  .avatar-card {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .avatar-placeholder,
+  .avatar-card img {
+    width: 52px;
+    height: 52px;
+  }
+
+  .voice-row {
     grid-template-columns: 1fr;
   }
 }

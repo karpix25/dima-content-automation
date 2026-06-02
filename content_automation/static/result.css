@@ -1,0 +1,169 @@
+.job-card {
+  cursor: pointer;
+}
+
+.job-card:active {
+  transform: translateY(1px);
+}
+
+.job-row,
+.result-head,
+.result-actions,
+.result-meta,
+.readiness {
+  display: flex;
+  gap: 8px;
+}
+
+.job-row,
+.result-head {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.job-row h3,
+.result-head h3 {
+  margin: 0;
+}
+
+.secondary-button {
+  min-height: 36px;
+  margin-top: 10px;
+  background: #eef6fc;
+  border-color: #d7edf9;
+  color: #075985;
+  font-size: 12px;
+}
+
+.status-chip {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-chip.delivered,
+.status-chip.ready {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-chip.failed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-chip.queued,
+.status-chip.processing,
+.status-chip.submitted {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.result-output {
+  margin: 12px 0 0;
+}
+
+.result-card {
+  display: grid;
+  gap: 12px;
+  min-height: 180px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.result-meta,
+.readiness {
+  flex-wrap: wrap;
+}
+
+.result-meta span,
+.readiness span {
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.readiness {
+  margin-top: 10px;
+}
+
+.timeline {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.timeline li.active {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.timeline li.done {
+  color: var(--green);
+}
+
+.result-success,
+.result-error,
+.empty-state {
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.result-success {
+  background: #ecfdf5;
+  color: #166534;
+}
+
+.result-error {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.file-path,
+.result-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.result-text {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: #111827;
+  color: #f9fafb;
+  font-size: 12px;
+}
+
+.empty-state {
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+}
