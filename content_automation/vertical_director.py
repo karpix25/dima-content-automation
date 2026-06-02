@@ -105,8 +105,13 @@ def _scene_from_sentence(
         "cta": _clean(record.cta),
         "language": language,
         "visualElements": terms,
+        "template": visual["template"],
+        "motionPattern": visual["pattern"],
         "cutawayRole": visual["role"],
         "directorCue": visual["cue"],
+        "metricValue": visual["metric_value"],
+        "metricLabel": visual["metric_label"],
+        "evidenceLabel": visual["evidence"],
         "imagePrompt": _image_prompt(
             title=title,
             subtitle=subtitle,
@@ -177,38 +182,68 @@ def _visual_story(*, title: str, text: str, index: int) -> dict[str, str]:
     joined = f"{title} {text}".lower()
     if "sales drop" in joined or "price sensitive" in joined:
         return {
+            "template": "decision",
+            "pattern": "demand_drop",
             "role": "decision point",
             "cue": "Demand reaction",
+            "metric_value": "50%",
+            "metric_label": "drop threshold",
+            "evidence": "stop if demand breaks",
             "story": "Show a sales velocity dashboard dipping sharply, with a red decision marker and product boxes slowing on a conveyor.",
         }
     if "velocity" in joined and ("hold" in joined or "keep" in joined):
         return {
+            "template": "greenlight",
+            "pattern": "velocity_hold",
             "role": "greenlight",
             "cue": "Velocity check",
+            "metric_value": "HOLD",
+            "metric_label": "velocity stable",
+            "evidence": "keep the bump",
             "story": "Show a steady green velocity line while product boxes continue moving through fulfillment, implying the price bump holds.",
         }
     if "profit" in joined or "sku" in joined:
         return {
+            "template": "proof",
+            "pattern": "profit_proof",
             "role": "proof",
             "cue": "Profit proof",
+            "metric_value": "+$1",
+            "metric_label": "daily profit lever",
+            "evidence": "proof beats theory",
             "story": "Show a SKU ledger where a single dollar flows into daily profit, with coins stacking beside a clean unit-economics sheet.",
         }
     if "elasticity" in joined or "test" in joined:
         return {
+            "template": "diagnostic",
+            "pattern": "test_setup",
             "role": "diagnostic test",
             "cue": "A/B price test setup",
+            "metric_value": "A/B",
+            "metric_label": "price test",
+            "evidence": "measure before scaling",
             "story": "Show an Amazon SKU testing station: two price cards, a BSR line, a small clock, and a seller hand comparing outcomes.",
         }
     if "$1" in joined or "exactly $1" in joined or "bump the price" in joined:
         return {
+            "template": "lever",
+            "pattern": "price_lever",
             "role": "price move",
             "cue": "$1 price lever",
+            "metric_value": "$1",
+            "metric_label": "controlled bump",
+            "evidence": "small move, measured risk",
             "story": "Show a close-up of a price tag being moved up by exactly one dollar beside a SKU card and margin calculator.",
         }
     cues = ["Audit point", "Hidden lever", "Margin check", "Operator move", "Proof frame"]
     return {
+        "template": "analysis",
+        "pattern": "audit_point",
         "role": "analysis",
         "cue": cues[index % len(cues)],
+        "metric_value": "CHECK",
+        "metric_label": "operator signal",
+        "evidence": "make the hidden lever visible",
         "story": "Show the practical Amazon operator consequence of this beat with one clear object-led scene, not an abstract decoration.",
     }
 

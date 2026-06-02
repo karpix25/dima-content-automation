@@ -11,6 +11,12 @@ import {
   wrapOverlayClips,
 } from './render-auto-overlay-scale.mjs';
 import {createHyperframesRuntime} from './render-auto-hyperframes-runtime.mjs';
+import {
+  DIRECTOR_PATTERN_CSS,
+  directorPatternClass,
+  directorPatternMarkup,
+  directorPatternTweens,
+} from './render-auto-director-patterns.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -361,7 +367,7 @@ const youtubeDirectorClips = scenes
     return `
       <div
         id="director-${index}"
-        class="clip director-card ${titleDensityClass(title)} ${motionClass(index)}"
+        class="clip director-card ${titleDensityClass(title)} ${motionClass(index)} ${directorPatternClass(scene)}"
         data-start="${scene.start.toFixed(3)}"
         data-duration="${duration.toFixed(3)}"
         data-track-index="1"
@@ -373,6 +379,7 @@ const youtubeDirectorClips = scenes
         <div class="director-visual">
           ${directorCue ? `<div class="director-cue">${escapeHtml(directorCue)}</div>` : ''}
           <div class="visual-scan"></div>
+          ${directorPatternMarkup(scene, escapeHtml)}
           ${imageMarkup}
         </div>
       </div>`;
@@ -455,6 +462,7 @@ const youtubeTimelineTweens = [
       tl.fromTo("#director-${index} .director-image", { scale: 1.06, x: ${panStart} }, { scale: 1.16, x: ${panEnd}, duration: ${Math.max(0.8, duration - 0.2).toFixed(3)}, ease: "none" }, ${scene.start.toFixed(3)});
       tl.fromTo("#director-${index} .visual-scan", { opacity: 0, y: -90 }, { opacity: 0.36, y: 460, duration: 1.15, ease: "power2.out" }, ${(scene.start + 0.18).toFixed(3)});
       tl.to("#director-${index} .visual-scan", { opacity: 0, duration: 0.28, ease: "power1.out" }, ${(scene.start + 1.35).toFixed(3)});
+${directorPatternTweens({index, scene, start: scene.start, duration})}
       tl.to("#director-${index}", { opacity: 0, x: 38, duration: 0.34, ease: "power2.in" }, ${fadeOutAt.toFixed(3)});`;
   }),
   ...(youtubeChapterRibbonEnabled ? scenes.map((scene, index) => {
@@ -845,6 +853,7 @@ const html = `<!doctype html>
       body.layout-vertical-heygen .chapter-ribbon {
         display: none;
       }
+${DIRECTOR_PATTERN_CSS}
 ${overlayScaleCss(overlaySizing)}
     </style>
   </head>

@@ -23,6 +23,9 @@ def test_vertical_director_uses_transcript_language_for_titles():
     assert all("Ошибка" not in scene["title"] for scene in plan.scenes)
     assert all(len(scene["title"].split()) <= 7 for scene in plan.scenes)
     assert "Do not include Russian text" in plan.scenes[0]["imagePrompt"]
+    assert all(scene["motionPattern"] for scene in plan.scenes)
+    assert all(scene["metricValue"] for scene in plan.scenes)
+    assert all(scene["evidenceLabel"] for scene in plan.scenes)
 
 
 def test_prepare_vertical_montage_assets_generates_expected_kie_files(tmp_path, monkeypatch):
