@@ -21,33 +21,11 @@ export function renderAvatarSelectors(state, escapeHtml) {
         Photo Avatar будет отправлен через Avatar III. Motion prompt применяется только для Avatar IV.
       </div>
     ` : ""}
-    <div class="avatar-current-grid">
-      ${currentAvatarCard(
-        "YouTube / горизонтальный",
-        horizontal,
-        settings.heygen_avatar_name,
-        settings.heygen_avatar_id,
-        settings.heygen_avatar_preview_image_url,
-        settings.heygen_avatar_preview_video_url,
-        "dark",
-        escapeHtml,
-      )}
-      ${currentAvatarCard(
-        "Shorts/Reels / вертикальный",
-        vertical,
-        settings.heygen_vertical_avatar_name,
-        settings.heygen_vertical_avatar_id,
-        settings.heygen_vertical_avatar_preview_image_url,
-        settings.heygen_vertical_avatar_preview_video_url,
-        "blue",
-        escapeHtml,
-      )}
-    </div>
     <div class="box-head avatar-load-row">
       <p>Выберите отдельный avatar для каждого формата, как в Turan.</p>
       <button data-action="load-avatars">Загрузить аватары</button>
     </div>
-    <div class="asset-list">${renderAvatarList(state, escapeHtml)}</div>
+    <div class="avatar-gallery">${renderAvatarList(state, escapeHtml)}</div>
   `;
 }
 
@@ -82,31 +60,6 @@ function modelButton(id, label, hint, selected, escapeHtml) {
   `;
 }
 
-function currentAvatarCard(label, avatar, name, id, imageUrl, videoUrl, tone, escapeHtml) {
-  const previewImage = avatar?.preview_image_url || imageUrl || "";
-  const previewVideo = avatar?.preview_video_url || videoUrl || "";
-  return `
-    <div class="avatar-current ${tone}">
-      ${renderPreview(previewImage, previewVideo, escapeHtml)}
-      <div>
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(name || "Не выбран")}</strong>
-        <code>${escapeHtml(id || "")}</code>
-      </div>
-    </div>
-  `;
-}
-
-function renderPreview(imageUrl, videoUrl, escapeHtml) {
-  if (videoUrl) {
-    return `<video class="avatar-current-preview" src="${escapeHtml(videoUrl)}" muted playsinline preload="metadata"></video>`;
-  }
-  if (imageUrl) {
-    return `<img class="avatar-current-preview" src="${escapeHtml(imageUrl)}" alt="" />`;
-  }
-  return `<div class="avatar-current-preview placeholder"></div>`;
-}
-
 function renderAvatarList(state, escapeHtml) {
   if (!state.avatars.length) {
     return `<div class="empty-box">Нажмите “Загрузить аватары”, чтобы получить список HeyGen.</div>`;
@@ -117,16 +70,16 @@ function renderAvatarList(state, escapeHtml) {
     const isVertical = avatar.id === state.settings.heygen_vertical_avatar_id;
     const supported = supportsModel(avatar, model);
     return `
-      <article class="asset-card avatar-card ${isHorizontal || isVertical ? "active" : ""} ${supported ? "" : "disabled"}">
-        ${avatar.preview_image_url ? `<img src="${escapeHtml(avatar.preview_image_url)}" alt="" />` : `<div class="avatar-placeholder"></div>`}
-        <div>
+      <article class="avatar-tile ${isHorizontal || isVertical ? "active" : ""} ${supported ? "" : "disabled"}">
+        ${renderTilePreview(avatar, escapeHtml)}
+        <div class="avatar-tile-info">
           <strong>${escapeHtml(avatar.name)}</strong>
           <small>${escapeHtml(avatarMeta(avatar))}</small>
         </div>
         ${supported ? "" : `<div class="avatar-model-lock">Нужен Avatar IV/V</div>`}
-        <div class="avatar-target-row">
+        <div class="avatar-tile-actions">
           <button
-            class="${isHorizontal ? "active dark" : ""}"
+            class="${isHorizontal ? "active youtube" : ""}"
             ${supported ? "" : "disabled"}
             data-action="select-avatar"
             data-target="horizontal"
@@ -136,7 +89,7 @@ function renderAvatarList(state, escapeHtml) {
             data-preview-video-url="${escapeHtml(avatar.preview_video_url || "")}"
           >YouTube</button>
           <button
-            class="${isVertical ? "active" : ""}"
+            class="${isVertical ? "active shorts" : ""}"
             ${supported ? "" : "disabled"}
             data-action="select-avatar"
             data-target="vertical"
@@ -149,6 +102,16 @@ function renderAvatarList(state, escapeHtml) {
       </article>
     `;
   }).join("");
+}
+
+function renderTilePreview(avatar, escapeHtml) {
+  if (avatar.preview_video_url) {
+    return `<video class="avatar-tile-media" src="${escapeHtml(avatar.preview_video_url)}" muted playsinline preload="metadata"></video>`;
+  }
+  if (avatar.preview_image_url) {
+    return `<img class="avatar-tile-media" src="${escapeHtml(avatar.preview_image_url)}" alt="" />`;
+  }
+  return `<div class="avatar-tile-media avatar-placeholder"></div>`;
 }
 
 function findAvatar(state, id) {

@@ -110,6 +110,8 @@ class UserSettingsOut(BaseModel):
     avatar_insert_start_percent: int
     avatar_insert_end_percent: int
     avatar_insert_clips_count: int
+    youtube_long_duration_minutes: int
+    vertical_avatar_duration_mode: str
     instagram_post_5s_cta_text: str
     instagram_post_5s_overlay_path: str | None = None
     overlays: list[OverlayOut]

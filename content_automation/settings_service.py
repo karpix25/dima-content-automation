@@ -18,6 +18,8 @@ TEXT_SETTING_KEYS = {
     "avatar_insert_start_percent",
     "avatar_insert_end_percent",
     "avatar_insert_clips_count",
+    "youtube_long_duration_minutes",
+    "vertical_avatar_duration_mode",
 }
 OVERLAY_FORMATS = {"short", "youtube"}
 
@@ -55,6 +57,8 @@ class UserSettingsState:
     avatar_insert_start_percent: int
     avatar_insert_end_percent: int
     avatar_insert_clips_count: int
+    youtube_long_duration_minutes: int
+    vertical_avatar_duration_mode: str
     instagram_post_5s_cta_text: str
     instagram_post_5s_overlay_path: str | None
     overlays: list[OverlayState]
@@ -84,6 +88,8 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         avatar_insert_start_percent=get_percent_setting(storage, user_id, "avatar_insert_start_percent", default=50, minimum=0, maximum=99),
         avatar_insert_end_percent=get_percent_setting(storage, user_id, "avatar_insert_end_percent", default=95, minimum=1, maximum=100),
         avatar_insert_clips_count=get_int_setting(storage, user_id, "avatar_insert_clips_count", default=2, minimum=0, maximum=20),
+        youtube_long_duration_minutes=get_int_setting(storage, user_id, "youtube_long_duration_minutes", default=10, minimum=3, maximum=30),
+        vertical_avatar_duration_mode=get_duration_mode(storage, user_id),
         instagram_post_5s_cta_text=storage.get_setting(user_id, "instagram_post_5s_cta_text") or "",
         instagram_post_5s_overlay_path=storage.get_setting(user_id, "instagram_post_5s_overlay_path"),
         overlays=[get_overlay_state(storage, user_id, item) for item in ("short", "youtube")],
@@ -188,7 +194,20 @@ def normalize_text_setting(key: str, value: str) -> str:
         return str(max(1, min(100, parse_int(stripped, 95))))
     if key == "avatar_insert_clips_count":
         return str(max(0, min(20, parse_int(stripped, 2))))
+    if key == "youtube_long_duration_minutes":
+        return str(max(3, min(30, parse_int(stripped, 10))))
+    if key == "vertical_avatar_duration_mode":
+        return normalize_duration_mode(stripped)
     return stripped
+
+
+def get_duration_mode(storage: Storage, user_id: str) -> str:
+    return normalize_duration_mode(storage.get_setting(user_id, "vertical_avatar_duration_mode") or "original")
+
+
+def normalize_duration_mode(value: str) -> str:
+    normalized = (value or "original").strip().lower()
+    return normalized if normalized in {"original", "30", "45", "60", "90"} else "original"
 
 
 def get_overlay_state(storage: Storage, user_id: str, format: str) -> OverlayState:

@@ -1,4 +1,5 @@
 import { bindAvatarEvents, renderAvatarSelectors } from "/static/settings_avatars.js";
+import { renderDurationSection } from "/static/settings_duration.js";
 import { bindVoiceEvents, renderVoiceSelector } from "/static/settings_voices.js";
 
 export async function loadSettingsData(deps, render = true) {
@@ -29,6 +30,7 @@ export function renderSettingsPanel(deps) {
   }
   root.innerHTML = `
     ${renderIdentitySection(deps)}
+    ${renderDurationSection(state, deps.escapeHtml)}
     ${renderCoverSection(deps)}
     ${renderAvatarInsertSection(deps)}
     ${renderFiveSecondSection(deps)}
@@ -45,7 +47,7 @@ function renderIdentitySection({ state, escapeHtml }) {
       ${renderSummary("Аватар и голос", identitySummaryChips(settings), escapeHtml)}
       <div class="settings-two">
         <div class="soft-box">
-          <h3>Аватары HeyGen</h3>
+          <h3>Выбор ИИ Аватара (HeyGen)</h3>
           ${renderAvatarSelectors(state, escapeHtml)}
         </div>
         <div class="soft-box">

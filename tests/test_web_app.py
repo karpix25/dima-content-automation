@@ -123,6 +123,14 @@ def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
         "/api/settings/text",
         json={"user_id": "42", "key": "author_style", "value": "Direct operator voice."},
     )
+    duration = client.patch(
+        "/api/settings/text",
+        json={"user_id": "42", "key": "youtube_long_duration_minutes", "value": "12"},
+    )
+    vertical_duration = client.patch(
+        "/api/settings/text",
+        json={"user_id": "42", "key": "vertical_avatar_duration_mode", "value": "60"},
+    )
     overlay = client.patch(
         "/api/settings/overlay",
         json={"user_id": "42", "format": "short", "start_percent": 55},
@@ -131,6 +139,8 @@ def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
 
     assert saved.status_code == 200
     assert saved.json()["author_style"] == "Direct operator voice."
+    assert duration.json()["youtube_long_duration_minutes"] == 12
+    assert vertical_duration.json()["vertical_avatar_duration_mode"] == "60"
     assert overlay.status_code == 200
     assert overlay.json()["start_percent"] == 55
     assert settings.status_code == 200
@@ -244,5 +254,7 @@ def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["thumbnail"]["style_references"][0]["file_name"] == "ref.png"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["id"] == "avatar-horizontal"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["engine"] == "avatar_iv"
+    assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["duration"]["youtube_long_minutes"] == 10
+    assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["duration"]["vertical_avatar_mode"] == "original"
     assert created_vertical_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["id"] == "avatar-vertical"
     assert settings.json()["vertical_thumbnail_face_path"].endswith(".jpg")

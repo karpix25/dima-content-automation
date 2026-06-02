@@ -40,6 +40,10 @@ def build_visual_reference_payload(
             "clips_count": state.avatar_insert_clips_count,
             "clips": [asset_payload(item) for item in asset_store.list_assets(user_id, "avatar_insert")],
         },
+        "duration": {
+            "youtube_long_minutes": state.youtube_long_duration_minutes,
+            "vertical_avatar_mode": state.vertical_avatar_duration_mode,
+        },
         "instagram_post_5s": {
             "cta_text": state.instagram_post_5s_cta_text,
             "overlay_path": state.instagram_post_5s_overlay_path,

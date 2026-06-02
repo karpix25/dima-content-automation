@@ -154,6 +154,54 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.duration-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.duration-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 92px;
+  padding: 14px;
+  border: 1px solid #eef2f7;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.duration-card h3 {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.duration-card select {
+  min-width: 132px;
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.duration-card button {
+  grid-column: 2 / -1;
+  justify-self: start;
+  min-height: 34px;
+}
+
+.duration-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  color: var(--blue);
+}
+
 .soft-box {
   display: grid;
   gap: 8px;
@@ -377,8 +425,14 @@
   }
 
   .settings-two,
-  .settings-three {
+  .settings-three,
+  .duration-card {
     grid-template-columns: 1fr;
+  }
+
+  .duration-card select,
+  .duration-card button {
+    width: 100%;
   }
 
   .settings-section > :not(summary) {
