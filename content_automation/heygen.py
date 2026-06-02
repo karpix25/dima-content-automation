@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +12,9 @@ import httpx
 
 class HeyGenError(RuntimeError):
     pass
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -270,9 +274,19 @@ class HeyGenClient:
     async def wait_for_video(self, video_id: str) -> HeyGenVideoResult:
         deadline = time.monotonic() + self.timeout_seconds
         last: HeyGenVideoResult | None = None
+        poll_count = 0
         while time.monotonic() < deadline:
             last = await self.get_video(video_id)
+            poll_count += 1
+            logger.info(
+                "HeyGen video poll: video_id=%s status=%s has_url=%s poll=%s",
+                video_id,
+                last.status,
+                bool(last.video_url),
+                poll_count,
+            )
             if last.status in {"completed", "complete", "done", "success", "ready"} and last.video_url:
+                logger.info("HeyGen video ready: video_id=%s url=%s", video_id, last.video_url)
                 return last
             if last.status in {"failed", "failure", "error", "canceled", "cancelled"}:
                 raise HeyGenError(f"HeyGen video failed: {last.raw}")
