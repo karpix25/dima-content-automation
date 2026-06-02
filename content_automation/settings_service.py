@@ -6,6 +6,7 @@ from pathlib import Path
 from .config import Settings
 from .prompts import DEFAULT_AUTHOR_STYLE, DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT
 from .storage import Storage
+from .voice_speed_profile import clear_voice_wpm
 
 
 TEXT_SETTING_KEYS = {
@@ -163,6 +164,7 @@ def get_heygen_avatar_engine(storage: Storage, user_id: str) -> str:
 def set_active_elevenlabs_voice(storage: Storage, user_id: str, voice_id: str, voice_name: str) -> None:
     storage.set_setting(user_id, "elevenlabs_voice_id", voice_id)
     storage.set_setting(user_id, "elevenlabs_voice_name", voice_name)
+    clear_voice_wpm(storage, user_id)
 
 
 def set_active_thumbnail_face(storage: Storage, user_id: str, file_path: str | None, target: str) -> None:

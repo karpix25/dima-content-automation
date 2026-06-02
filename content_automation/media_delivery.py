@@ -21,6 +21,7 @@ from .script_length import WordBudget, count_spoken_words, vertical_word_budget,
 from .settings_service import get_overlay_path, get_overlay_start_percent, get_user_settings
 from .storage import ScriptRecord, Storage
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video
+from .voice_speed_profile import calibrated_voice_wpm
 from .voiceover_timing import analyze_voiceover_timing, estimate_initial_voiceover_speed
 from .visual_assets import generate_post_heygen_assets
 
@@ -52,10 +53,11 @@ def create_and_send_avatar_video(
     if not avatar_id:
         raise RuntimeError(f"HeyGen avatar для {target} не выбран")
 
+    voice_wpm = calibrated_voice_wpm(storage, user_id, state.elevenlabs_voice_id)
     word_budget = (
-        youtube_word_budget(state.youtube_long_duration_minutes)
+        youtube_word_budget(state.youtube_long_duration_minutes, wpm=voice_wpm)
         if target == "horizontal"
-        else vertical_word_budget(state.vertical_avatar_duration_mode)
+        else vertical_word_budget(state.vertical_avatar_duration_mode, wpm=voice_wpm)
     )
     audio_path = _generate_audio(
         record,
@@ -64,6 +66,7 @@ def create_and_send_avatar_video(
         state.elevenlabs_voice_id,
         state.elevenlabs_voice_name,
         word_budget=word_budget,
+        voice_wpm=voice_wpm,
     )
     heygen = _heygen_client(settings, target)
     if not heygen.is_configured():
@@ -141,6 +144,7 @@ def _generate_audio(
     voice_name: str,
     *,
     word_budget: WordBudget,
+    voice_wpm: int,
 ) -> str:
     elevenlabs = ElevenLabsMCPClient(
         api_key=settings.elevenlabs_api_key,
@@ -152,6 +156,7 @@ def _generate_audio(
         text=record.voiceover,
         budget=word_budget,
         base_speed=settings.elevenlabs_speed,
+        spoken_wpm=voice_wpm,
     )
     logger.info(
         "Initial voiceover speed estimate: script=%s words=%s target_seconds=%s speed=%.3f",
@@ -175,6 +180,7 @@ def _generate_audio(
                 audio_path=Path(result.file_path),
                 budget=word_budget,
                 current_speed=initial_speed,
+                spoken_wpm=voice_wpm,
             )
             logger.info(
                 "Voiceover timing: script=%s words=%s duration=%.2fs wpm=%.1f target=%.2fs speed=%.3f",

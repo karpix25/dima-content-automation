@@ -25,13 +25,14 @@ from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .notebooklm_py import NotebookLMPyClient
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
-from .script_length import WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
+from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .settings_service import get_user_settings
 from .storage import ScriptRecord, Storage
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
 from .post_heygen_video import apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_reference_paths
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
+from .voice_speed_profile import calibrated_voice_wpm, calibrate_voice_wpm, clear_voice_wpm, has_voice_wpm_profile
 from .voiceover_timing import analyze_voiceover_timing, estimate_initial_voiceover_speed
 from .visual_assets import generate_post_heygen_assets
 
@@ -523,6 +524,33 @@ def get_active_elevenlabs_voice_name(user_id: str) -> str:
 def set_active_elevenlabs_voice(user_id: str, voice: ElevenLabsVoice) -> None:
     storage.set_setting(user_id, "elevenlabs_voice_id", voice.id)
     storage.set_setting(user_id, "elevenlabs_voice_name", voice.name)
+    clear_voice_wpm(storage, user_id)
+
+
+async def ensure_voice_wpm(user_id: str) -> int:
+    voice_id = get_active_elevenlabs_voice_id(user_id)
+    if has_voice_wpm_profile(storage, user_id, voice_id):
+        return calibrated_voice_wpm(storage, user_id, voice_id)
+    try:
+        wpm = await asyncio.to_thread(
+            calibrate_voice_wpm,
+            storage=storage,
+            user_id=user_id,
+            voice_id=voice_id,
+            voice_name=get_active_elevenlabs_voice_name(user_id),
+            elevenlabs=elevenlabs,
+            model_id=settings.elevenlabs_model_id,
+            speed=settings.elevenlabs_speed,
+            stability=settings.elevenlabs_stability,
+            similarity_boost=settings.elevenlabs_similarity_boost,
+            style=settings.elevenlabs_style,
+            language=settings.elevenlabs_language,
+        )
+        logger.info("Calibrated ElevenLabs voice speed for user %s: %s wpm", user_id, wpm)
+        return wpm
+    except Exception:
+        logger.exception("ElevenLabs voice speed calibration failed; using default WPM")
+        return DEFAULT_SPOKEN_WORDS_PER_MINUTE
 
 
 def get_active_heygen_avatar_id(user_id: str, target: str = "vertical") -> str | None:
@@ -590,8 +618,9 @@ async def generate_scripts_for_user(
     offer_context = get_offer_context(user_id)
     cta_mix = get_cta_mix(user_id)
     user_settings = get_user_settings(storage, settings, user_id)
+    voice_wpm = await ensure_voice_wpm(user_id)
     if format == "youtube":
-        word_budget = youtube_word_budget(user_settings.youtube_long_duration_minutes)
+        word_budget = youtube_word_budget(user_settings.youtube_long_duration_minutes, wpm=voice_wpm)
         prompt = build_youtube_script_prompt(
             style,
             offer_context=offer_context,
@@ -612,7 +641,7 @@ async def generate_scripts_for_user(
     else:
         items: list[dict[str, object]] = []
         existing_records = storage.list_recent_scripts(user_id, format=format, limit=60)
-        word_budget = vertical_word_budget(user_settings.vertical_avatar_duration_mode)
+        word_budget = vertical_word_budget(user_settings.vertical_avatar_duration_mode, wpm=voice_wpm)
         while len(items) < count:
             batch_count = min(settings.notebooklm_short_batch_size, count - len(items))
             exclusion_context = "\n".join(
@@ -757,15 +786,17 @@ def format_bank_status(user_id: str) -> str:
 
 async def generate_voiceover_audio(record: ScriptRecord, user_id: str) -> str:
     user_settings = get_user_settings(storage, settings, user_id)
+    voice_wpm = await ensure_voice_wpm(user_id)
     word_budget = (
-        youtube_word_budget(user_settings.youtube_long_duration_minutes)
+        youtube_word_budget(user_settings.youtube_long_duration_minutes, wpm=voice_wpm)
         if record.format == "youtube"
-        else vertical_word_budget(user_settings.vertical_avatar_duration_mode)
+        else vertical_word_budget(user_settings.vertical_avatar_duration_mode, wpm=voice_wpm)
     )
     initial_speed = estimate_initial_voiceover_speed(
         text=record.voiceover,
         budget=word_budget,
         base_speed=settings.elevenlabs_speed,
+        spoken_wpm=voice_wpm,
     )
     logger.info(
         "Initial voiceover speed estimate: script=%s words=%s target_seconds=%s speed=%.3f",
@@ -782,6 +813,7 @@ async def generate_voiceover_audio(record: ScriptRecord, user_id: str) -> str:
                 audio_path=Path(result.file_path),
                 budget=word_budget,
                 current_speed=initial_speed,
+                spoken_wpm=voice_wpm,
             )
             logger.info(
                 "Voiceover timing: script=%s words=%s duration=%.2fs wpm=%.1f target=%.2fs speed=%.3f",
