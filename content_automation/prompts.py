@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .script_length import WordBudget, length_instruction, vertical_word_budget, youtube_word_budget
+
 
 DEFAULT_AUTHOR_STYLE = """
 Write conversationally, like an expert talking to another operator who already sells on Amazon.
@@ -32,10 +34,12 @@ def build_short_scripts_prompt(
     cta_mix: str | None = None,
     topic_hint: str | None = None,
     exclusion_context: str | None = None,
+    word_budget: WordBudget | None = None,
 ) -> str:
     style = _short_prompt_value(author_style or DEFAULT_AUTHOR_STYLE, 260)
     hint = _short_prompt_value(topic_hint, 160)
     exclusions = _short_prompt_value(exclusion_context, 700)
+    budget = word_budget or vertical_word_budget("original")
     hint_line = f"\nFocus: {hint}" if hint else ""
     exclusions_line = f"\nAvoid repeating: {exclusions}" if exclusions else ""
     return f"""
@@ -43,7 +47,7 @@ Return ONLY valid JSON. Use the NotebookLM sources.
 Write {count} English short vertical-video script(s) for existing Amazon sellers.
 Voice: {style}
 Offer: high-ticket Amazon growth mentorship, from 1400 USD. No direct CTA.
-Rules: no Cyrillic, no markdown, voiceover 80-120 words, practical and specific.{hint_line}{exclusions_line}
+Rules: no Cyrillic, no markdown, practical and specific. {length_instruction(budget)}{hint_line}{exclusions_line}
 
 [
   {{
@@ -66,10 +70,12 @@ def build_youtube_script_prompt(
     offer_context: str | None = None,
     cta_mix: str | None = None,
     topic_hint: str | None = None,
+    word_budget: WordBudget | None = None,
 ) -> str:
     style = (author_style or DEFAULT_AUTHOR_STYLE).strip()
     offer = (offer_context or DEFAULT_OFFER_CONTEXT).strip()
     cta_distribution = (cta_mix or DEFAULT_CTA_MIX).strip()
+    budget = word_budget or youtube_word_budget(10)
     hint = f"\nAdditional user focus: {topic_hint.strip()}\n" if topic_hint else ""
     return f"""
 You are a YouTube strategist and scriptwriter for a high-ticket education product about growing an Amazon business.
@@ -112,7 +118,9 @@ CTA strategy:
 - Direct CTA is disabled for now. Use a soft CTA or end on a strong belief shift.
 
 Task:
-Using this NotebookLM knowledge base, write 1 YouTube script up to 15 minutes.
+Using this NotebookLM knowledge base, write 1 YouTube script.
+- {length_instruction(budget)}
+- Do not make it shorter than the minimum or longer than the maximum word count.
 {hint}
 Return only valid JSON. No Markdown. No prose outside JSON.
 Schema:

@@ -25,6 +25,8 @@ from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .notebooklm_py import NotebookLMPyClient
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
+from .script_length import WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
+from .settings_service import get_user_settings
 from .storage import ScriptRecord, Storage
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
 from .post_heygen_video import apply_post_heygen_visuals
@@ -579,12 +581,15 @@ async def generate_scripts_for_user(
     style = get_author_style(user_id)
     offer_context = get_offer_context(user_id)
     cta_mix = get_cta_mix(user_id)
+    user_settings = get_user_settings(storage, settings, user_id)
     if format == "youtube":
+        word_budget = youtube_word_budget(user_settings.youtube_long_duration_minutes)
         prompt = build_youtube_script_prompt(
             style,
             offer_context=offer_context,
             cta_mix=cta_mix,
             topic_hint=topic_hint,
+            word_budget=word_budget,
         )
         items = await ask_notebooklm_for_scripts(
             user_id=user_id,
@@ -594,10 +599,12 @@ async def generate_scripts_for_user(
             format=format,
             existing_records=[],
             accepted_payloads=[],
+            word_budget=word_budget,
         )
     else:
         items: list[dict[str, object]] = []
         existing_records = storage.list_recent_scripts(user_id, format=format, limit=60)
+        word_budget = vertical_word_budget(user_settings.vertical_avatar_duration_mode)
         while len(items) < count:
             batch_count = min(settings.notebooklm_short_batch_size, count - len(items))
             exclusion_context = "\n".join(
@@ -615,6 +622,7 @@ async def generate_scripts_for_user(
                 cta_mix=cta_mix,
                 topic_hint=topic_hint,
                 exclusion_context=exclusion_context,
+                word_budget=word_budget,
             )
             new_items = await ask_notebooklm_for_scripts(
                 user_id=user_id,
@@ -624,6 +632,7 @@ async def generate_scripts_for_user(
                 format=format,
                 existing_records=existing_records,
                 accepted_payloads=items,
+                word_budget=word_budget,
             )
             if not new_items:
                 break
@@ -645,6 +654,7 @@ async def ask_notebooklm_for_scripts(
     format: str,
     existing_records: list[ScriptRecord],
     accepted_payloads: list[dict[str, object]],
+    word_budget: WordBudget | None = None,
 ) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
     for attempt in range(3):
@@ -660,7 +670,7 @@ async def ask_notebooklm_for_scripts(
             request_prompt = "\n\n".join(
                 [
                     prompt,
-                    "CRITICAL CORRECTION: the previous response contained Russian/Cyrillic, repeated an old idea, or repeated another script in the same batch. Regenerate with fresh English-only scripts. No Cyrillic characters anywhere in JSON values. Do not reuse the excluded titles, hooks, metaphors, or problem frames.",
+                    "CRITICAL CORRECTION: the previous response contained Russian/Cyrillic, repeated an old idea, repeated another script in the same batch, or missed the required voiceover word count. Regenerate with fresh English-only scripts. No Cyrillic characters anywhere in JSON values. Do not reuse the excluded titles, hooks, metaphors, or problem frames.",
                 ]
             )
         result = await asyncio.to_thread(notebooklm.ask, request_prompt, notebook_url=notebook_ref_to_url(notebook_ref))
@@ -669,12 +679,28 @@ async def ask_notebooklm_for_scripts(
         for item in as_script_list(payload):
             if script_payload_has_cyrillic(item):
                 continue
+            if word_budget and not script_payload_matches_word_budget(item, word_budget):
+                continue
             if format == "short" and script_payload_is_duplicate(item, existing_records, accepted_payloads + items):
                 continue
             items.append(item)
         if len(items) >= count:
             break
     return items[:count]
+
+
+def script_payload_matches_word_budget(payload: dict[str, object], budget: WordBudget) -> bool:
+    count = count_spoken_words(payload_text(payload, "voiceover"))
+    if budget.min_words <= count <= budget.max_words:
+        return True
+    logger.info(
+        "Rejected generated script outside word budget: words=%s expected=%s-%s target=%s",
+        count,
+        budget.min_words,
+        budget.max_words,
+        budget.target_words,
+    )
+    return False
 
 
 async def send_scripts(
