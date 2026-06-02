@@ -42,6 +42,7 @@ const defaultOutput = '../hf-montage-test/renders/hyperframes-auto.mp4';
 const sourceVideoPath = resolveFromProject(getArgValue('video', defaultVideo));
 const scenePlanPath = resolveFromProject(getArgValue('scene-plan', defaultScenePlan));
 const wordCuesPath = resolveFromProject(getArgValue('word-cues', defaultWordCues));
+const transcriptPath = getArgValue('transcript', '');
 const outputPath = resolveFromProject(getArgValue('out', defaultOutput));
 const maxDurationSecArg = Number(getArgValue('max-duration-sec', '0'));
 const layout = getArgValue('layout', 'horizontal_simple');
@@ -242,10 +243,14 @@ const copiedVideoName = `source${videoExtension}`;
 const copiedVideoPath = path.join(assetsInputDir, copiedVideoName);
 const copiedScenePlanPath = path.join(assetsInputDir, 'scene-plan.generated.json');
 const copiedWordCuesPath = path.join(assetsInputDir, 'scene-word-cues.generated.json');
+const copiedTranscriptPath = path.join(assetsInputDir, 'transcript.deepgram.json');
 
 fs.copyFileSync(sourceVideoPath, copiedVideoPath);
 fs.copyFileSync(scenePlanPath, copiedScenePlanPath);
 fs.copyFileSync(wordCuesPath, copiedWordCuesPath);
+if (transcriptPath) {
+  fs.copyFileSync(resolveFromProject(transcriptPath), copiedTranscriptPath);
+}
 
 const scenes = readJsonArray(copiedScenePlanPath, 'Scene plan')
   .map((scene) => ({

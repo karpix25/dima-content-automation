@@ -64,6 +64,11 @@ class Settings:
     remotion_project_dir: Path | None
     montage_render_timeout_seconds: int
     montage_max_scenes: int
+    deepgram_api_key: str | None
+    deepgram_api_base_url: str
+    deepgram_model: str
+    deepgram_language: str
+    deepgram_timeout_seconds: int
 
 
 def get_float_env(name: str, default: float) -> float:
@@ -184,4 +189,9 @@ def load_settings() -> Settings:
         remotion_project_dir=get_optional_path_env("REMOTION_PROJECT_DIR"),
         montage_render_timeout_seconds=max(60, get_int_env("MONTAGE_RENDER_TIMEOUT_SECONDS", 3600)),
         montage_max_scenes=max(1, get_int_env("MONTAGE_MAX_SCENES", 8)),
+        deepgram_api_key=(os.getenv("DEEPGRAM_API_KEY") or "").strip() or None,
+        deepgram_api_base_url=(os.getenv("DEEPGRAM_API_BASE_URL") or "https://api.deepgram.com").strip().rstrip("/"),
+        deepgram_model=(os.getenv("DEEPGRAM_MODEL") or "nova-2").strip(),
+        deepgram_language=(os.getenv("DEEPGRAM_LANGUAGE") or "en").strip(),
+        deepgram_timeout_seconds=max(30, get_int_env("DEEPGRAM_TIMEOUT_SECONDS", 240)),
     )

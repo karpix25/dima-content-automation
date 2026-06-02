@@ -63,6 +63,21 @@ def test_hyperframes_command_uses_vertical_heygen_layout_for_short_avatar_reels(
         assert command[-2:] == ["--layout", "vertical_heygen"]
 
 
+def test_hyperframes_command_passes_transcript_when_available():
+    command = _command(
+        "hyperframes",
+        record=_record(format="short"),
+        video_path=Path("source.mp4"),
+        scene_plan_path=Path("scenes.json"),
+        word_cues_path=Path("words.json"),
+        output_path=Path("out.mp4"),
+        transcript_path=Path("transcript.deepgram.json"),
+    )
+
+    assert "--transcript" in command
+    assert command[-1] == "transcript.deepgram.json"
+
+
 def _record(*, format: str) -> ScriptRecord:
     return ScriptRecord(
         id=1,

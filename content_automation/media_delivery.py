@@ -9,6 +9,7 @@ from pathlib import Path
 import httpx
 
 from .config import Settings
+from .deepgram_transcription import DeepgramConfig
 from .elevenlabs_mcp import ElevenLabsMCPClient
 from .heygen import HeyGenClient
 from .kie_image import KieImageClient
@@ -222,6 +223,13 @@ def _post_heygen_visuals(
                 renderer=settings.montage_renderer,
                 timeout_seconds=settings.montage_render_timeout_seconds,
                 max_scenes=settings.montage_max_scenes,
+                deepgram=DeepgramConfig(
+                    api_key=settings.deepgram_api_key,
+                    api_base_url=settings.deepgram_api_base_url,
+                    model=settings.deepgram_model,
+                    language=settings.deepgram_language,
+                    timeout_seconds=settings.deepgram_timeout_seconds,
+                ),
             ),
         )
         if montage_path:

@@ -13,6 +13,7 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Message, WebAppInfo
 
 from .config import load_settings
+from .deepgram_transcription import DeepgramConfig
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
@@ -85,6 +86,13 @@ montage_renderer_config = MontageRendererConfig(
     renderer=settings.montage_renderer,
     timeout_seconds=settings.montage_render_timeout_seconds,
     max_scenes=settings.montage_max_scenes,
+    deepgram=DeepgramConfig(
+        api_key=settings.deepgram_api_key,
+        api_base_url=settings.deepgram_api_base_url,
+        model=settings.deepgram_model,
+        language=settings.deepgram_language,
+        timeout_seconds=settings.deepgram_timeout_seconds,
+    ),
 )
 bot = Bot(settings.telegram_bot_token)
 dp = Dispatcher()

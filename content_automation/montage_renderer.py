@@ -6,6 +6,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from .deepgram_transcription import DeepgramConfig, transcribe_video_with_deepgram
 from .montage_plan import build_montage_plan
 from .storage import ScriptRecord
 from .video_overlay import VideoOverlayError, probe_duration_seconds
@@ -20,6 +21,7 @@ class MontageRendererConfig:
     renderer: str
     timeout_seconds: int
     max_scenes: int
+    deepgram: DeepgramConfig | None = None
 
 
 def render_montage_if_configured(
@@ -53,6 +55,7 @@ def render_montage_if_configured(
                 output_dir=output_dir,
                 timeout_seconds=config.timeout_seconds,
                 max_scenes=config.max_scenes,
+                deepgram=config.deepgram,
             )
             if rendered:
                 logger.info("%s montage render completed for script %s: %s", name, record.id, rendered)
@@ -71,14 +74,24 @@ def _render(
     output_dir: Path,
     timeout_seconds: int,
     max_scenes: int,
+    deepgram: DeepgramConfig | None,
 ) -> Path | None:
     output_dir.mkdir(parents=True, exist_ok=True)
     duration = probe_duration_seconds(video_path)
-    plan = build_montage_plan(record, duration_seconds=duration, max_scenes=max_scenes)
+    transcript = _transcribe_for_timing(video_path=video_path, output_dir=output_dir, config=deepgram)
+    plan = build_montage_plan(
+        record,
+        duration_seconds=duration,
+        max_scenes=max_scenes,
+        transcript_words=transcript.words if transcript else None,
+    )
     scene_plan_path = output_dir / f"scene-plan_{record.id}.json"
     word_cues_path = output_dir / f"scene-word-cues_{record.id}.json"
+    transcript_path = output_dir / f"transcript.deepgram_{record.id}.json"
     scene_plan_path.write_text(json.dumps(plan.scenes, ensure_ascii=False, indent=2), encoding="utf-8")
     word_cues_path.write_text(json.dumps(plan.word_cues, ensure_ascii=False, indent=2), encoding="utf-8")
+    if transcript:
+        transcript_path.write_text(json.dumps(transcript.raw, ensure_ascii=False, indent=2), encoding="utf-8")
     output_path = output_dir / f"{name}_{record.id}.mp4"
     cmd = _command(
         name,
@@ -86,6 +99,7 @@ def _render(
         video_path=video_path,
         scene_plan_path=scene_plan_path,
         word_cues_path=word_cues_path,
+        transcript_path=transcript_path if transcript else None,
         output_path=output_path,
     )
     logger.info("Running %s montage command: %s", name, " ".join(cmd))
@@ -109,6 +123,21 @@ def _render(
     return output_path if output_path.exists() else None
 
 
+def _transcribe_for_timing(
+    *,
+    video_path: Path,
+    output_dir: Path,
+    config: DeepgramConfig | None,
+):
+    if not config:
+        return None
+    try:
+        return transcribe_video_with_deepgram(video_path=video_path, output_dir=output_dir, config=config)
+    except Exception:
+        logger.exception("Deepgram transcription failed; falling back to synthetic montage timing")
+        return None
+
+
 def _command(
     name: str,
     *,
@@ -117,10 +146,11 @@ def _command(
     scene_plan_path: Path,
     word_cues_path: Path,
     output_path: Path,
+    transcript_path: Path | None = None,
 ) -> list[str]:
     if name == "hyperframes":
         layout = "horizontal_youtube" if record.format == "youtube" else "vertical_heygen"
-        return [
+        command = [
             "npm",
             "run",
             "render:auto",
@@ -136,6 +166,9 @@ def _command(
             "--layout",
             layout,
         ]
+        if transcript_path:
+            command.extend(["--transcript", str(transcript_path)])
+        return command
     return [
         "npm",
         "run",
