@@ -34,8 +34,6 @@ def render_montage_if_configured(
         candidates.append(("remotion", config.remotion_project_dir))
 
     for name, project_dir in candidates:
-        if name == "hyperframes" and record.format != "youtube":
-            continue
         if project_dir and (project_dir / "package.json").exists():
             rendered = _render(
                 name=name,
@@ -102,6 +100,7 @@ def _command(
     output_path: Path,
 ) -> list[str]:
     if name == "hyperframes":
+        layout = "horizontal_youtube" if record.format == "youtube" else "vertical_heygen"
         return [
             "npm",
             "run",
@@ -116,7 +115,7 @@ def _command(
             "--out",
             str(output_path),
             "--layout",
-            "horizontal_youtube" if record.format == "youtube" else "horizontal_simple",
+            layout,
         ]
     return [
         "npm",

@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from content_automation.montage_renderer import _command
+import content_automation.montage_renderer as montage_renderer
+from content_automation.montage_renderer import MontageRendererConfig, _command
 from content_automation.storage import ScriptRecord
 
 
@@ -15,6 +16,51 @@ def test_hyperframes_command_uses_youtube_layout_for_horizontal():
     )
 
     assert command[-2:] == ["--layout", "horizontal_youtube"]
+
+
+def test_render_montage_if_configured_uses_hyperframes_for_short_with_package_json(tmp_path, monkeypatch):
+    project_dir = tmp_path / "hyperframes"
+    project_dir.mkdir()
+    (project_dir / "package.json").write_text("{}", encoding="utf-8")
+    output_path = tmp_path / "rendered.mp4"
+    calls = []
+
+    def fake_render(**kwargs):
+        calls.append(kwargs)
+        return output_path
+
+    monkeypatch.setattr(montage_renderer, "_render", fake_render)
+
+    rendered = montage_renderer.render_montage_if_configured(
+        record=_record(format="short"),
+        video_path=tmp_path / "source.mp4",
+        output_dir=tmp_path / "out",
+        config=MontageRendererConfig(
+            hyperframes_project_dir=project_dir,
+            remotion_project_dir=None,
+            renderer="auto",
+            timeout_seconds=30,
+            max_scenes=3,
+        ),
+    )
+
+    assert rendered == output_path
+    assert calls[0]["name"] == "hyperframes"
+    assert calls[0]["project_dir"] == project_dir
+
+
+def test_hyperframes_command_uses_vertical_heygen_layout_for_short_avatar_reels():
+    for record_format in ("short", "avatar_reels"):
+        command = _command(
+            "hyperframes",
+            record=_record(format=record_format),
+            video_path=Path("source.mp4"),
+            scene_plan_path=Path("scenes.json"),
+            word_cues_path=Path("words.json"),
+            output_path=Path("out.mp4"),
+        )
+
+        assert command[-2:] == ["--layout", "vertical_heygen"]
 
 
 def _record(*, format: str) -> ScriptRecord:

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {createRenderLayout} from './render-auto-layouts.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,19 +44,23 @@ const wordCuesPath = resolveFromProject(getArgValue('word-cues', defaultWordCues
 const outputPath = resolveFromProject(getArgValue('out', defaultOutput));
 const maxDurationSecArg = Number(getArgValue('max-duration-sec', '0'));
 const layout = getArgValue('layout', 'horizontal_simple');
-const isYoutubeLayout = layout === 'horizontal_youtube';
+const renderLayout = createRenderLayout({layout, envFlag});
+const isYoutubeLayout = renderLayout.isYoutube;
+const isVerticalHeygenLayout = renderLayout.isVerticalHeygen;
+const isSmartDirectorLayout = renderLayout.isSmartDirector;
 const defaultFps = isYoutubeLayout
   ? (process.env.HYPERFRAMES_YOUTUBE_FPS || process.env.HYPERFRAMES_RENDER_FPS || '24')
   : (process.env.HYPERFRAMES_RENDER_FPS || '30');
 const fps = Number(getArgValue('fps', defaultFps));
-const youtubeCompositeSourceVideo =
-  isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_COMPOSITE_SOURCE_VIDEO', true);
+const compositeSourceVideo = renderLayout.compositeSourceVideo;
 const youtubeCaptionsEnabled =
   isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_CAPTIONS', false);
 const youtubeChapterRibbonEnabled =
   isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_CHAPTER_RIBBON', false);
 const youtubeRequireAllImages =
   isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_REQUIRE_ALL_IMAGES', true);
+const verticalRequireAllImages =
+  isVerticalHeygenLayout && envFlag('HYPERFRAMES_VERTICAL_REQUIRE_ALL_IMAGES', false);
 const renderQuality = getArgValue(
   'quality',
   process.env.HYPERFRAMES_RENDER_QUALITY || (isYoutubeLayout ? 'high' : 'standard')
@@ -71,10 +76,7 @@ const renderVideoBitrate = getArgValue(
 const ffmpegPreset = process.env.FFMPEG_X264_PRESET || 'veryfast';
 const ffmpegCompositeTimeoutMs = envNumber('FFMPEG_ENCODE_TIMEOUT_MS', 7200000);
 const dryRun = hasFlag('dry-run');
-const generatedCompositionName =
-  isYoutubeLayout
-    ? 'horizontal-youtube.generated.html'
-    : 'horizontal-simple.generated.html';
+const {width: compositionWidth, height: compositionHeight, generatedCompositionName} = renderLayout;
 
 const browserPathCandidates = [
   process.env.HYPERFRAMES_BROWSER_PATH,
@@ -164,7 +166,7 @@ const pickSceneSubtitle = (scene) => {
   return candidates[0] || '';
 };
 
-const hasYoutubeDirectorCard = (scene) => {
+const hasDirectorCard = (scene) => {
   const title = pickSceneTitle(scene);
   const rawSubtitle = pickSceneSubtitle(scene);
   const subtitle = shouldHideSubtitle(title, rawSubtitle) ? '' : rawSubtitle;
@@ -259,7 +261,7 @@ fs.writeFileSync(copiedScenePlanPath, `${JSON.stringify(scenes, null, 2)}\n`, 'u
 
 const detectedDurationSec = scenes.reduce((max, scene) => Math.max(max, scene.end), 0);
 const sourceDurationSec = probeMediaDurationSec(copiedVideoPath);
-const timelineDurationSec = youtubeCompositeSourceVideo
+const timelineDurationSec = compositeSourceVideo
   ? detectedDurationSec
   : Math.max(detectedDurationSec, sourceDurationSec);
 const maxDurationSec = Number.isFinite(maxDurationSecArg) ? maxDurationSecArg : 0;
@@ -268,16 +270,16 @@ const rootDuration = assertFinitePositive(durationSec, 1);
 const renderFps = Math.round(assertFinitePositive(fps, 30));
 
 const wordCues = readJsonArray(copiedWordCuesPath, 'Word cues');
-if (youtubeRequireAllImages) {
+if (youtubeRequireAllImages || verticalRequireAllImages) {
   const missingImages = scenes
     .map((scene, index) => ({ scene, index }))
-    .filter(({ scene }) => hasYoutubeDirectorCard(scene))
+    .filter(({ scene }) => hasDirectorCard(scene))
     .filter(({ index }) => !fs.existsSync(generatedImagePath(index)))
     .map(({ index }) => generatedImageFile(index));
   if (missingImages.length) {
     throw new Error(
-      `Missing required YouTube generated image(s): ${missingImages.join(', ')}. ` +
-      'Run npm run generate:youtube-prompts && npm run generate:images before rendering.'
+      `Missing required generated image(s): ${missingImages.join(', ')}. ` +
+      'Run image prompt generation and npm run generate:images before rendering.'
     );
   }
 }
@@ -436,16 +438,16 @@ const youtubeTimelineTweens = [
   }) : []),
 ].filter(Boolean).join('\n');
 
-const overlayClips = isYoutubeLayout
+const overlayClips = isSmartDirectorLayout
   ? [
       youtubeDirectorClips,
       youtubeChapterRibbonEnabled ? youtubeChapterClips : '',
       youtubeCaptionsEnabled ? youtubeCaptionClips : '',
     ].filter(Boolean).join('\n')
   : simpleOverlayClips;
-const timelineTweens = isYoutubeLayout ? youtubeTimelineTweens : simpleTimelineTweens;
-const pageBackground = youtubeCompositeSourceVideo ? 'transparent' : '#000';
-const sourceMediaClips = youtubeCompositeSourceVideo
+const timelineTweens = isSmartDirectorLayout ? youtubeTimelineTweens : simpleTimelineTweens;
+const pageBackground = compositeSourceVideo ? 'transparent' : '#000';
+const sourceMediaClips = compositeSourceVideo
   ? ''
   : `
       <video
@@ -476,21 +478,21 @@ const html = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=1920, height=1080" />
+    <meta name="viewport" content="width=${compositionWidth}, height=${compositionHeight}" />
     <script src="./node_modules/gsap/dist/gsap.min.js"></script>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body {
-        width: 1920px;
-        height: 1080px;
+        width: ${compositionWidth}px;
+        height: ${compositionHeight}px;
         overflow: hidden;
         background: ${pageBackground};
         font-family: Montserrat, Arial, sans-serif;
       }
       #main {
         position: relative;
-        width: 1920px;
-        height: 1080px;
+        width: ${compositionWidth}px;
+        height: ${compositionHeight}px;
         overflow: hidden;
         background: ${pageBackground};
       }
@@ -708,17 +710,58 @@ const html = `<!doctype html>
         pointer-events: none;
         overflow-wrap: anywhere;
       }
+      body.layout-vertical-heygen .director-card {
+        left: 36px;
+        right: auto;
+        top: 15%;
+        width: calc(100% - 72px);
+        height: 70%;
+        padding: 42px;
+        grid-template-rows: 36% 1fr;
+        gap: 30px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(244, 247, 251, 0.95)),
+          #f8fafc;
+        border-color: rgba(15, 23, 42, 0.16);
+        box-shadow: 0 38px 86px rgba(0, 0, 0, 0.38);
+      }
+      body.layout-vertical-heygen .director-copy {
+        padding-left: 26px;
+      }
+      body.layout-vertical-heygen .director-copy::before {
+        top: 14px;
+        bottom: 14px;
+        width: 6px;
+      }
+      body.layout-vertical-heygen .director-card h2 {
+        font-size: 56px;
+        line-height: 1.05;
+        -webkit-line-clamp: 3;
+      }
+      body.layout-vertical-heygen .director-card p {
+        font-size: 34px;
+        line-height: 1.18;
+        -webkit-line-clamp: 3;
+      }
+      body.layout-vertical-heygen .director-visual {
+        width: min(100%, 780px);
+        border-radius: 8px;
+      }
+      body.layout-vertical-heygen .caption-strip,
+      body.layout-vertical-heygen .chapter-ribbon {
+        display: none;
+      }
     </style>
   </head>
-  <body>
+  <body class="layout-${isVerticalHeygenLayout ? 'vertical-heygen' : isYoutubeLayout ? 'youtube' : 'simple'}">
     <div
       id="main"
       data-composition-id="main"
       data-start="0"
       data-duration="${rootDuration.toFixed(3)}"
       data-fps="${renderFps}"
-      data-width="1920"
-      data-height="1080"
+      data-width="${compositionWidth}"
+      data-height="${compositionHeight}"
     >
 ${sourceMediaClips}
       ${isYoutubeLayout ? '<div class="scene-vignette"></div>' : ''}
@@ -743,7 +786,7 @@ fs.mkdirSync(outputDir, {recursive: true});
 const outputExtension = path.extname(outputPath) || '.mp4';
 const outputStem = outputPath.slice(0, -outputExtension.length) || outputPath;
 const overlayOutputPath = `${outputStem}.overlay.webm`;
-const hyperframesOutputPath = youtubeCompositeSourceVideo ? overlayOutputPath : outputPath;
+const hyperframesOutputPath = compositeSourceVideo ? overlayOutputPath : outputPath;
 
 const renderArgs = [
   'hyperframes',
@@ -758,7 +801,7 @@ const renderArgs = [
   renderQuality,
 ];
 
-if (youtubeCompositeSourceVideo) {
+if (compositeSourceVideo) {
   renderArgs.push('--format', 'webm');
 } else if (renderCrf) {
   renderArgs.push('--crf', renderCrf);
@@ -775,7 +818,7 @@ const ffmpegArgs = [
   '-i',
   overlayOutputPath,
   '-filter_complex',
-  '[0:v]scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,scale=ceil(iw*1.01/2)*2:ceil(ih*1.01/2)*2,crop=1920:1080[base];[base][1:v]overlay=0:0:eof_action=pass:format=auto[v]',
+  `[0:v]scale=${compositionWidth}:${compositionHeight}:force_original_aspect_ratio=increase,crop=${compositionWidth}:${compositionHeight},scale=ceil(iw*1.01/2)*2:ceil(ih*1.01/2)*2,crop=${compositionWidth}:${compositionHeight}[base];[base][1:v]overlay=0:0:eof_action=pass:format=auto[v]`,
   '-map',
   '[v]',
   '-map',
@@ -805,12 +848,12 @@ console.log(`  output: ${outputPath}`);
 console.log(`  duration: ${rootDuration}s`);
 console.log(`  layout: ${layout}`);
 console.log(`  quality: ${renderQuality}`);
-console.log(`  source-composite: ${youtubeCompositeSourceVideo ? 'ffmpeg' : 'hyperframes'}`);
+console.log(`  source-composite: ${compositeSourceVideo ? 'ffmpeg' : 'hyperframes'}`);
 
 if (dryRun) {
   console.log('[render-auto] Dry run mode enabled. Render command:');
   console.log(`npx ${renderArgs.join(' ')}`);
-  if (youtubeCompositeSourceVideo) {
+  if (compositeSourceVideo) {
     console.log('[render-auto] Composite command:');
     console.log(`ffmpeg ${ffmpegArgs.join(' ')}`);
   }
@@ -830,7 +873,7 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
-if (youtubeCompositeSourceVideo) {
+if (compositeSourceVideo) {
   console.log('[render-auto] Compositing Hyperframes overlay over source video with ffmpeg...');
   const compositeResult = spawnSync('ffmpeg', ffmpegArgs, {
     cwd: projectRoot,
