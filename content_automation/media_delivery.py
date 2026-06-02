@@ -315,6 +315,7 @@ def _post_heygen_visuals(
                 renderer=settings.montage_renderer,
                 timeout_seconds=settings.montage_render_timeout_seconds,
                 max_scenes=settings.montage_max_scenes,
+                kie_client=kie_client,
                 deepgram=DeepgramConfig(
                     api_key=settings.deepgram_api_key,
                     api_base_url=settings.deepgram_api_base_url,

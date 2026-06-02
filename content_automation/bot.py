@@ -90,6 +90,7 @@ montage_renderer_config = MontageRendererConfig(
     renderer=settings.montage_renderer,
     timeout_seconds=settings.montage_render_timeout_seconds,
     max_scenes=settings.montage_max_scenes,
+    kie_client=kie_image,
     deepgram=DeepgramConfig(
         api_key=settings.deepgram_api_key,
         api_base_url=settings.deepgram_api_base_url,

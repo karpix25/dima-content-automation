@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 
 from .storage import ScriptRecord
+from .vertical_director import build_vertical_director_scenes
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,15 @@ def build_montage_plan(
     transcript_words: list[dict] | None = None,
 ) -> MontagePlan:
     timed_words = _transcript_word_cues(transcript_words)
+    if record.format in {"short", "avatar_reels"} and timed_words:
+        directed = build_vertical_director_scenes(
+            record,
+            duration_seconds=duration_seconds,
+            max_scenes=max_scenes,
+            transcript_words=timed_words,
+        )
+        if directed:
+            return MontagePlan(scenes=directed.scenes, word_cues=directed.word_cues)
     scenes = _scenes(
         record,
         duration_seconds=duration_seconds,

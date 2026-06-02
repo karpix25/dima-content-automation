@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {FORENSICS_CSS, forensicsVisualMarkup} from './render-auto-forensics.mjs';
 import {createRenderLayout} from './render-auto-layouts.mjs';
 import {
   createCompositeFilter,
@@ -76,7 +75,7 @@ const youtubeChapterRibbonEnabled =
 const youtubeRequireAllImages =
   isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_REQUIRE_ALL_IMAGES', true);
 const verticalRequireAllImages =
-  isVerticalHeygenLayout && envFlag('HYPERFRAMES_VERTICAL_REQUIRE_ALL_IMAGES', false);
+  isVerticalHeygenLayout && envFlag('HYPERFRAMES_VERTICAL_REQUIRE_ALL_IMAGES', true);
 const renderQuality = getArgValue(
   'quality',
   process.env.HYPERFRAMES_RENDER_QUALITY || (isYoutubeLayout ? 'high' : 'standard')
@@ -141,6 +140,13 @@ const shouldHideSubtitle = (title, subtitle) => {
   );
 };
 
+const titleDensityClass = (title) => {
+  const length = normalizeText(title).length;
+  if (length > 58) return 'title-dense';
+  if (length > 38) return 'title-compact';
+  return 'title-roomy';
+};
+
 const trimOpener = (value) => {
   const clean = normalizeText(value).replace(/["'«»]+/g, '').trim();
   if (!clean) return '';
@@ -201,12 +207,6 @@ const sceneDuration = (scene, index, maxDuration) => {
 const generatedImageId = (index) => `youtube-scene-${String(index + 1).padStart(2, '0')}`;
 const generatedImageFile = (index) => `${generatedImageId(index)}.png`;
 const generatedImagePath = (index) => path.join(projectRoot, 'assets', 'generated', generatedImageFile(index));
-
-const visualElements = (scene) =>
-  (Array.isArray(scene.visualElements) ? scene.visualElements : [])
-    .map(normalizeText)
-    .filter(Boolean)
-    .slice(0, 4);
 
 const escapeHtml = (value) =>
   String(value ?? '')
@@ -355,20 +355,10 @@ const youtubeDirectorClips = scenes
     if (imageExists) {
       imageMarkup = `<img class="director-image" src="./assets/generated/${escapeHtml(generatedImageFile(index))}" />`;
     }
-    if (isVerticalHeygenLayout) {
-      imageMarkup = forensicsVisualMarkup({
-        scene,
-        index,
-        title,
-        subtitle,
-        visualElements: visualElements(scene),
-        escapeHtml,
-      });
-    }
     return `
       <div
         id="director-${index}"
-        class="clip director-card"
+        class="clip director-card ${titleDensityClass(title)}"
         data-start="${scene.start.toFixed(3)}"
         data-duration="${duration.toFixed(3)}"
         data-track-index="1"
@@ -772,10 +762,21 @@ const html = `<!doctype html>
         line-height: 1.05;
         -webkit-line-clamp: 3;
       }
+      body.layout-vertical-heygen .director-card.title-compact h2 {
+        font-size: 48px;
+      }
+      body.layout-vertical-heygen .director-card.title-dense h2 {
+        font-size: 42px;
+        -webkit-line-clamp: 4;
+      }
       body.layout-vertical-heygen .director-card p {
         font-size: 34px;
         line-height: 1.18;
         -webkit-line-clamp: 3;
+      }
+      body.layout-vertical-heygen .director-card.title-dense p,
+      body.layout-vertical-heygen .director-card.title-compact p {
+        font-size: 29px;
       }
       body.layout-vertical-heygen .director-visual {
         width: min(100%, 780px);
@@ -786,7 +787,6 @@ const html = `<!doctype html>
         display: none;
       }
 ${overlayScaleCss(overlaySizing)}
-${FORENSICS_CSS}
     </style>
   </head>
   <body class="layout-${isVerticalHeygenLayout ? 'vertical-heygen' : isYoutubeLayout ? 'youtube' : 'simple'}">

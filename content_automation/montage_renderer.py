@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .deepgram_transcription import DeepgramConfig, transcribe_video_with_deepgram
+from .kie_image import KieImageClient
+from .montage_assets import prepare_vertical_montage_assets
 from .montage_plan import build_montage_plan
 from .storage import ScriptRecord
 from .video_overlay import VideoOverlayError, probe_duration_seconds
@@ -22,6 +24,7 @@ class MontageRendererConfig:
     timeout_seconds: int
     max_scenes: int
     deepgram: DeepgramConfig | None = None
+    kie_client: KieImageClient | None = None
 
 
 def render_montage_if_configured(
@@ -56,6 +59,7 @@ def render_montage_if_configured(
                 timeout_seconds=config.timeout_seconds,
                 max_scenes=config.max_scenes,
                 deepgram=config.deepgram,
+                kie_client=config.kie_client,
             )
             if rendered:
                 logger.info("%s montage render completed for script %s: %s", name, record.id, rendered)
@@ -75,6 +79,7 @@ def _render(
     timeout_seconds: int,
     max_scenes: int,
     deepgram: DeepgramConfig | None,
+    kie_client: KieImageClient | None,
 ) -> Path | None:
     output_dir.mkdir(parents=True, exist_ok=True)
     duration = probe_duration_seconds(video_path)
@@ -92,6 +97,8 @@ def _render(
     word_cues_path.write_text(json.dumps(plan.word_cues, ensure_ascii=False, indent=2), encoding="utf-8")
     if transcript:
         transcript_path.write_text(json.dumps(transcript.raw, ensure_ascii=False, indent=2), encoding="utf-8")
+    if record.format in {"short", "avatar_reels"}:
+        prepare_vertical_montage_assets(project_dir=project_dir, scenes=plan.scenes, kie_client=kie_client)
     output_path = output_dir / f"{name}_{record.id}.mp4"
     cmd = _command(
         name,
