@@ -36,8 +36,12 @@ RUN printf '%s\n' \
     'set -euo pipefail' \
     'for candidate in \' \
     '  /ms-playwright/chromium-*/chrome-linux/chrome \' \
+    '  /ms-playwright/chromium-*/chrome-linux64/chrome \' \
     '  /ms-playwright/chromium_headless_shell-*/chrome-linux/headless_shell \' \
+    '  /ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell \' \
+    '  /ms-playwright/chrome-*/chrome-linux64/chrome \' \
     '  /ms-playwright/chrome-*/chrome-linux/chrome \' \
+    '  /ms-playwright/chrome_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell \' \
     '  /usr/bin/chromium \' \
     '  /usr/bin/chromium-browser \' \
     '  /usr/bin/chromium-headless-shell; do' \
@@ -46,6 +50,7 @@ RUN printf '%s\n' \
     '  done' \
     'done' \
     'echo "No Playwright Chromium executable found." >&2' \
+    'find /ms-playwright -maxdepth 3 -type f \( -name chrome -o -name headless_shell -o -name chrome-headless-shell \) -print >&2 || true' \
     'exit 127' \
     > /usr/local/bin/playwright-chromium \
     && chmod +x /usr/local/bin/playwright-chromium
