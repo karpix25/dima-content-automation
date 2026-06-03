@@ -230,8 +230,8 @@ async def edit_or_send_text(
 def script_keyboard(script_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [button("✅ Одобрить и сделать видео", callback_data=f"script:approve:{script_id}", style="success")],
-            [button("❌ Отклонить и перейти дальше", callback_data=f"script:reject:{script_id}", style="danger")],
+            [button("✅ Одобрить сценарий", callback_data=f"script:approve:{script_id}", style="success")],
+            [button("❌ Отклонить", callback_data=f"script:reject:{script_id}", style="danger")],
         ]
     )
 
