@@ -22,3 +22,14 @@ def test_youtube_prompt_includes_minutes_word_budget():
     assert "1656-1944 spoken words" in prompt
     assert "12 min horizontal YouTube" in prompt
     assert "Do not make it shorter" in prompt
+
+
+def test_youtube_prompt_includes_exclusion_context():
+    prompt = build_youtube_script_prompt(
+        author_style="Direct operator voice.",
+        exclusion_context="- Title: Old angle; Hook: Old hook; Fingerprint: ppc cash leak",
+        word_budget=youtube_word_budget(10),
+    )
+
+    assert "Avoid repeating these prior title/hook/fingerprint patterns" in prompt
+    assert "ppc cash leak" in prompt

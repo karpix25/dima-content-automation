@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import difflib
 import logging
 import os
 import re
@@ -29,6 +28,12 @@ from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .settings_service import get_user_settings
 from .storage import ScriptRecord, Storage
+from .topic_dedupe import (
+    build_exclusion_context,
+    build_payload_exclusion_context,
+    payload_text,
+    script_payload_is_duplicate,
+)
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
 from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_reference_paths
@@ -113,7 +118,6 @@ PENDING_OVERLAY_UPLOADS: dict[str, str] = {}
 HEYGEN_AVATAR_CACHE: dict[str, list[HeyGenAvatar]] = {}
 ELEVENLABS_VOICE_CACHE: dict[str, list[ElevenLabsVoice]] = {}
 CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
-WORD_RE = re.compile(r"[a-z0-9]+")
 
 
 def user_key(message_or_callback: Message | CallbackQuery) -> str:
@@ -226,8 +230,8 @@ async def edit_or_send_text(
 def script_keyboard(script_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [button("✅ Принять", callback_data=f"script:approve:{script_id}", style="success")],
-            [button("🚫 Отклонить", callback_data=f"script:reject:{script_id}", style="danger")],
+            [button("✅ Одобрить и сделать видео", callback_data=f"script:approve:{script_id}", style="success")],
+            [button("❌ Отклонить и перейти дальше", callback_data=f"script:reject:{script_id}", style="danger")],
         ]
     )
 
@@ -237,7 +241,7 @@ def turan_formats_keyboard(script_id: int) -> InlineKeyboardMarkup:
         [button(item.label, callback_data=f"turan:format:{item.key}:{script_id}", style="primary")]
         for item in list_turan_formats()
     ]
-    rows.append([button("Все форматы", callback_data=f"turan:format:all:{script_id}", style="success")])
+    rows.append([button("🚀 Сделать все версии", callback_data=f"turan:format:all:{script_id}", style="success")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -285,68 +289,6 @@ def script_record_has_cyrillic(record: ScriptRecord) -> bool:
             record.source_basis,
         )
     )
-
-
-def normalize_for_similarity(text: str | None) -> str:
-    return " ".join(WORD_RE.findall((text or "").lower()))
-
-
-def similarity(left: str | None, right: str | None) -> float:
-    left_norm = normalize_for_similarity(left)
-    right_norm = normalize_for_similarity(right)
-    if not left_norm or not right_norm:
-        return 0.0
-    return difflib.SequenceMatcher(None, left_norm, right_norm).ratio()
-
-
-def payload_text(payload: dict[str, object], field: str) -> str:
-    return str(payload.get(field) or "").strip()
-
-
-def payload_is_similar_to_record(payload: dict[str, object], record: ScriptRecord) -> bool:
-    return (
-        similarity(payload_text(payload, "title"), record.title) >= 0.86
-        or similarity(payload_text(payload, "hook"), record.hook) >= 0.78
-        or similarity(payload_text(payload, "voiceover"), record.voiceover) >= 0.72
-    )
-
-
-def payload_is_similar_to_payload(payload: dict[str, object], other: dict[str, object]) -> bool:
-    return (
-        similarity(payload_text(payload, "title"), payload_text(other, "title")) >= 0.86
-        or similarity(payload_text(payload, "hook"), payload_text(other, "hook")) >= 0.78
-        or similarity(payload_text(payload, "voiceover"), payload_text(other, "voiceover")) >= 0.72
-    )
-
-
-def script_payload_is_duplicate(
-    payload: dict[str, object],
-    existing_records: list[ScriptRecord],
-    accepted_payloads: list[dict[str, object]],
-) -> bool:
-    return any(payload_is_similar_to_record(payload, record) for record in existing_records) or any(
-        payload_is_similar_to_payload(payload, other) for other in accepted_payloads
-    )
-
-
-def build_exclusion_context(records: list[ScriptRecord], *, limit: int = 30) -> str:
-    lines: list[str] = []
-    for record in records[:limit]:
-        title = record.title.strip()
-        hook = record.hook.strip()
-        if title or hook:
-            lines.append(f"- Title: {title}; Hook: {hook}")
-    return "\n".join(lines)
-
-
-def build_payload_exclusion_context(payloads: list[dict[str, object]], *, limit: int = 30) -> str:
-    lines: list[str] = []
-    for payload in payloads[:limit]:
-        title = payload_text(payload, "title")
-        hook = payload_text(payload, "hook")
-        if title or hook:
-            lines.append(f"- Title: {title}; Hook: {hook}")
-    return "\n".join(lines)
 
 
 def reject_cyrillic_pending_scripts(user_id: str) -> int:
@@ -625,12 +567,15 @@ async def generate_scripts_for_user(
     user_settings = get_user_settings(storage, settings, user_id)
     voice_wpm = await ensure_voice_wpm(user_id)
     if format == "youtube":
+        existing_records = storage.list_recent_scripts(user_id, format=format, limit=60)
+        exclusion_context = build_exclusion_context(existing_records)
         word_budget = youtube_word_budget(user_settings.youtube_long_duration_minutes, wpm=voice_wpm)
         prompt = build_youtube_script_prompt(
             style,
             offer_context=offer_context,
             cta_mix=cta_mix,
             topic_hint=topic_hint,
+            exclusion_context=exclusion_context,
             word_budget=word_budget,
         )
         items = await ask_notebooklm_for_scripts(
@@ -639,7 +584,7 @@ async def generate_scripts_for_user(
             prompt=prompt,
             count=count,
             format=format,
-            existing_records=[],
+            existing_records=existing_records,
             accepted_payloads=[],
             word_budget=word_budget,
         )
@@ -723,7 +668,7 @@ async def ask_notebooklm_for_scripts(
                 continue
             if word_budget and not script_payload_matches_word_budget(item, word_budget):
                 continue
-            if format == "short" and script_payload_is_duplicate(item, existing_records, accepted_payloads + items):
+            if format in {"short", "youtube"} and script_payload_is_duplicate(item, existing_records, accepted_payloads + items):
                 continue
             items.append(item)
         if len(items) >= count:
@@ -893,7 +838,7 @@ def nav_index(index: int, total: int) -> int:
 
 def avatar_keyboard(index: int, total: int, avatar: HeyGenAvatar) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
-        [button("✅ Активировать", callback_data=f"heygen_avatar:set:{index}", style="success")],
+        [button("✅ Выбрать этот аватар", callback_data=f"heygen_avatar:set:{index}", style="success")],
         [
             button("⬅️", callback_data=f"heygen_avatar:show:{nav_index(index - 1, total)}", style="secondary"),
             button(f"{index + 1}/{total}", callback_data="noop", style="secondary"),
@@ -901,8 +846,8 @@ def avatar_keyboard(index: int, total: int, avatar: HeyGenAvatar) -> InlineKeybo
         ],
     ]
     if avatar.preview_video_url:
-        rows.append([button("▶️ Preview video", url=avatar.preview_video_url, style="primary")])
-    rows.append([button("⚙️ Настройки", callback_data="main:settings", style="secondary")])
+        rows.append([button("▶️ Посмотреть пример видео", url=avatar.preview_video_url, style="primary")])
+    rows.append([button("⬅️ Назад к настройкам", callback_data="main:settings", style="secondary")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -920,7 +865,7 @@ def format_avatar_card(avatar: HeyGenAvatar, user_id: str, index: int, total: in
 
 def voice_keyboard(index: int, total: int, voice: ElevenLabsVoice) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
-        [button("✅ Активировать", callback_data=f"eleven_voice:set:{index}", style="success")],
+        [button("✅ Выбрать этот голос", callback_data=f"eleven_voice:set:{index}", style="success")],
         [
             button("⬅️", callback_data=f"eleven_voice:show:{nav_index(index - 1, total)}", style="secondary"),
             button(f"{index + 1}/{total}", callback_data="noop", style="secondary"),
@@ -928,8 +873,8 @@ def voice_keyboard(index: int, total: int, voice: ElevenLabsVoice) -> InlineKeyb
         ],
     ]
     if voice.preview_url:
-        rows.append([button("▶️ Preview audio", url=voice.preview_url, style="primary")])
-    rows.append([button("⚙️ Настройки", callback_data="main:settings", style="secondary")])
+        rows.append([button("▶️ Послушать пример", url=voice.preview_url, style="primary")])
+    rows.append([button("⬅️ Назад к настройкам", callback_data="main:settings", style="secondary")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -937,10 +882,10 @@ def overlay_keyboard(format: str) -> InlineKeyboardMarkup:
     label = format_label(format)
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [button(f"🖼 Загрузить плашку {label}", callback_data=f"overlay:upload:{format}", style="primary")],
-            [button(f"⏱ Процент появления {label}", callback_data=f"overlay:percent:{format}")],
-            [button(f"👀 Показать плашку {label}", callback_data=f"overlay:show:{format}")],
-            [button("⚙️ Настройки", callback_data="main:settings", style="secondary")],
+            [button(f"🖼 Загрузить плашку для {label}", callback_data=f"overlay:upload:{format}", style="primary")],
+            [button(f"⏱ Когда показывать {label}", callback_data=f"overlay:percent:{format}")],
+            [button(f"👀 Проверить текущую плашку", callback_data=f"overlay:show:{format}")],
+            [button("⬅️ Назад к настройкам", callback_data="main:settings", style="secondary")],
         ]
     )
 
@@ -1352,30 +1297,31 @@ async def produce_media_for_approved_script(chat_id: int, thread_id: int | None,
 def settings_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [button("🎭 Аватар HeyGen", callback_data="settings:heygen_avatars", style="primary")],
-            [button("🎙 Голос ElevenLabs", callback_data="settings:elevenlabs_voices", style="primary")],
-            [button("🖼 Плашка Shorts", callback_data="settings:overlay:shorts")],
-            [button("🖼 Плашка Reels", callback_data="settings:overlay:reels")],
-            [button("🖥 Плашка YouTube", callback_data="settings:overlay:youtube")],
-            [button("✂️ Vizard нарезка", callback_data="settings:vizard")],
-            [button("🎯 Контекст оффера", callback_data="settings:edit:offer_context")],
-            [button("🗣 Голос автора", callback_data="settings:edit:author_style")],
-            [button("🧲 Микс CTA", callback_data="settings:edit:cta_mix")],
-            [button("📚 База NotebookLM", callback_data="settings:edit:notebook_id")],
-            [button("👀 Показать текущие", callback_data="settings:show")],
+            [button("🎭 Выбрать аватар", callback_data="settings:heygen_avatars", style="primary")],
+            [button("🎙 Выбрать голос", callback_data="settings:elevenlabs_voices", style="primary")],
+            [button("🖼 Плашка YouTube", callback_data="settings:overlay:youtube")],
+            [button("📱 Плашка Shorts", callback_data="settings:overlay:shorts")],
+            [button("📸 Плашка Reels", callback_data="settings:overlay:reels")],
+            [button("✂️ Настройки Vizard", callback_data="settings:vizard")],
+            [button("📚 NotebookLM база", callback_data="settings:edit:notebook_id")],
+            [button("🎯 Оффер и аудитория", callback_data="settings:edit:offer_context")],
+            [button("🗣 Стиль автора", callback_data="settings:edit:author_style")],
+            [button("🧲 CTA в сценариях", callback_data="settings:edit:cta_mix")],
+            [button("👀 Показать все настройки", callback_data="settings:show")],
+            [button("⬅️ Главное меню", callback_data="main:home")],
         ]
     )
 
 
 def main_keyboard() -> InlineKeyboardMarkup:
     rows = [
-        [button("🔄 Пополнить банк", callback_data="main:refill", style="primary")],
-        [button("🧾 Проверить очередь", callback_data="main:review")],
-        [button("🏦 Статус банка", callback_data="main:bank")],
+        [button("📝 Сгенерировать новые сценарии", callback_data="main:refill", style="primary")],
+        [button("✅ Проверить сценарии", callback_data="main:review")],
+        [button("📊 Сколько сценариев готово", callback_data="main:bank")],
     ]
     if settings.miniapp_url:
-        rows.append([InlineKeyboardButton(text="📱 Mini App", web_app=WebAppInfo(url=settings.miniapp_url))])
-    rows.append([button("⚙️ Настройки", callback_data="main:settings")])
+        rows.append([InlineKeyboardButton(text="🎬 Открыть Mini App", web_app=WebAppInfo(url=settings.miniapp_url))])
+    rows.append([button("⚙️ Настройки контента", callback_data="main:settings")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -1697,11 +1643,21 @@ async def main_callback(callback: CallbackQuery) -> None:
     if action == "settings":
         await edit_or_send_text(
             callback.message.chat.id,
-            "Что настраиваем? Эти данные попадут в запрос к NotebookLM, чтобы CTA писался органично под оффер.",
+            "Настройки контента. Выбери, что хочешь изменить.",
             thread_id=message_thread_id(callback.message),
             message=callback.message,
             edit=True,
             reply_markup=settings_keyboard(),
+        )
+        return
+    if action == "home":
+        await edit_or_send_text(
+            callback.message.chat.id,
+            "Главное меню. Что делаем дальше?",
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+            reply_markup=main_keyboard(),
         )
         return
     if action == "bank":

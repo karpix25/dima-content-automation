@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .topic_dedupe import script_topic_fingerprint
+
 
 @dataclass(frozen=True)
 class ScriptRecord:
@@ -22,6 +24,7 @@ class ScriptRecord:
     why_it_works: str
     source_basis: str
     raw: dict[str, Any]
+    topic_fingerprint: str = ""
 
 
 @dataclass(frozen=True)
@@ -109,6 +112,7 @@ class Storage:
             self._add_column_if_missing(conn, "format_jobs", "external_task_id", "TEXT")
             self._add_column_if_missing(conn, "format_jobs", "output_url", "TEXT")
             self._add_column_if_missing(conn, "format_jobs", "error", "TEXT")
+            self._add_column_if_missing(conn, "scripts", "topic_fingerprint", "TEXT NOT NULL DEFAULT ''")
 
     def _add_column_if_missing(self, conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
         rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
@@ -142,9 +146,9 @@ class Storage:
                 """
                 INSERT INTO scripts (
                     user_id, format, status, title, angle, hook, trigger, voiceover,
-                    cta, why_it_works, source_basis, raw_json
+                    cta, why_it_works, source_basis, raw_json, topic_fingerprint
                 )
-                VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     user_id,
@@ -158,6 +162,7 @@ class Storage:
                     normalized["why_it_works"],
                     normalized["source_basis"],
                     json.dumps(payload, ensure_ascii=False),
+                    normalized["topic_fingerprint"],
                 ),
             )
             script_id = int(cursor.lastrowid)
@@ -401,6 +406,7 @@ def normalize_script_payload(payload: dict[str, Any]) -> dict[str, str]:
         "cta_reason": pick("cta_reason"),
         "why_it_works": pick("why_it_works", "why", "почему_сработает"),
         "source_basis": pick("source_basis", "sources", "опора_из_базы"),
+        "topic_fingerprint": pick("topic_fingerprint") or script_topic_fingerprint(payload),
     }
 
 
@@ -419,6 +425,7 @@ def row_to_script(row: sqlite3.Row) -> ScriptRecord:
         why_it_works=str(row["why_it_works"]),
         source_basis=str(row["source_basis"]),
         raw=json.loads(row["raw_json"] or "{}"),
+        topic_fingerprint=str(row["topic_fingerprint"] or ""),
     )
 
 

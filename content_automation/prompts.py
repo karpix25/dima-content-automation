@@ -48,13 +48,23 @@ Write {count} English short vertical-video script(s) for existing Amazon sellers
 Voice: {style}
 Offer: high-ticket Amazon growth mentorship, from 1400 USD. No direct CTA.
 Rules: no Cyrillic, no markdown, practical and specific. {length_instruction(budget)}{hint_line}{exclusions_line}
+Social performance rules:
+- One sharp idea only: a pain, a mechanism, and a payoff.
+- The first sentence must create tension in 1-2 seconds: hidden mistake, contrarian warning, or specific money leak.
+- Build retention as setup -> turn -> proof/example -> payoff. No generic advice.
+- Use concrete Amazon seller stakes: margin, PPC waste, cash flow, fees, inventory, rankings, operations, or expansion.
+- Resolve the curiosity gap by the end; do not end as a vague teaser.
+- Make the idea feel new compared with the avoided titles, hooks, and fingerprints.
 
 [
   {{
     "title": "",
+    "topic_fingerprint": "pain + mechanism + audience moment + payoff",
     "angle": "",
+    "hook_type": "hidden mistake | contrarian warning | money leak | belief shift",
     "hook": "",
     "trigger": "",
+    "retention_beats": ["setup", "turn", "proof", "payoff"],
     "voiceover": "",
     "cta_type": "none",
     "cta": "",
@@ -70,6 +80,7 @@ def build_youtube_script_prompt(
     offer_context: str | None = None,
     cta_mix: str | None = None,
     topic_hint: str | None = None,
+    exclusion_context: str | None = None,
     word_budget: WordBudget | None = None,
 ) -> str:
     style = (author_style or DEFAULT_AUTHOR_STYLE).strip()
@@ -77,6 +88,8 @@ def build_youtube_script_prompt(
     cta_distribution = (cta_mix or DEFAULT_CTA_MIX).strip()
     budget = word_budget or youtube_word_budget(10)
     hint = f"\nAdditional user focus: {topic_hint.strip()}\n" if topic_hint else ""
+    exclusions = _short_prompt_value(exclusion_context, 1200)
+    exclusions_line = f"\nAvoid repeating these prior title/hook/fingerprint patterns:\n{exclusions}\n" if exclusions else ""
     return f"""
 You are a YouTube strategist and scriptwriter for a high-ticket education product about growing an Amazon business.
 
@@ -112,6 +125,14 @@ Alex Hormozi-style funnel logic:
 - show the cost of inaction;
 - softly lead to the idea that mentorship/course speeds up the path and reduces chaos.
 
+Retention and packaging logic:
+- Define one core promise for the viewer before writing.
+- Open with a specific tension, not a broad topic intro.
+- Add a new open loop every 45-75 seconds and close it with a concrete example.
+- Include pattern interrupts: contrarian line, number, mistake, or diagnostic question.
+- Keep every section tied to the seller's stakes: profit, cash flow, PPC waste, inventory, operations, or expansion.
+- Avoid generic "grow your Amazon business" advice unless it is attached to a mechanism and example.
+
 CTA strategy:
 - Use this CTA mix guidance for the video's CTA placement: {cta_distribution}.
 - Do not paste a generic CTA. Write CTA moments that fit the specific topic and offer context.
@@ -122,12 +143,16 @@ Using this NotebookLM knowledge base, write 1 YouTube script.
 - {length_instruction(budget)}
 - Do not make it shorter than the minimum or longer than the maximum word count.
 {hint}
+{exclusions_line}
 Return only valid JSON. No Markdown. No prose outside JSON.
 Schema:
 [
   {{
     "title": "video title",
+    "topic_fingerprint": "pain + mechanism + audience moment + payoff",
     "angle": "main idea",
+    "core_promise": "specific viewer payoff",
+    "retention_beats": ["hook", "open loop", "framework", "example", "payoff"],
     "hook": "first 15 seconds hook",
     "trigger": "main trigger",
     "voiceover": "full English script with approximate timing and conversational delivery",

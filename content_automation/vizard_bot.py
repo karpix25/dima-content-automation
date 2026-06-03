@@ -22,16 +22,18 @@ logger = logging.getLogger(__name__)
 def vizard_settings_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [button("9:16 вертикальный", callback_data="vizard:ratio:1")],
-            [button("16:9 горизонтальный", callback_data="vizard:ratio:4")],
-            [button("Длина: auto", callback_data="vizard:length:0")],
-            [button("Длина: <30 сек", callback_data="vizard:length:1")],
-            [button("Длина: 30-60 сек", callback_data="vizard:length:2")],
-            [button("Длина: 60-90 сек", callback_data="vizard:length:3")],
-            [button("Длина: 90 сек - 3 мин", callback_data="vizard:length:4")],
-            [button("Удаление тишины: вкл", callback_data="vizard:silence:1")],
-            [button("Удаление тишины: выкл", callback_data="vizard:silence:0")],
-            [button("Показать текущие Vizard", callback_data="vizard:show")],
+            [button("📱 Формат 9:16", callback_data="vizard:ratio:1")],
+            [button("🖥 Формат 16:9", callback_data="vizard:ratio:4")],
+            [button("⏱ Длина: auto", callback_data="vizard:length:0")],
+            [button("⚡ Длина: до 30 сек", callback_data="vizard:length:1")],
+            [button("🎯 Длина: 30-60 сек", callback_data="vizard:length:2")],
+            [button("🧩 Длина: 60-90 сек", callback_data="vizard:length:3")],
+            [button("📼 Длина: 90 сек - 3 мин", callback_data="vizard:length:4")],
+            [
+                button("🔇 Удалять тишину", callback_data="vizard:silence:1"),
+                button("🔈 Оставлять тишину", callback_data="vizard:silence:0"),
+            ],
+            [button("👀 Показать текущие Vizard", callback_data="vizard:show")],
         ]
     )
 
