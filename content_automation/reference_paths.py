@@ -28,6 +28,21 @@ def thumbnail_reference_paths(
     return [path for path in paths if path is not None][:16]
 
 
+def thumbnail_style_reference_paths(
+    *,
+    asset_store: MediaAssetStore,
+    user_id: str,
+    target: str,
+) -> list[Path]:
+    normalized_target = "horizontal" if target == "horizontal" else "vertical"
+    return [
+        path
+        for item in asset_store.list_assets(user_id, "thumbnail_reference")
+        if item.target in {normalized_target, "both"}
+        if (path := _existing_path(item.file_path)) is not None
+    ][:15]
+
+
 def thumbnail_face_reference_paths(
     *,
     storage: Storage,

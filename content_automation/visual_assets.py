@@ -23,15 +23,27 @@ def generate_post_heygen_assets(
     broll_count: int,
     kie_client: KieImageClient | None = None,
     reference_paths: list[Path] | None = None,
+    face_reference_paths: list[Path] | None = None,
+    style_reference_paths: list[Path] | None = None,
 ) -> VisualAssetSet:
     output_dir.mkdir(parents=True, exist_ok=True)
     size = (1080, 1920) if record.format == "short" else (1920, 1080)
     cover_path = output_dir / f"cover_{record.id}.png"
+    face_paths = face_reference_paths or []
+    style_paths = style_reference_paths or []
+    legacy_paths = reference_paths or []
+    all_references = [*face_paths, *style_paths, *legacy_paths]
+    has_references = bool(all_references)
     _generate_or_render(
         kie_client=kie_client,
         path=cover_path,
-        prompt=_cover_prompt(record, has_references=bool(reference_paths)),
-        reference_paths=reference_paths or [],
+        prompt=_cover_prompt(
+            record,
+            has_references=has_references,
+            has_face_reference=bool(face_paths),
+            has_style_references=bool(style_paths or legacy_paths),
+        ),
+        reference_paths=all_references,
         size=size,
         title=record.hook or record.title or "Key idea",
         subtitle=record.trigger or record.angle,
@@ -44,8 +56,8 @@ def generate_post_heygen_assets(
         _generate_or_render(
             kie_client=kie_client,
             path=path,
-            prompt=_broll_prompt(record, text, has_references=bool(reference_paths)),
-            reference_paths=reference_paths or [],
+            prompt=_broll_prompt(record, text, has_references=has_references),
+            reference_paths=all_references,
             size=size,
             title=text,
             subtitle=record.title,
@@ -88,17 +100,35 @@ def _broll_texts(record: ScriptRecord) -> list[str]:
     return [_clean_text(item) for item in candidates if _clean_text(item)]
 
 
-def _cover_prompt(record: ScriptRecord, *, has_references: bool = False) -> str:
-    reference_rule = (
+def _cover_prompt(
+    record: ScriptRecord,
+    *,
+    has_references: bool = False,
+    has_face_reference: bool = False,
+    has_style_references: bool = False,
+) -> str:
+    if not has_references:
+        reference_rule = ""
+    else:
+        face_rule = (
+            "The first uploaded reference image(s) are AUTHOR FACE references. The person in the final cover must match that face identity, age range, facial structure, and general appearance. "
+            "Do not invent a different presenter and do not use people from style references as the author. "
+            if has_face_reference
+            else ""
+        )
+        style_rule = (
+            "The remaining uploaded reference images are STYLE ONLY references. Use them as a thumbnail style board: match their layout logic, visual hierarchy, "
+            "large-text rhythm, bold numbers, color energy, contrast, spacing, face placement, and social-thumbnail composition. "
+            if has_style_references
+            else ""
+        )
+        reference_rule = (
         "Uploaded images are mandatory references, not loose inspiration. "
-        "If a face/person reference is present, use it only for the author's identity and likeness. "
-        "Use the uploaded thumbnail/style references as a style board: match their layout logic, visual hierarchy, "
-        "large-text rhythm, bold numbers, color energy, contrast, spacing, face placement, and social-thumbnail composition. "
+            f"{face_rule}"
+            f"{style_rule}"
         "The result must feel like the same thumbnail system as the references, adapted to the new topic. "
         "Do not copy old text, logos, exact numbers, old faces, or identities from style references. "
-        if has_references
-        else ""
-    )
+        )
     return (
         "Create a premium vertical 9:16 cover frame for a business short video. "
         f"{reference_rule}"

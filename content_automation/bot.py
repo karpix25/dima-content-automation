@@ -36,7 +36,7 @@ from .topic_dedupe import (
 )
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
 from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
-from .reference_paths import target_from_record_format, thumbnail_reference_paths
+from .reference_paths import target_from_record_format, thumbnail_face_reference_paths, thumbnail_style_reference_paths
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
 from .vizard_bot import format_vizard_settings, run_vizard_youtube_job, vizard_settings_keyboard
 from .vizard_models import normalize_vizard_setting_value
@@ -1065,10 +1065,14 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
         output_dir=asset_dir,
         broll_count=settings.post_heygen_broll_count,
         kie_client=kie_image,
-        reference_paths=thumbnail_reference_paths(
+        face_reference_paths=thumbnail_face_reference_paths(
             storage=storage,
-            asset_store=asset_store,
             settings=settings,
+            user_id=record.user_id,
+            target=target_from_record_format(record.format),
+        ),
+        style_reference_paths=thumbnail_style_reference_paths(
+            asset_store=asset_store,
             user_id=record.user_id,
             target=target_from_record_format(record.format),
         ),
@@ -1098,10 +1102,14 @@ async def apply_cover_frame_to_video(record: ScriptRecord, video_path: Path, ass
         output_dir=asset_dir,
         broll_count=0,
         kie_client=kie_image,
-        reference_paths=thumbnail_reference_paths(
+        face_reference_paths=thumbnail_face_reference_paths(
             storage=storage,
-            asset_store=asset_store,
             settings=settings,
+            user_id=record.user_id,
+            target=target_from_record_format(record.format),
+        ),
+        style_reference_paths=thumbnail_style_reference_paths(
+            asset_store=asset_store,
             user_id=record.user_id,
             target=target_from_record_format(record.format),
         ),

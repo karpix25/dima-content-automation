@@ -65,13 +65,36 @@ def test_generate_post_heygen_assets_passes_references_to_kie(tmp_path: Path):
         output_dir=tmp_path / "out",
         broll_count=1,
         kie_client=client,
-        reference_paths=[reference],
+        face_reference_paths=[reference],
     )
 
     assert client.reference_batches == [[reference], [reference]]
     assert "mandatory references" in client.prompts[0]
-    assert "style board" in client.prompts[0]
-    assert "same thumbnail system" in client.prompts[0]
+    assert "AUTHOR FACE" in client.prompts[0]
+    assert "must match that face identity" in client.prompts[0]
+
+
+def test_generate_post_heygen_assets_labels_face_and_style_references(tmp_path: Path):
+    record = _record()
+    client = FakeKieClient()
+    face = tmp_path / "face.jpg"
+    style = tmp_path / "style.jpg"
+    face.write_text("face")
+    style.write_text("style")
+
+    generate_post_heygen_assets(
+        record=record,
+        output_dir=tmp_path / "out",
+        broll_count=0,
+        kie_client=client,
+        face_reference_paths=[face],
+        style_reference_paths=[style],
+    )
+
+    assert client.reference_batches == [[face, style]]
+    assert "AUTHOR FACE references" in client.prompts[0]
+    assert "STYLE ONLY references" in client.prompts[0]
+    assert "Do not invent a different presenter" in client.prompts[0]
 
 
 class FakeKieClient:
