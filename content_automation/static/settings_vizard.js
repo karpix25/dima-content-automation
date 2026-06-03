@@ -1,3 +1,5 @@
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js";
+
 const LENGTH_OPTIONS = [
   ["0", "auto"],
   ["1", "< 30 сек"],
@@ -18,40 +20,35 @@ export function renderVizardTab({ state, escapeHtml }) {
   return `
     ${formatHeader("Vizard нарезка YouTube", "Отправь YouTube-ссылку в бот, Vizard сам найдет клипы и вернет ролики.", vizardSummaryChips(settings), escapeHtml)}
     <section class="settings-stack">
-      <div class="settings-two">
-        ${selectSetting("vizard_ratio_of_clip", "Формат финального ролика", String(settings.ratio_of_clip || 1), RATIO_OPTIONS, escapeHtml)}
-        ${multiSelectSetting("vizard_prefer_length", "Длина единицы ролика", settings.prefer_length || [0], LENGTH_OPTIONS, escapeHtml)}
-      </div>
-      <div class="settings-three">
-        ${smallTextSetting("vizard_lang", "Язык видео", settings.lang || "en", 12, escapeHtml)}
-        ${numberSetting("vizard_max_clip_number", "Максимум клипов", settings.max_clip_number || 10, 1, 100)}
-        ${numberSetting("vizard_template_id", "Template ID", settings.template_id || "", 1, 999999999)}
-      </div>
-      ${textAreaSetting("vizard_keywords", "Keywords для отбора тем", settings.keywords || "", 3, escapeHtml)}
-      <div class="soft-box">
-        <h3>Автооформление</h3>
-        <div class="settings-three">
-          ${toggleSetting("vizard_subtitle_switch", "Субтитры", settings.subtitle_switch, escapeHtml)}
-          ${toggleSetting("vizard_headline_switch", "Headline/hook", settings.headline_switch, escapeHtml)}
-          ${toggleSetting("vizard_remove_silence_switch", "Убрать паузы", settings.remove_silence_switch, escapeHtml)}
-          ${toggleSetting("vizard_emoji_switch", "Emoji", settings.emoji_switch, escapeHtml)}
-          ${toggleSetting("vizard_highlight_switch", "Highlight words", settings.highlight_switch, escapeHtml)}
-          ${toggleSetting("vizard_auto_broll_switch", "Auto B-roll", settings.auto_broll_switch, escapeHtml)}
+      ${settingsDisclosure("Основные", [chip(ratioLabel(settings.ratio_of_clip || 1)), chip(lengthLabel(settings.prefer_length || [0])), chip(`тишина: ${settings.remove_silence_switch ? "вкл" : "выкл"}`)], `
+        <div class="settings-two">
+          ${selectSetting("vizard_ratio_of_clip", "Формат финального ролика", String(settings.ratio_of_clip || 1), RATIO_OPTIONS, escapeHtml)}
+          ${multiSelectSetting("vizard_prefer_length", "Длина единицы ролика", settings.prefer_length || [0], LENGTH_OPTIONS, escapeHtml)}
         </div>
-      </div>
+        <div class="soft-box">
+          ${toggleSetting("vizard_remove_silence_switch", "Убрать паузы", settings.remove_silence_switch, escapeHtml)}
+        </div>
+      `, escapeHtml)}
+      ${settingsDisclosure("Отбор клипов", [chip(`до ${settings.max_clip_number || 10}`), chip(settings.keywords ? "keywords заданы" : "keywords пустые", !settings.keywords)], `
+        <div class="settings-three">
+          ${smallTextSetting("vizard_lang", "Язык видео", settings.lang || "en", 12, escapeHtml)}
+          ${numberSetting("vizard_max_clip_number", "Максимум клипов", settings.max_clip_number || 10, 1, 100)}
+          ${numberSetting("vizard_template_id", "Template ID", settings.template_id || "", 1, 999999999)}
+        </div>
+        ${textAreaSetting("vizard_keywords", "Keywords для отбора тем", settings.keywords || "", 3, escapeHtml)}
+      `, escapeHtml)}
+      ${settingsDisclosure("Автооформление", autoSwitchChips(settings), `
+        <div class="soft-box">
+          <div class="settings-three">
+            ${toggleSetting("vizard_subtitle_switch", "Субтитры", settings.subtitle_switch, escapeHtml)}
+            ${toggleSetting("vizard_headline_switch", "Headline/hook", settings.headline_switch, escapeHtml)}
+            ${toggleSetting("vizard_emoji_switch", "Emoji", settings.emoji_switch, escapeHtml)}
+            ${toggleSetting("vizard_highlight_switch", "Highlight words", settings.highlight_switch, escapeHtml)}
+            ${toggleSetting("vizard_auto_broll_switch", "Auto B-roll", settings.auto_broll_switch, escapeHtml)}
+          </div>
+        </div>
+      `, escapeHtml)}
     </section>
-  `;
-}
-
-function formatHeader(title, subtitle, chips, escapeHtml) {
-  return `
-    <header class="format-settings-head">
-      <div>
-        <h2>${escapeHtml(title)}</h2>
-        <p>${escapeHtml(subtitle)}</p>
-      </div>
-      <div class="summary-chips">${chips.map((chip) => `<span class="summary-chip ${chip.muted ? "muted" : ""}">${escapeHtml(chip.label)}</span>`).join("")}</div>
-    </header>
   `;
 }
 
@@ -131,6 +128,17 @@ function vizardSummaryChips(settings) {
   ];
 }
 
+function autoSwitchChips(settings) {
+  const enabled = [
+    settings.subtitle_switch && "subs",
+    settings.headline_switch && "headline",
+    settings.emoji_switch && "emoji",
+    settings.highlight_switch && "highlight",
+    settings.auto_broll_switch && "b-roll",
+  ].filter(Boolean);
+  return [chip(enabled.length ? enabled.join(", ") : "все выкл", enabled.length === 0)];
+}
+
 function ratioLabel(value) {
   const found = RATIO_OPTIONS.find(([option]) => option === String(value));
   return found ? found[1] : "9:16 вертикальный";
@@ -139,8 +147,4 @@ function ratioLabel(value) {
 function lengthLabel(values) {
   const selected = new Set(values.map((item) => String(item)));
   return LENGTH_OPTIONS.filter(([option]) => selected.has(option)).map(([, label]) => label).join(", ") || "auto";
-}
-
-function chip(label, muted = false) {
-  return { label, muted };
 }

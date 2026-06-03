@@ -1,4 +1,5 @@
 import { renderAvatarSelectors } from "/static/settings_avatars.js";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js";
 import { renderVizardTab } from "/static/settings_vizard.js";
 import { renderVoiceSelector } from "/static/settings_voices.js";
 
@@ -58,26 +59,31 @@ function renderYoutubeTab({ state, escapeHtml }) {
   return `
     ${formatHeader("YouTube горизонтальный", "Аватар, обложка, вставки и финальная плашка для long-ролика.", youtubeSummaryChips(state), escapeHtml)}
     <section class="settings-stack">
-      <div class="soft-box">
-        <h3>Горизонтальный HeyGen avatar</h3>
-        ${renderAvatarSelectors(state, escapeHtml, { target: "horizontal" })}
-      </div>
-      <div class="settings-two">
-        ${durationCard("youtube_long_duration_minutes", "Длина long YouTube сценария", `${settings.youtube_long_duration_minutes || 10}`, "мин", [
-          ["5", "5 мин"],
-          ["7", "7 мин"],
-          ["10", "10 мин"],
-          ["12", "12 мин"],
-          ["15", "15 мин"],
-        ], escapeHtml)}
-        ${overlayCard(state, "youtube", escapeHtml)}
-      </div>
-      <div class="settings-two cover-grid">
-        ${faceReferenceBox(state, "horizontal", escapeHtml)}
-        ${thumbnailReferenceBox(state, "horizontal", escapeHtml)}
-      </div>
-      ${avatarInsertBox(state, escapeHtml)}
-      ${textAreaSetting("youtube_description_template", "Шаблон описания YouTube", settings.youtube_description_template || "", 5, escapeHtml)}
+      ${settingsDisclosure("Выход и длительность", youtubeOutputChips(state), `
+        <div class="settings-two">
+          ${durationCard("youtube_long_duration_minutes", "Длина long YouTube сценария", `${settings.youtube_long_duration_minutes || 10}`, "мин", [
+            ["5", "5 мин"],
+            ["7", "7 мин"],
+            ["10", "10 мин"],
+            ["12", "12 мин"],
+            ["15", "15 мин"],
+          ], escapeHtml)}
+          ${overlayCard(state, "youtube", escapeHtml)}
+        </div>
+      `, escapeHtml)}
+      ${settingsDisclosure("HeyGen avatar", [chip(state.settings.heygen_avatar_name || "не выбран", !state.settings.heygen_avatar_name)], `
+        <div class="soft-box compact-host">
+          ${renderAvatarSelectors(state, escapeHtml, { target: "horizontal" })}
+        </div>
+      `, escapeHtml)}
+      ${settingsDisclosure("Обложки и лицо", coverSummaryChips(state, "horizontal"), `
+        <div class="settings-two cover-grid">
+          ${faceReferenceBox(state, "horizontal", escapeHtml)}
+          ${thumbnailReferenceBox(state, "horizontal", escapeHtml)}
+        </div>
+      `, escapeHtml)}
+      ${settingsDisclosure("Видео-вставки", avatarInsertSummaryChips(state), avatarInsertBox(state, escapeHtml), escapeHtml)}
+      ${settingsDisclosure("Описание YouTube", [chip(settings.youtube_description_template ? "шаблон задан" : "пусто", !settings.youtube_description_template)], textAreaSetting("youtube_description_template", "Шаблон описания YouTube", settings.youtube_description_template || "", 5, escapeHtml), escapeHtml)}
     </section>
   `;
 }
@@ -87,27 +93,32 @@ function renderShortsTab({ state, escapeHtml }) {
   return `
     ${formatHeader("Вертикальное видео", "Один входной ролик, два выхода: Shorts и Reels со своими финальными плашками.", shortsSummaryChips(state), escapeHtml)}
     <section class="settings-stack">
-      <div class="settings-two">
-        ${overlayCard(state, "shorts", escapeHtml)}
-        ${overlayCard(state, "reels", escapeHtml)}
-      </div>
-      <div class="settings-two">
-        ${durationCard("vertical_avatar_duration_mode", "Длина вертикального AI-аватара", settings.vertical_avatar_duration_mode || "original", "", [
-          ["original", "по оригиналу"],
-          ["30", "30 сек"],
-          ["45", "45 сек"],
-          ["60", "60 сек"],
-          ["90", "90 сек"],
-        ], escapeHtml)}
-        <div class="soft-box">
-          <h3>Вертикальный HeyGen avatar</h3>
-          ${renderAvatarSelectors(state, escapeHtml, { target: "vertical" })}
+      ${settingsDisclosure("Финальные плашки", verticalOverlayChips(state), `
+        <div class="settings-two">
+          ${overlayCard(state, "shorts", escapeHtml)}
+          ${overlayCard(state, "reels", escapeHtml)}
         </div>
-      </div>
-      <div class="settings-two cover-grid">
-        ${faceReferenceBox(state, "vertical", escapeHtml)}
-        ${thumbnailReferenceBox(state, "vertical", escapeHtml)}
-      </div>
+      `, escapeHtml)}
+      ${settingsDisclosure("Avatar и длительность", [chip(state.settings.heygen_vertical_avatar_name || "avatar не выбран", !state.settings.heygen_vertical_avatar_name), chip(verticalLabel(settings.vertical_avatar_duration_mode))], `
+        <div class="settings-two">
+          ${durationCard("vertical_avatar_duration_mode", "Длина вертикального AI-аватара", settings.vertical_avatar_duration_mode || "original", "", [
+            ["original", "по оригиналу"],
+            ["30", "30 сек"],
+            ["45", "45 сек"],
+            ["60", "60 сек"],
+            ["90", "90 сек"],
+          ], escapeHtml)}
+          <div class="soft-box compact-host">
+            ${renderAvatarSelectors(state, escapeHtml, { target: "vertical" })}
+          </div>
+        </div>
+      `, escapeHtml)}
+      ${settingsDisclosure("Обложки и лицо", coverSummaryChips(state, "vertical"), `
+        <div class="settings-two cover-grid">
+          ${faceReferenceBox(state, "vertical", escapeHtml)}
+          ${thumbnailReferenceBox(state, "vertical", escapeHtml)}
+        </div>
+      `, escapeHtml)}
     </section>
   `;
 }
@@ -117,12 +128,14 @@ function renderFiveSecondTab({ state, escapeHtml }) {
   return `
     ${formatHeader("5 секунд / золотая инфографика", "Kie генерирует карточку по сценарию, лицу и референсам дизайна. Обложка здесь не используется.", fiveSecondSummaryChips(five, state), escapeHtml)}
     <section class="settings-stack">
-      ${textInputSetting("instagram_post_5s_cta_text", "CTA в нижнем белом фрейме", five.cta_text || "", 180, escapeHtml)}
-      <div class="settings-two cover-grid">
-        ${faceReferenceBox(state, "vertical", escapeHtml, "Референс лица для инфографики")}
-        ${fiveSecondReferenceBox(five, escapeHtml)}
-      </div>
-      ${fiveSecondAudioBox(five, escapeHtml)}
+      ${settingsDisclosure("CTA", [chip(five.cta_text ? "задан" : "пусто", !five.cta_text)], textInputSetting("instagram_post_5s_cta_text", "CTA в нижнем белом фрейме", five.cta_text || "", 180, escapeHtml), escapeHtml)}
+      ${settingsDisclosure("Лицо и дизайн", fiveSecondSummaryChips(five, state), `
+        <div class="settings-two cover-grid">
+          ${faceReferenceBox(state, "vertical", escapeHtml, "Референс лица для инфографики")}
+          ${fiveSecondReferenceBox(five, escapeHtml)}
+        </div>
+      `, escapeHtml)}
+      ${settingsDisclosure("Аудио", [chip(`аудио: ${five.audio_tracks.length}`, five.audio_tracks.length === 0)], fiveSecondAudioBox(five, escapeHtml), escapeHtml)}
     </section>
   `;
 }
@@ -132,34 +145,26 @@ function renderCommonTab({ state, escapeHtml }) {
   return `
     ${formatHeader("Общие настройки", "База для всех форматов: NotebookLM, голос, модель HeyGen и стиль текстов.", commonSummaryChips(state), escapeHtml)}
     <section class="settings-stack">
-      <div class="settings-two">
-        <div class="soft-box">
-          <h3>Голос ElevenLabs</h3>
-          ${renderVoiceSelector(state, escapeHtml)}
+      ${settingsDisclosure("Голос и модель", commonSummaryChips(state), `
+        <div class="settings-two">
+          <div class="soft-box">
+            <h3>Голос ElevenLabs</h3>
+            ${renderVoiceSelector(state, escapeHtml)}
+          </div>
+          <div class="soft-box">
+            <h3>Модель HeyGen</h3>
+            ${renderAvatarSelectors(state, escapeHtml, { mode: "model" })}
+          </div>
         </div>
-        <div class="soft-box">
-          <h3>Модель HeyGen</h3>
-          ${renderAvatarSelectors(state, escapeHtml, { mode: "model" })}
-        </div>
-      </div>
-      ${textAreaSetting("notebook_id", "NotebookLM ID", settings.notebook_id || "", 2, escapeHtml)}
-      ${textAreaSetting("author_style", "Стиль автора", settings.author_style || "", 5, escapeHtml)}
-      ${textAreaSetting("offer_context", "Контекст оффера", settings.offer_context || "", 5, escapeHtml)}
-      ${textAreaSetting("cta_mix", "Логика CTA", settings.cta_mix || "", 5, escapeHtml)}
-      ${thumbnailLibraryBox(state, escapeHtml)}
+      `, escapeHtml)}
+      ${settingsDisclosure("NotebookLM", [chip(settings.notebook_id ? "задан" : "пустой", !settings.notebook_id)], textAreaSetting("notebook_id", "NotebookLM ID", settings.notebook_id || "", 2, escapeHtml), escapeHtml)}
+      ${settingsDisclosure("Стиль и оффер", [chip(settings.author_style ? "стиль" : "стиль пустой", !settings.author_style), chip(settings.offer_context ? "оффер" : "оффер пустой", !settings.offer_context)], `
+        ${textAreaSetting("author_style", "Стиль автора", settings.author_style || "", 5, escapeHtml)}
+        ${textAreaSetting("offer_context", "Контекст оффера", settings.offer_context || "", 5, escapeHtml)}
+        ${textAreaSetting("cta_mix", "Логика CTA", settings.cta_mix || "", 5, escapeHtml)}
+      `, escapeHtml)}
+      ${settingsDisclosure("Медиатека обложек", [chip(`refs: ${state.thumbnailReferences.length}`, state.thumbnailReferences.length === 0)], thumbnailLibraryBox(state, escapeHtml), escapeHtml)}
     </section>
-  `;
-}
-
-function formatHeader(title, subtitle, chips, escapeHtml) {
-  return `
-    <header class="format-settings-head">
-      <div>
-        <h2>${escapeHtml(title)}</h2>
-        <p>${escapeHtml(subtitle)}</p>
-      </div>
-      <div class="summary-chips">${chips.map((chip) => `<span class="summary-chip ${chip.muted ? "muted" : ""}">${escapeHtml(chip.label)}</span>`).join("")}</div>
-    </header>
   `;
 }
 
@@ -409,11 +414,45 @@ function youtubeSummaryChips(state) {
   ];
 }
 
+function youtubeOutputChips(state) {
+  const overlay = overlayState(state, "youtube");
+  return [
+    chip(`${state.settings.youtube_long_duration_minutes || 10} мин`),
+    chip(overlay?.has_file ? "плашка есть" : "плашки нет", !overlay?.has_file),
+  ];
+}
+
 function shortsSummaryChips(state) {
   return [
     chip(state.settings.heygen_vertical_avatar_name || "avatar не выбран", !state.settings.heygen_vertical_avatar_name),
-    chip(state.settings.vertical_thumbnail_face_path ? "лицо выбрано" : "лицо не выбрано", !state.settings.vertical_thumbnail_face_path),
+    ...verticalOverlayChips(state),
     chip(verticalLabel(state.settings.vertical_avatar_duration_mode)),
+  ];
+}
+
+function verticalOverlayChips(state) {
+  const shorts = overlayState(state, "shorts");
+  const reels = overlayState(state, "reels");
+  return [
+    chip(shorts?.has_file ? "Shorts есть" : "Shorts нет", !shorts?.has_file),
+    chip(reels?.has_file ? "Reels есть" : "Reels нет", !reels?.has_file),
+  ];
+}
+
+function coverSummaryChips(state, target) {
+  const facePath = target === "horizontal" ? state.settings.thumbnail_face_path : state.settings.vertical_thumbnail_face_path;
+  const refs = state.thumbnailReferences.filter((item) => targetHas(item.target, target)).length;
+  return [
+    chip(facePath ? "лицо выбрано" : "лицо не выбрано", !facePath),
+    chip(`refs: ${refs}`, refs === 0),
+  ];
+}
+
+function avatarInsertSummaryChips(state) {
+  const settings = state.settings;
+  return [
+    chip(`вставок: ${settings.avatar_insert_clips_count ?? 0}`, !settings.avatar_insert_clips_count),
+    chip(`${settings.avatar_insert_start_percent ?? 50}-${settings.avatar_insert_end_percent ?? 95}%`),
   ];
 }
 
@@ -434,8 +473,8 @@ function commonSummaryChips(state) {
   ];
 }
 
-function chip(label, muted = false) {
-  return { label, muted };
+function overlayState(state, format) {
+  return (state.settings.overlays || []).find((item) => item.format === format);
 }
 
 function targetHas(value, target) {

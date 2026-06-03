@@ -42,6 +42,11 @@
   margin: 12px;
 }
 
+.settings-section-body {
+  display: grid;
+  gap: 10px;
+}
+
 .settings-section > label,
 .settings-section > input,
 .settings-section > textarea,
