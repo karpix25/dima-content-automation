@@ -40,13 +40,15 @@ def test_vertical_director_image_prompt_is_visual_only_for_html_overlay():
     )
 
     prompt = plan.scenes[0]["imagePrompt"]
-    assert "central square visual evidence image" in prompt
+    assert "central square first-person Amazon interface teardown image" in prompt
     assert "HTML/CSS Hyperframes card" in prompt
     assert "No big headline text" in prompt
-    assert "Small English micro-labels" in prompt
+    assert "short English UI labels" in prompt
+    assert "realistic but generic Amazon-style product listing interface" in prompt
+    assert "red hand-drawn circle" in prompt
     assert "information-rich" in prompt
     assert "top-right and bottom edge visually clean" in prompt
-    assert "controlled negative space" in prompt
+    assert "main interface dense enough to teach something" in prompt
     assert "Avoid dark dashboards" in prompt
 
 

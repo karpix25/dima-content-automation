@@ -244,7 +244,7 @@ def _visual_story(*, title: str, text: str, index: int) -> dict[str, str]:
             "metric_value": "50%",
             "metric_label": "drop threshold",
             "evidence": "stop if demand breaks",
-            "story": "Show a sales velocity dashboard dipping sharply, with a red decision marker and product boxes slowing on a conveyor.",
+            "story": "Show a seller analytics screen from first-person perspective: hourly sales line drops after a price test, conversion and BSR widgets sit nearby, and red marker annotations circle the break point.",
         }
     if "velocity" in joined and ("hold" in joined or "keep" in joined):
         return {
@@ -255,7 +255,7 @@ def _visual_story(*, title: str, text: str, index: int) -> dict[str, str]:
             "metric_value": "HOLD",
             "metric_label": "velocity stable",
             "evidence": "keep the bump",
-            "story": "Show a steady green velocity line while product boxes continue moving through fulfillment, implying the price bump holds.",
+            "story": "Show a seller dashboard from first-person perspective where the velocity chart stays stable after a price change; highlight the hold zone with a green check and a red bracket around the price test window.",
         }
     if "profit" in joined or "sku" in joined:
         return {
@@ -266,7 +266,7 @@ def _visual_story(*, title: str, text: str, index: int) -> dict[str, str]:
             "metric_value": "+$1",
             "metric_label": "daily profit lever",
             "evidence": "proof beats theory",
-            "story": "Show a SKU ledger where a single dollar flows into daily profit, with coins stacking beside a clean unit-economics sheet.",
+            "story": "Show a unit-economics interface board from first-person perspective: SKU card, selling price, FBA fee, margin, daily units, and profit total, with arrows showing the extra dollar flowing into daily profit.",
         }
     if "elasticity" in joined or "test" in joined:
         return {
@@ -277,7 +277,7 @@ def _visual_story(*, title: str, text: str, index: int) -> dict[str, str]:
             "metric_value": "A/B",
             "metric_label": "price test",
             "evidence": "measure before scaling",
-            "story": "Show an Amazon SKU testing station: two price cards, a BSR line, a small clock, and a seller hand comparing outcomes.",
+            "story": "Show an Amazon listing and seller dashboard interface from first-person perspective: two price options, BSR trend, review stars, Buy Box panel, and a red circle pointing to the metric that decides the test.",
         }
     if "$1" in joined or "exactly $1" in joined or "bump the price" in joined:
         return {
@@ -288,7 +288,7 @@ def _visual_story(*, title: str, text: str, index: int) -> dict[str, str]:
             "metric_value": "$1",
             "metric_label": "controlled bump",
             "evidence": "small move, measured risk",
-            "story": "Show a close-up of a price tag being moved up by exactly one dollar beside a SKU card and margin calculator.",
+            "story": "Show a seller interface mockup from first-person perspective: product listing price changes from $23.99 to $24.99, Buy Box remains visible, margin calculator updates, and red arrows connect price to profit.",
         }
     cues = ["Audit point", "Hidden lever", "Margin check", "Operator move", "Proof frame"]
     return {
@@ -299,7 +299,7 @@ def _visual_story(*, title: str, text: str, index: int) -> dict[str, str]:
         "metric_value": "CHECK",
         "metric_label": "operator signal",
         "evidence": "make the hidden lever visible",
-        "story": "Show the practical Amazon operator consequence of this beat with one clear object-led scene, not an abstract decoration.",
+        "story": "Show the practical Amazon operator consequence as a first-person interface teardown: a listing panel, seller metric cards, and red annotations that explain what the expert is pointing at.",
     }
 
 
@@ -313,25 +313,27 @@ def _image_prompt(
     role: str,
 ) -> str:
     text_rule = (
-        "Do not include Russian text. Small English micro-labels, SKU tags, values, arrows, and object annotations are allowed when they clarify the evidence."
+        "Do not include Russian text. Use short English UI labels, SKU tags, values, arrows, and object annotations only when they clarify the evidence."
         if language == "en"
-        else "Small source-language micro-labels, SKU tags, values, arrows, and object annotations are allowed when they clarify the evidence."
+        else "Use short source-language UI labels, SKU tags, values, arrows, and object annotations only when they clarify the evidence."
     )
     return (
-        "Create a central square visual evidence image for a vertical Amazon seller expert video. "
+        "Create a central square first-person Amazon interface teardown image for a vertical Amazon seller expert video. "
         "It will be placed inside an HTML/CSS Hyperframes card; Hyperframes adds the headline, metric chip, and evidence caption. "
         "Do not design a full poster, thumbnail, slide, or complete card. "
         "No big headline text, no subtitles, no logos, no watermarks, no social-media thumbnail copy. "
         f"{text_rule} "
-        "Keep the top-right and bottom edge visually clean for HTML overlays. "
-        "Show the decision, consequence, or evidence through objects, motion cues, annotated charts, small labels, numeric callouts, and operational props. "
-        "Make the image information-rich: include 3-5 small evidence details such as SKU card, margin note, price tag, BSR line, fee tier marker, check mark, warning dot, or before/after value. "
-        "Prefer Amazon listing screens, Buy Box panels, unit-economics cards, trust-signal checklists, review stars, price blocks, product thumbnails, and seller dashboard fragments when they fit the beat. "
+        "Make it feel like the expert is showing a real screen or printed interface board from their point of view. "
+        "Use a realistic but generic Amazon-style product listing interface, seller dashboard modules, Buy Box panel, conversion card, BSR chart, review stars, price block, trust-signal checklist, unit-economics panel, product thumbnails, and metric cards when they fit the beat. "
+        "Add 2-4 useful moodboard-style annotations: red hand-drawn circle, arrow, bracket, underline, check mark, cross mark, or sticky-note callout. "
+        "Show the decision, consequence, or evidence through interface modules, highlighted metrics, annotated charts, short UI labels, numeric callouts, and operator notes. "
+        "Make the image information-rich: include 4-7 small evidence details such as SKU card, Buy Box state, margin note, price tag, BSR line, conversion percentage, fee tier marker, trust checklist, review count, or before/after value. "
+        "Keep the top-right and bottom edge visually clean for HTML overlays, but keep the main interface dense enough to teach something. "
         "No decorative filler, no generic business people. "
         f"Director role: {role}. Required visual action: {visual_story} "
-        "Use one clear central subject with controlled negative space, a bright off-white workspace, light paper surfaces, pale gray UI panels, thin navy lines, and muted red audit accents. "
+        "Use a clean bright off-white workspace, light paper surfaces, pale gray UI cards, thin navy lines, realistic UI spacing, and muted red/orange annotation accents. "
         "Avoid dark dashboards, black blocks, heavy machinery, dense shadows, and cargo-heavy compositions, but keep enough labeled detail to feel analytical. "
-        "Make it feel airy, premium, editorial, and easy to scan. "
+        "Make it feel practical, premium, editorial, realistic, and easy to scan, like a consultant marking up an Amazon seller screen. "
         f"Visual anchors: {', '.join(terms)}."
     )
 
