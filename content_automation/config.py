@@ -69,6 +69,11 @@ class Settings:
     deepgram_model: str
     deepgram_language: str
     deepgram_timeout_seconds: int
+    vizard_api_key: str | None
+    vizard_api_base_url: str
+    vizard_poll_seconds: int
+    vizard_timeout_seconds: int
+    vizard_request_timeout_seconds: int
 
 
 def get_float_env(name: str, default: float) -> float:
@@ -194,4 +199,12 @@ def load_settings() -> Settings:
         deepgram_model=(os.getenv("DEEPGRAM_MODEL") or "nova-2").strip(),
         deepgram_language=(os.getenv("DEEPGRAM_LANGUAGE") or "en").strip(),
         deepgram_timeout_seconds=max(30, get_int_env("DEEPGRAM_TIMEOUT_SECONDS", 240)),
+        vizard_api_key=(os.getenv("VIZARD_API_KEY") or "").strip() or None,
+        vizard_api_base_url=(
+            os.getenv("VIZARD_API_BASE_URL")
+            or "https://elb-api.vizard.ai/hvizard-server-front/open-api/v1"
+        ).strip().rstrip("/"),
+        vizard_poll_seconds=max(5, get_int_env("VIZARD_POLL_SECONDS", 30)),
+        vizard_timeout_seconds=max(60, get_int_env("VIZARD_TIMEOUT_SECONDS", 3600)),
+        vizard_request_timeout_seconds=max(10, get_int_env("VIZARD_REQUEST_TIMEOUT_SECONDS", 60)),
     )

@@ -102,6 +102,17 @@
   grid-column: 2 / -1;
 }
 
+.toggle-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px;
+  gap: 8px;
+  align-items: center;
+}
+
+.toggle-row button {
+  grid-column: 1 / -1;
+}
+
 .target-row,
 .heygen-model-grid,
 .format-tabbar {

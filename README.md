@@ -272,10 +272,40 @@ APP_MODE=bot
 /daily_scripts
 /daily_scripts фокус: PPC и cash flow
 /youtube_script
+/vizard <youtube_url>
 /formats
 /formats <script_id>
 /status
 ```
+
+## Vizard YouTube-нарезка
+
+Добавь Vizard API key:
+
+```text
+VIZARD_API_KEY=<ключ из Vizard workspace API>
+VIZARD_API_BASE_URL=https://elb-api.vizard.ai/hvizard-server-front/open-api/v1
+VIZARD_POLL_SECONDS=30
+VIZARD_TIMEOUT_SECONDS=3600
+```
+
+После этого можно отправить боту обычную YouTube-ссылку или команду:
+
+```text
+/vizard https://www.youtube.com/watch?v=...
+```
+
+Бот создаст Vizard project, дождется готовых клипов, скачает временные `videoUrl` и отправит ролики обратно в тот же чат/тред.
+
+Настройки Vizard доступны в `/settings` и Mini App:
+
+- формат финального ролика: `9:16`, `16:9`, `1:1`, `4:5`
+- длина единицы ролика: `auto`, `<30s`, `30-60s`, `60-90s`, `90s-3min`
+- язык видео
+- максимум клипов
+- keywords для отбора тем
+- субтитры, headline/hook, emoji, highlight words, auto B-roll, remove silence
+- custom `templateId`
 
 ## Mini app / Turan-форматы
 
@@ -342,6 +372,7 @@ Vizard в Turan остается отдельным URL/video workflow. Notebook
 Голос ElevenLabs
 Плашка Shorts
 Плашка YouTube
+Vizard нарезка
 Контекст оффера
 Голос автора
 Микс CTA

@@ -62,10 +62,11 @@ function bindFormatTabs(root, deps) {
 
 async function saveTextSetting(deps, key) {
   const field = document.querySelector(`[data-setting="${key}"]`);
+  const value = field.multiple ? Array.from(field.selectedOptions).map((option) => option.value).join(",") : field.value;
   deps.setStatus("Сохраняю");
   deps.state.settings = await deps.api("/api/settings/text", {
     method: "PATCH",
-    body: JSON.stringify({ user_id: deps.state.userId, key, value: field.value }),
+    body: JSON.stringify({ user_id: deps.state.userId, key, value }),
   });
   await loadSettingsData(deps);
   deps.setStatus("Сохранено");

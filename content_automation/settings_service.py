@@ -6,6 +6,7 @@ from pathlib import Path
 from .config import Settings
 from .prompts import DEFAULT_AUTHOR_STYLE, DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT
 from .storage import Storage
+from .vizard_models import VizardUserSettings, normalize_vizard_setting_value, normalize_vizard_settings
 from .voice_speed_profile import clear_voice_wpm
 
 
@@ -21,6 +22,18 @@ TEXT_SETTING_KEYS = {
     "avatar_insert_clips_count",
     "youtube_long_duration_minutes",
     "vertical_avatar_duration_mode",
+    "vizard_lang",
+    "vizard_ratio_of_clip",
+    "vizard_prefer_length",
+    "vizard_max_clip_number",
+    "vizard_keywords",
+    "vizard_subtitle_switch",
+    "vizard_headline_switch",
+    "vizard_emoji_switch",
+    "vizard_highlight_switch",
+    "vizard_auto_broll_switch",
+    "vizard_remove_silence_switch",
+    "vizard_template_id",
 }
 OVERLAY_FORMATS = {"short", "youtube"}
 
@@ -61,6 +74,7 @@ class UserSettingsState:
     youtube_long_duration_minutes: int
     vertical_avatar_duration_mode: str
     instagram_post_5s_cta_text: str
+    vizard: VizardUserSettings
     overlays: list[OverlayState]
 
 
@@ -91,6 +105,7 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         youtube_long_duration_minutes=get_int_setting(storage, user_id, "youtube_long_duration_minutes", default=10, minimum=3, maximum=30),
         vertical_avatar_duration_mode=get_duration_mode(storage, user_id),
         instagram_post_5s_cta_text=storage.get_setting(user_id, "instagram_post_5s_cta_text") or "",
+        vizard=get_vizard_settings(storage, user_id),
         overlays=[get_overlay_state(storage, user_id, item) for item in ("short", "youtube")],
     )
 
@@ -194,7 +209,27 @@ def normalize_text_setting(key: str, value: str) -> str:
         return str(max(3, min(30, parse_int(stripped, 10))))
     if key == "vertical_avatar_duration_mode":
         return normalize_duration_mode(stripped)
+    if key.startswith("vizard_"):
+        return normalize_vizard_setting_value(key, stripped)
     return stripped
+
+
+def get_vizard_settings(storage: Storage, user_id: str) -> VizardUserSettings:
+    keys = (
+        "vizard_lang",
+        "vizard_ratio_of_clip",
+        "vizard_prefer_length",
+        "vizard_max_clip_number",
+        "vizard_keywords",
+        "vizard_subtitle_switch",
+        "vizard_headline_switch",
+        "vizard_emoji_switch",
+        "vizard_highlight_switch",
+        "vizard_auto_broll_switch",
+        "vizard_remove_silence_switch",
+        "vizard_template_id",
+    )
+    return normalize_vizard_settings({key: storage.get_setting(user_id, key) for key in keys})
 
 
 def get_duration_mode(storage: Storage, user_id: str) -> str:

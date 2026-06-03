@@ -1,10 +1,12 @@
 import { renderAvatarSelectors } from "/static/settings_avatars.js";
+import { renderVizardTab } from "/static/settings_vizard.js";
 import { renderVoiceSelector } from "/static/settings_voices.js";
 
 const FORMAT_TABS = [
   { key: "youtube", label: "YouTube", hint: "Горизонтальный" },
   { key: "shorts", label: "Shorts/Reels", hint: "Вертикальный" },
   { key: "five", label: "5 секунд", hint: "Инфографика" },
+  { key: "vizard", label: "Vizard", hint: "YouTube clips" },
   { key: "common", label: "Общие", hint: "База" },
 ];
 
@@ -46,6 +48,7 @@ function formatTabButton(tab, active, escapeHtml) {
 function renderActiveFormatTab(active, deps) {
   if (active === "shorts") return renderShortsTab(deps);
   if (active === "five") return renderFiveSecondTab(deps);
+  if (active === "vizard") return renderVizardTab(deps);
   if (active === "common") return renderCommonTab(deps);
   return renderYoutubeTab(deps);
 }

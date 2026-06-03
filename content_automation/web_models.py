@@ -92,6 +92,21 @@ class InstagramPost5sOut(BaseModel):
     infographic_references: list[MediaAssetOut] = []
 
 
+class VizardSettingsOut(BaseModel):
+    lang: str
+    ratio_of_clip: int
+    prefer_length: list[int]
+    max_clip_number: int | None = None
+    keywords: str
+    subtitle_switch: bool
+    headline_switch: bool
+    emoji_switch: bool
+    highlight_switch: bool
+    auto_broll_switch: bool
+    remove_silence_switch: bool
+    template_id: int | None = None
+
+
 class UserSettingsOut(BaseModel):
     notebook_id: str | None = None
     author_style: str
@@ -118,6 +133,7 @@ class UserSettingsOut(BaseModel):
     youtube_long_duration_minutes: int
     vertical_avatar_duration_mode: str
     instagram_post_5s_cta_text: str
+    vizard: VizardSettingsOut
     overlays: list[OverlayOut]
 
 

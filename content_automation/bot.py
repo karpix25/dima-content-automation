@@ -32,6 +32,9 @@ from .turan_formats import build_all_turan_packages, build_turan_package, get_tu
 from .post_heygen_video import apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_reference_paths
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
+from .vizard_bot import format_vizard_settings, run_vizard_youtube_job, vizard_settings_keyboard
+from .vizard_models import normalize_vizard_setting_value
+from .vizard_youtube import extract_youtube_url
 from .voice_speed_profile import calibrated_voice_wpm, calibrate_voice_wpm, clear_voice_wpm, has_voice_wpm_profile
 from .voiceover_timing import analyze_voiceover_timing, estimate_initial_voiceover_speed
 from .visual_assets import generate_post_heygen_assets
@@ -1312,6 +1315,7 @@ def settings_keyboard() -> InlineKeyboardMarkup:
             [button("🎙 Голос ElevenLabs", callback_data="settings:elevenlabs_voices", style="primary")],
             [button("🖼 Плашка Shorts", callback_data="settings:overlay:short")],
             [button("🖥 Плашка YouTube", callback_data="settings:overlay:youtube")],
+            [button("✂️ Vizard нарезка", callback_data="settings:vizard")],
             [button("🎯 Контекст оффера", callback_data="settings:edit:offer_context")],
             [button("🗣 Голос автора", callback_data="settings:edit:author_style")],
             [button("🧲 Микс CTA", callback_data="settings:edit:cta_mix")],
@@ -1353,6 +1357,7 @@ def format_current_settings(user_id: str) -> str:
             f"ElevenLabs voice:\n{voice_name}\n{voice_id}",
             overlay_summary(user_id, "short"),
             overlay_summary(user_id, "youtube"),
+            format_vizard_settings(get_user_settings(storage, settings, user_id).vizard),
             f"Микс CTA:\n{cta_mix}",
             f"Голос автора:\n{author_style}",
             f"Контекст оффера:\n{offer_context}",
@@ -1524,6 +1529,7 @@ async def start(message: Message) -> None:
                 "/review - открыть очередь сценариев на проверку",
                 "/daily_scripts - сгенерировать 10 и открыть очередь",
                 "/youtube_script - сгенерировать недельный YouTube-сценарий",
+                "/vizard <youtube_url> - отправить YouTube-видео в Vizard и получить нарезку",
                 "/formats - собрать Turan-форматы из последнего одобренного сценария",
                 "/status - статус банка сценариев",
             ]
@@ -1751,6 +1757,17 @@ async def settings_callback(callback: CallbackQuery) -> None:
             reply_markup=overlay_keyboard(parts[2]),
         )
         return
+    if len(parts) == 2 and parts[1] == "vizard":
+        await callback.answer()
+        await edit_or_send_text(
+            callback.message.chat.id,
+            format_vizard_settings(get_user_settings(storage, settings, user_id).vizard),
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+            reply_markup=vizard_settings_keyboard(),
+        )
+        return
     if len(parts) != 3 or parts[1] != "edit":
         await callback.answer("Некорректная команда", show_alert=True)
         return
@@ -1969,6 +1986,38 @@ async def overlay_callback(callback: CallbackQuery) -> None:
     await callback.answer("Некорректное действие", show_alert=True)
 
 
+@dp.callback_query(F.data.startswith("vizard:"))
+async def vizard_callback(callback: CallbackQuery) -> None:
+    parts = (callback.data or "").split(":")
+    user_id = activate_from_callback(callback)
+    if len(parts) == 2 and parts[1] == "show":
+        await callback.answer()
+    elif len(parts) == 3 and parts[1] == "ratio":
+        storage.set_setting(user_id, "vizard_ratio_of_clip", normalize_vizard_setting_value("vizard_ratio_of_clip", parts[2]))
+        await callback.answer("Формат сохранен")
+    elif len(parts) == 3 and parts[1] == "length":
+        storage.set_setting(user_id, "vizard_prefer_length", normalize_vizard_setting_value("vizard_prefer_length", parts[2]))
+        await callback.answer("Длина сохранена")
+    elif len(parts) == 3 and parts[1] == "silence":
+        storage.set_setting(
+            user_id,
+            "vizard_remove_silence_switch",
+            normalize_vizard_setting_value("vizard_remove_silence_switch", parts[2]),
+        )
+        await callback.answer("Удаление тишины сохранено")
+    else:
+        await callback.answer("Некорректная команда", show_alert=True)
+        return
+    await edit_or_send_text(
+        callback.message.chat.id,
+        format_vizard_settings(get_user_settings(storage, settings, user_id).vizard),
+        thread_id=message_thread_id(callback.message),
+        message=callback.message,
+        edit=True,
+        reply_markup=vizard_settings_keyboard(),
+    )
+
+
 @dp.message(Command("status"))
 async def status(message: Message) -> None:
     user_id = activate_from_message(message)
@@ -2032,6 +2081,23 @@ async def youtube_script(message: Message) -> None:
     )
 
 
+@dp.message(Command("vizard"))
+async def vizard_clip_command(message: Message) -> None:
+    user_id = activate_from_message(message)
+    clear_pending_edit(user_id)
+    asyncio.create_task(
+        run_vizard_youtube_job(
+            bot=bot,
+            storage=storage,
+            settings=settings,
+            user_id=user_id,
+            chat_id=message.chat.id,
+            thread_id=message_thread_id(message),
+            text=message.text or "",
+        )
+    )
+
+
 @dp.message(Command("formats"))
 async def turan_formats(message: Message) -> None:
     user_id = activate_from_message(message)
@@ -2061,6 +2127,23 @@ async def turan_formats(message: Message) -> None:
         f"Выбери Turan-формат для сценария #{record.id}:\n\n{record.hook}",
         reply_markup=turan_formats_keyboard(record.id),
         disable_web_page_preview=True,
+    )
+
+
+@dp.message(F.text, lambda message: not (message.text or "").startswith("/") and bool(extract_youtube_url(message.text)))
+async def youtube_link_for_vizard(message: Message) -> None:
+    user_id = activate_from_message(message)
+    clear_pending_edit(user_id)
+    asyncio.create_task(
+        run_vizard_youtube_job(
+            bot=bot,
+            storage=storage,
+            settings=settings,
+            user_id=user_id,
+            chat_id=message.chat.id,
+            thread_id=message_thread_id(message),
+            text=message.text or "",
+        )
     )
 
 
