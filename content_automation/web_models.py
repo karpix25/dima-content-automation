@@ -69,6 +69,7 @@ class OverlayOut(BaseModel):
     has_file: bool
     file_name: str | None = None
     start_percent: int
+    file_count: int = 0
 
 
 class MediaAssetOut(BaseModel):

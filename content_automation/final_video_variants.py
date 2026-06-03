@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .settings_service import get_overlay_path, get_overlay_start_percent
+from .settings_service import get_overlay_start_percent, get_random_overlay_path
 from .storage import Storage
 from .video_overlay import apply_overlay
 
@@ -37,7 +37,7 @@ def build_final_video_variants(
         overlay_key = PLATFORM_OVERLAY_KEYS.get(platform)
         if not overlay_key:
             continue
-        overlay_path = get_overlay_path(storage, user_id, overlay_key)
+        overlay_path = get_random_overlay_path(storage, user_id, overlay_key, seed=f"{output_stem}:{platform}")
         if not overlay_path or not overlay_path.exists():
             continue
         result = apply_overlay(

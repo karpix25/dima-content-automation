@@ -25,6 +25,7 @@ from .montage_renderer import MontageRendererConfig, render_montage_if_configure
 from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .notebooklm_py import NotebookLMPyClient
+from .overlay_catalog import add_overlay_path, list_overlay_paths, select_overlay_path
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .settings_service import get_user_settings
@@ -448,16 +449,30 @@ def get_cta_mix(user_id: str) -> str:
 
 
 def format_label(format: str) -> str:
-    return "YouTube" if format == "youtube" else "Instagram"
+    format = normalize_overlay_format(format)
+    if format == "youtube":
+        return "YouTube"
+    if format == "shorts":
+        return "Shorts"
+    if format == "reels":
+        return "Reels"
+    return "Instagram"
+
+
+def normalize_overlay_format(format: str) -> str:
+    return "shorts" if format in {"short", "instagram"} else format
 
 
 def get_overlay_path(user_id: str, format: str) -> Path | None:
-    value = storage.get_setting(user_id, f"{format}_overlay_path")
-    return Path(value) if value else None
+    return select_overlay_path(storage, user_id, normalize_overlay_format(format))
+
+
+def get_random_overlay_path(user_id: str, format: str, *, seed: str | int | None = None) -> Path | None:
+    return select_overlay_path(storage, user_id, normalize_overlay_format(format), seed=seed)
 
 
 def set_overlay_path(user_id: str, format: str, path: Path) -> None:
-    storage.set_setting(user_id, f"{format}_overlay_path", str(path))
+    add_overlay_path(storage, user_id, normalize_overlay_format(format), path)
 
 
 def get_overlay_start_percent(user_id: str, format: str) -> int:
@@ -939,14 +954,15 @@ def overlay_keyboard(format: str) -> InlineKeyboardMarkup:
 
 def overlay_summary(user_id: str, format: str) -> str:
     label = format_label(format)
-    overlay_path = get_overlay_path(user_id, format)
-    exists = bool(overlay_path and overlay_path.exists())
+    paths = list_overlay_paths(storage, user_id, normalize_overlay_format(format))
+    overlay_path = paths[0] if paths else None
+    exists = bool(paths)
     percent = get_overlay_start_percent(user_id, format)
-    path_text = str(overlay_path) if overlay_path else "не загружена"
+    path_text = f"{len(paths)} файлов, выбор случайный" if len(paths) > 1 else (str(overlay_path) if overlay_path else "не загружена")
     return "\n".join(
         [
             f"Плашка {label}:",
-            f"Файл: {'✅ есть' if exists else 'не загружена'}",
+            f"Файлы: {len(paths) if exists else 'не загружены'}",
             f"Путь: {path_text}",
             f"Появление: с {percent}% хронометража до конца видео",
         ]
@@ -1066,7 +1082,7 @@ async def send_generated_video(chat_id: int, thread_id: int | None, video_url: s
 
 
 async def process_overlay_if_configured(user_id: str, record: ScriptRecord, video_path: Path) -> Path | None:
-    overlay_path = get_overlay_path(user_id, record.format)
+    overlay_path = get_random_overlay_path(user_id, record.format, seed=record.id)
     if not overlay_path or not overlay_path.exists():
         return None
     start_percent = get_overlay_start_percent(user_id, record.format)
@@ -1642,13 +1658,18 @@ async def handle_overlay_upload(message: Message) -> None:
         await answer_in_same_thread(message, "Плашка должна быть картинкой: PNG, JPG или WebP.")
         return
 
-    destination = overlay_directory(user_id) / f"{format}_overlay{suffix}"
+    normalized_format = normalize_overlay_format(format)
+    existing_count = len(list_overlay_paths(storage, user_id, normalized_format))
+    destination = overlay_directory(user_id) / f"{normalized_format}_overlay_{existing_count + 1}{suffix}"
+    while destination.exists():
+        existing_count += 1
+        destination = overlay_directory(user_id) / f"{normalized_format}_overlay_{existing_count + 1}{suffix}"
     file = await bot.get_file(file_id)
     if not file.file_path:
         await answer_in_same_thread(message, "Telegram не вернул путь к файлу. Попробуй отправить картинку еще раз.")
         return
     await bot.download_file(file.file_path, destination)
-    set_overlay_path(user_id, format, destination)
+    set_overlay_path(user_id, normalized_format, destination)
     await answer_in_same_thread(
         message,
         f"✅ Плашка {label} сохранена.\n{overlay_summary(user_id, format)}",

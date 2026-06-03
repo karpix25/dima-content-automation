@@ -300,6 +300,29 @@ def test_overlay_upload_and_preview(tmp_path, monkeypatch):
     assert preview.content == b"fake-png"
 
 
+def test_overlay_upload_appends_multiple_files(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "settings", replace(web_app.settings, data_dir=tmp_path))
+    client = TestClient(web_app.app)
+
+    first = client.post(
+        "/api/settings/overlay",
+        data={"user_id": "42", "format": "reels"},
+        files={"file": ("first.png", b"first", "image/png")},
+    )
+    second = client.post(
+        "/api/settings/overlay",
+        data={"user_id": "42", "format": "reels"},
+        files={"file": ("second.png", b"second", "image/png")},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["file_count"] == 2
+    assert second.json()["file_name"] == "2 файлов, рандомный выбор"
+
+
 def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
     storage = make_storage(tmp_path)
     asset_store = make_asset_store(tmp_path)

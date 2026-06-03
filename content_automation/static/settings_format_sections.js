@@ -258,8 +258,8 @@ function overlayCard(state, format, escapeHtml) {
   return `
     <article class="overlay-card ${overlay.has_file ? "selected" : ""}">
       <div>
-        <strong>Финальная плашка ${escapeHtml(overlay.label)}</strong>
-        <p>${overlay.has_file ? escapeHtml(overlay.file_name) : "Файл не загружен"}</p>
+        <strong>Финальные плашки ${escapeHtml(overlay.label)}</strong>
+        <p>${overlay.has_file ? escapeHtml(overlay.file_name) : "Файлы не загружены"}</p>
       </div>
       ${overlay.has_file ? `<img src="/api/settings/overlay/file?user_id=${encodeURIComponent(state.userId)}&format=${encodeURIComponent(overlay.format)}&t=${Date.now()}" alt="" />` : ""}
       <label>Старт %</label>
@@ -267,7 +267,7 @@ function overlayCard(state, format, escapeHtml) {
       <input type="file" accept="image/png,image/jpeg,image/webp" data-overlay-file="${overlay.format}" />
       <div class="settings-actions">
         <button data-action="save-overlay-percent" data-format="${overlay.format}">Сохранить</button>
-        <button data-action="delete-overlay" data-format="${overlay.format}" ${overlay.has_file ? "" : "disabled"}>Удалить</button>
+        <button data-action="delete-overlay" data-format="${overlay.format}" ${overlay.has_file ? "" : "disabled"}>Удалить все</button>
       </div>
     </article>
   `;

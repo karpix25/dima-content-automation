@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import Settings
+from .overlay_catalog import add_overlay_path, clear_overlay_paths, list_overlay_paths, select_overlay_path
 from .prompts import DEFAULT_AUTHOR_STYLE, DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT
 from .storage import Storage
 from .vizard_models import VizardUserSettings, normalize_vizard_setting_value, normalize_vizard_settings
@@ -45,6 +46,7 @@ class OverlayState:
     has_file: bool
     file_name: str | None
     start_percent: int
+    file_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -245,23 +247,32 @@ def normalize_duration_mode(value: str) -> str:
 
 
 def get_overlay_state(storage: Storage, user_id: str, format: str) -> OverlayState:
-    path = get_overlay_path(storage, user_id, format)
-    exists = bool(path and path.exists())
+    paths = get_overlay_paths(storage, user_id, format)
+    path = paths[0] if paths else None
+    exists = bool(path)
     return OverlayState(
         format=format,
         label=format_label(format),
         has_file=exists,
-        file_name=path.name if exists and path else None,
+        file_name=overlay_file_label(paths),
         start_percent=get_overlay_start_percent(storage, user_id, format),
+        file_count=len(paths),
     )
 
 
 def get_overlay_path(storage: Storage, user_id: str, format: str) -> Path | None:
     normalized = normalize_overlay_format(format)
-    value = storage.get_setting(user_id, f"{normalized}_overlay_path")
-    if not value and normalized in {"shorts", "reels"}:
-        value = storage.get_setting(user_id, "short_overlay_path")
-    return Path(value) if value else None
+    return select_overlay_path(storage, user_id, normalized)
+
+
+def get_random_overlay_path(storage: Storage, user_id: str, format: str, *, seed: str | int | None = None) -> Path | None:
+    normalized = normalize_overlay_format(format)
+    return select_overlay_path(storage, user_id, normalized, seed=seed)
+
+
+def get_overlay_paths(storage: Storage, user_id: str, format: str) -> list[Path]:
+    normalized = normalize_overlay_format(format)
+    return list_overlay_paths(storage, user_id, normalized)
 
 
 def save_overlay_file(storage: Storage, settings: Settings, user_id: str, format: str, file_name: str, content: bytes) -> OverlayState:
@@ -270,18 +281,19 @@ def save_overlay_file(storage: Storage, settings: Settings, user_id: str, format
     if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
         suffix = ".png"
     directory = overlay_directory(settings, user_id)
-    path = directory / f"{normalized}_overlay{suffix}"
+    index = len(get_overlay_paths(storage, user_id, normalized)) + 1
+    path = directory / f"{normalized}_overlay_{index}{suffix}"
+    while path.exists():
+        index += 1
+        path = directory / f"{normalized}_overlay_{index}{suffix}"
     path.write_bytes(content)
-    storage.set_setting(user_id, f"{normalized}_overlay_path", str(path))
+    add_overlay_path(storage, user_id, normalized, path)
     return get_overlay_state(storage, user_id, normalized)
 
 
 def delete_overlay_file(storage: Storage, user_id: str, format: str) -> OverlayState:
     normalized = normalize_overlay_format(format)
-    path = get_overlay_path(storage, user_id, normalized)
-    if path and path.exists():
-        path.unlink()
-    storage.set_setting(user_id, f"{normalized}_overlay_path", "")
+    clear_overlay_paths(storage, user_id, normalized)
     return get_overlay_state(storage, user_id, normalized)
 
 
@@ -295,6 +307,14 @@ def set_overlay_start_percent(storage: Storage, user_id: str, format: str, value
 def get_overlay_start_percent(storage: Storage, user_id: str, format: str) -> int:
     normalized = normalize_overlay_format(format)
     return get_percent_setting(storage, user_id, f"{normalized}_overlay_start_percent", default=70, minimum=0, maximum=100)
+
+
+def overlay_file_label(paths: list[Path]) -> str | None:
+    if not paths:
+        return None
+    if len(paths) == 1:
+        return paths[0].name
+    return f"{len(paths)} файлов, рандомный выбор"
 
 
 def get_percent_setting(storage: Storage, user_id: str, key: str, *, default: int, minimum: int, maximum: int) -> int:

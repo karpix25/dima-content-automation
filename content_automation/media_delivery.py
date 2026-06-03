@@ -18,7 +18,7 @@ from .montage_renderer import MontageRendererConfig, render_montage_if_configure
 from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_face_reference_paths, thumbnail_style_reference_paths
 from .script_length import WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
-from .settings_service import get_overlay_path, get_overlay_start_percent, get_user_settings
+from .settings_service import get_overlay_start_percent, get_random_overlay_path, get_user_settings
 from .storage import ScriptRecord, Storage
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video
 from .voice_speed_profile import calibrated_voice_wpm
@@ -278,7 +278,7 @@ def _download_and_finish_video(
     raw_path = settings.video_output_directory / f"miniapp_heygen_{record.id}_{record.format}.mp4"
     asyncio.run(download_video(video_url, raw_path))
     final_path = _post_heygen_visuals(record, user_id, settings, storage, asset_store, kie_client, raw_path)
-    overlay_path = get_overlay_path(storage, user_id, record.format)
+    overlay_path = get_random_overlay_path(storage, user_id, record.format, seed=record.id)
     if overlay_path and overlay_path.exists():
         result = apply_overlay(
             video_path=final_path,
