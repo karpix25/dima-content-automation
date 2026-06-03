@@ -1314,15 +1314,13 @@ def settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def main_keyboard() -> InlineKeyboardMarkup:
-    rows = [
-        [button("📝 Сгенерировать новые сценарии", callback_data="main:refill", style="primary")],
-        [button("✅ Проверить сценарии", callback_data="main:review")],
-        [button("📊 Сколько сценариев готово", callback_data="main:bank")],
-    ]
-    if settings.miniapp_url:
-        rows.append([InlineKeyboardButton(text="🎬 Открыть Mini App", web_app=WebAppInfo(url=settings.miniapp_url))])
-    rows.append([button("⚙️ Настройки контента", callback_data="main:settings")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [button("✅ Проверить сценарии", callback_data="main:review", style="primary")],
+            [button("📝 Сгенерировать вручную", callback_data="main:refill")],
+            [button("📊 Статус сценариев", callback_data="main:bank")],
+        ]
+    )
 
 
 def format_current_settings(user_id: str) -> str:
@@ -1510,17 +1508,14 @@ async def start(message: Message) -> None:
                 "Бот готовит сценарии из NotebookLM и отправляет их на апрув.",
                 "",
                 "Команды:",
-                "/set_notebook <id> - подключить NotebookLM-базу",
-                "/set_style <описание стиля> - сохранить голос автора",
-                "/settings - настройки HeyGen, ElevenLabs, оффера, CTA, стиля и NotebookLM",
-                "/bank - статус банка сценариев",
-                "/refill - пополнить банк, если одобрено 5 или меньше",
                 "/review - открыть очередь сценариев на проверку",
-                "/daily_scripts - сгенерировать 10 и открыть очередь",
+                "/refill - вручную пополнить банк сценариев",
+                "/bank - статус банка сценариев",
+                "/daily_scripts - вручную сгенерировать 10 и открыть очередь",
                 "/youtube_script - сгенерировать недельный YouTube-сценарий",
                 "/vizard <youtube_url> - отправить YouTube-видео в Vizard и получить нарезку",
                 "/formats - собрать Turan-форматы из последнего одобренного сценария",
-                "/status - статус банка сценариев",
+                "/settings - служебные настройки, если нужно что-то поменять вручную",
             ]
         ),
         reply_markup=main_keyboard(),
@@ -1531,10 +1526,19 @@ async def start(message: Message) -> None:
 async def settings_menu(message: Message) -> None:
     user_id = activate_from_message(message)
     clear_pending_edit(user_id)
+    if settings.miniapp_url:
+        markup = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🎬 Открыть Mini App", web_app=WebAppInfo(url=settings.miniapp_url))],
+                [button("⬅️ Главное меню", callback_data="main:home")],
+            ]
+        )
+    else:
+        markup = main_keyboard()
     await answer_in_same_thread(
         message,
-        "Что настраиваем? Эти данные попадут в запрос к NotebookLM, чтобы CTA писался органично под оффер, а не вставлялся шаблоном.",
-        reply_markup=settings_keyboard(),
+        "Настройки убрал из основного меню, чтобы не мешали ревью сценариев. Менять их удобнее в Mini App.",
+        reply_markup=markup,
     )
 
 
@@ -1641,13 +1645,22 @@ async def main_callback(callback: CallbackQuery) -> None:
     user_id = activate_from_callback(callback)
     await callback.answer()
     if action == "settings":
+        if settings.miniapp_url:
+            markup = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text="🎬 Открыть Mini App", web_app=WebAppInfo(url=settings.miniapp_url))],
+                    [button("⬅️ Главное меню", callback_data="main:home")],
+                ]
+            )
+        else:
+            markup = main_keyboard()
         await edit_or_send_text(
             callback.message.chat.id,
-            "Настройки контента. Выбери, что хочешь изменить.",
+            "Настройки убрал из основного меню, чтобы не мешали ревью сценариев. Менять их удобнее в Mini App.",
             thread_id=message_thread_id(callback.message),
             message=callback.message,
             edit=True,
-            reply_markup=settings_keyboard(),
+            reply_markup=markup,
         )
         return
     if action == "home":
