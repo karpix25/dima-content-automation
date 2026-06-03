@@ -155,6 +155,16 @@ const titleDensityClass = (title) => {
 
 const motionClass = (index) => `motion-${(index % 3) + 1}`;
 
+const titleMarkup = (title, escapeHtml) => {
+  const clean = normalizeText(title);
+  const words = clean.split(' ').filter(Boolean);
+  if (words.length < 3) return escapeHtml(clean);
+  const emphasisCount = words.length > 4 ? 2 : 1;
+  const rest = words.slice(0, -emphasisCount).join(' ');
+  const emphasis = words.slice(-emphasisCount).join(' ');
+  return `${rest ? `<span class="title-rest">${escapeHtml(rest)}</span>` : ''}<span class="title-emphasis">${escapeHtml(emphasis)}</span>`;
+};
+
 const trimOpener = (value) => {
   const clean = normalizeText(value).replace(/["'«»]+/g, '').trim();
   if (!clean) return '';
@@ -373,11 +383,11 @@ const youtubeDirectorClips = scenes
         data-track-index="1"
       >
         <div class="director-copy">
-          <h2>${escapeHtml(title || pickSceneOpener(scene))}</h2>
+          ${directorCue ? `<div class="director-kicker">${escapeHtml(directorCue)}</div>` : ''}
+          <h2>${titleMarkup(title || pickSceneOpener(scene), escapeHtml)}</h2>
           ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ''}
         </div>
         <div class="director-visual">
-          ${directorCue ? `<div class="director-cue">${escapeHtml(directorCue)}</div>` : ''}
           <div class="visual-scan"></div>
           ${directorPatternMarkup(scene, escapeHtml)}
           ${imageMarkup}
@@ -780,30 +790,66 @@ const html = `<!doctype html>
         grid-template-rows: auto 1fr;
       }
       body.layout-vertical-heygen .director-copy {
-        padding-left: 26px;
+        padding: 10px 6px 8px 28px;
         justify-content: flex-start;
-        min-height: 154px;
+        min-height: 166px;
       }
       body.layout-vertical-heygen .director-copy::before {
-        top: 4px;
-        bottom: 4px;
-        width: 6px;
+        top: 10px;
+        bottom: 12px;
+        width: 5px;
+        background: linear-gradient(180deg, #d13f2f, rgba(209, 63, 47, 0.42));
+      }
+      body.layout-vertical-heygen .director-kicker {
+        display: inline-flex;
+        width: fit-content;
+        max-width: 100%;
+        margin-bottom: 10px;
+        padding: 5px 9px 5px 0;
+        color: #b42318;
+        font-size: 17px;
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       body.layout-vertical-heygen .director-card h2 {
-        font-size: 52px;
-        line-height: 1.05;
+        max-width: 94%;
+        font-size: 49px;
+        line-height: 0.98;
+        font-weight: 920;
+        text-wrap: balance;
         -webkit-line-clamp: 2;
       }
+      body.layout-vertical-heygen .director-card h2 .title-rest,
+      body.layout-vertical-heygen .director-card h2 .title-emphasis {
+        display: block;
+      }
+      body.layout-vertical-heygen .director-card h2 .title-rest {
+        color: #172033;
+        font-weight: 860;
+      }
+      body.layout-vertical-heygen .director-card h2 .title-emphasis {
+        color: #090f1f;
+        font-weight: 980;
+      }
       body.layout-vertical-heygen .director-card.title-compact h2 {
-        font-size: 45px;
+        font-size: 43px;
       }
       body.layout-vertical-heygen .director-card.title-dense h2 {
-        font-size: 39px;
+        font-size: 37px;
         -webkit-line-clamp: 3;
       }
       body.layout-vertical-heygen .director-card p {
+        max-width: 92%;
+        margin-top: 8px;
         font-size: 29px;
         line-height: 1.16;
+        color: #475569;
+        font-weight: 760;
         -webkit-line-clamp: 2;
       }
       body.layout-vertical-heygen .director-card.title-dense p,
