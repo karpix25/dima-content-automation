@@ -196,6 +196,8 @@ def _headline_rewrite(text: str) -> str:
         (r"^at \d+\s*(am|pm),?\s+we (.+)$", r"\2"),
         (r"^if by \d+\s*(am|pm),?\s+sales drop by more than ([^,]+),.+$", r"Sales drop means price sensitive"),
         (r"^but if (.+),\s+we keep the (.+)$", r"If \1, keep the \2"),
+        (r"^we just added .*pure daily profit.+$", r"Daily profit lever"),
+        (r"^that .* becomes pure daily profit.+$", r"Daily profit lever"),
         (r"^we just added (.+?) to a sku.+single dollar bump.+$", r"\1 from one dollar bump"),
     ]
     for pattern, replacement in patterns:
@@ -303,22 +305,23 @@ def _image_prompt(
     role: str,
 ) -> str:
     text_rule = (
-        "Do not include Russian text. Avoid readable English text; use abstract labels, icons, bars, and object shapes instead."
+        "Do not include Russian text. Small English micro-labels, SKU tags, values, arrows, and object annotations are allowed when they clarify the evidence."
         if language == "en"
-        else "Avoid readable text; use abstract labels, icons, bars, and object shapes instead."
+        else "Small source-language micro-labels, SKU tags, values, arrows, and object annotations are allowed when they clarify the evidence."
     )
     return (
         "Create a central square visual evidence image for a vertical Amazon seller expert video. "
         "It will be placed inside an HTML/CSS Hyperframes card; Hyperframes adds the headline, metric chip, and evidence caption. "
         "Do not design a full poster, thumbnail, slide, or complete card. "
-        "No big headline text, no subtitles, no logos, no watermarks, no UI copy. "
+        "No big headline text, no subtitles, no logos, no watermarks, no social-media thumbnail copy. "
         f"{text_rule} "
         "Keep the top-right and bottom edge visually clean for HTML overlays. "
-        "Show the decision, consequence, or evidence through objects, motion cues, charts without legible labels, and operational props. "
+        "Show the decision, consequence, or evidence through objects, motion cues, annotated charts, small labels, numeric callouts, and operational props. "
+        "Make the image information-rich: include 3-5 small evidence details such as SKU card, margin note, price tag, BSR line, fee tier marker, check mark, warning dot, or before/after value. "
         "No decorative filler, no generic business people. "
         f"Director role: {role}. Required visual action: {visual_story} "
-        "Use one clear central subject with generous negative space, a bright off-white workspace, light paper surfaces, pale gray UI panels, thin navy lines, and small muted red audit accents. "
-        "Avoid dark dashboards, black blocks, heavy machinery, dense shadows, cluttered panels, and cargo-heavy compositions. "
+        "Use one clear central subject with controlled negative space, a bright off-white workspace, light paper surfaces, pale gray UI panels, thin navy lines, and muted red audit accents. "
+        "Avoid dark dashboards, black blocks, heavy machinery, dense shadows, and cargo-heavy compositions, but keep enough labeled detail to feel analytical. "
         "Make it feel airy, premium, editorial, and easy to scan. "
         f"Visual anchors: {', '.join(terms)}."
     )

@@ -42,9 +42,11 @@ def test_vertical_director_image_prompt_is_visual_only_for_html_overlay():
     prompt = plan.scenes[0]["imagePrompt"]
     assert "central square visual evidence image" in prompt
     assert "HTML/CSS Hyperframes card" in prompt
-    assert "no UI copy" in prompt
+    assert "No big headline text" in prompt
+    assert "Small English micro-labels" in prompt
+    assert "information-rich" in prompt
     assert "top-right and bottom edge visually clean" in prompt
-    assert "generous negative space" in prompt
+    assert "controlled negative space" in prompt
     assert "Avoid dark dashboards" in prompt
 
 
@@ -66,6 +68,17 @@ def test_vertical_director_subtitle_ends_on_complete_phrase():
         subtitle.split()[-1].lower() in {"from", "is", "the", "because", "of", "to"}
         for subtitle in subtitles
     )
+
+
+def test_vertical_director_rewrites_profit_title_for_vertical_layout():
+    plan = build_montage_plan(
+        _record(),
+        duration_seconds=14,
+        max_scenes=1,
+        transcript_words=_words("We just added pure daily profit to a SKU last week."),
+    )
+
+    assert plan.scenes[0]["title"] == "Daily Profit Lever"
 
 
 def test_prepare_vertical_montage_assets_generates_expected_kie_files(tmp_path, monkeypatch):

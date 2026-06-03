@@ -767,12 +767,12 @@ const html = `<!doctype html>
       body.layout-vertical-heygen .director-card {
         left: 40px;
         right: auto;
-        top: 10%;
+        top: 7%;
         width: calc(100% - 80px);
-        height: 76%;
-        padding: 34px 38px 38px;
+        height: 80%;
+        padding: 32px 38px 34px;
         grid-template-rows: auto 1fr;
-        gap: 22px;
+        gap: 4px;
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(244, 247, 251, 0.95)),
           #f8fafc;
@@ -780,34 +780,34 @@ const html = `<!doctype html>
         box-shadow: 0 38px 86px rgba(0, 0, 0, 0.38);
       }
       body.layout-vertical-heygen .director-card.motion-2 {
-        top: 9%;
-        height: 76%;
+        top: 6.5%;
+        height: 80%;
         grid-template-rows: auto 1fr;
       }
       body.layout-vertical-heygen .director-card.motion-3 {
-        top: 12%;
-        height: 74%;
+        top: 8%;
+        height: 79%;
         grid-template-rows: auto 1fr;
       }
       body.layout-vertical-heygen .director-copy {
-        padding: 10px 6px 8px 28px;
+        padding: 4px 6px 0 30px;
         justify-content: flex-start;
-        min-height: 166px;
+        min-height: 138px;
       }
       body.layout-vertical-heygen .director-copy::before {
-        top: 10px;
-        bottom: 12px;
-        width: 5px;
+        top: 5px;
+        bottom: 5px;
+        width: 6px;
         background: linear-gradient(180deg, #d13f2f, rgba(209, 63, 47, 0.42));
       }
       body.layout-vertical-heygen .director-kicker {
         display: inline-flex;
         width: fit-content;
         max-width: 100%;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         padding: 5px 9px 5px 0;
         color: #b42318;
-        font-size: 17px;
+        font-size: 18px;
         line-height: 1;
         font-weight: 950;
         letter-spacing: 0.08em;
@@ -817,9 +817,9 @@ const html = `<!doctype html>
         white-space: nowrap;
       }
       body.layout-vertical-heygen .director-card h2 {
-        max-width: 94%;
-        font-size: 49px;
-        line-height: 0.98;
+        max-width: 96%;
+        font-size: 64px;
+        line-height: 0.9;
         font-weight: 920;
         text-wrap: balance;
         -webkit-line-clamp: 2;
@@ -837,10 +837,13 @@ const html = `<!doctype html>
         font-weight: 980;
       }
       body.layout-vertical-heygen .director-card.title-compact h2 {
-        font-size: 43px;
+        font-size: 52px;
+        line-height: 0.94;
+        -webkit-line-clamp: 3;
       }
       body.layout-vertical-heygen .director-card.title-dense h2 {
-        font-size: 37px;
+        font-size: 45px;
+        line-height: 0.96;
         -webkit-line-clamp: 3;
       }
       body.layout-vertical-heygen .director-card p {
@@ -858,8 +861,9 @@ const html = `<!doctype html>
       }
       body.layout-vertical-heygen .director-visual {
         position: relative;
-        width: min(100%, 800px);
+        width: min(100%, 820px);
         border-radius: 8px;
+        align-self: start;
       }
       body.layout-vertical-heygen .director-image {
         transform-origin: center center;
