@@ -303,18 +303,22 @@ def _image_prompt(
     role: str,
 ) -> str:
     text_rule = (
-        "Do not include Russian text. If any readable text appears, it must be English and limited to tiny object labels."
+        "Do not include Russian text. Avoid readable English text; use abstract labels, icons, bars, and object shapes instead."
         if language == "en"
-        else "If readable text appears, it must match the source language and be minimal."
+        else "Avoid readable text; use abstract labels, icons, bars, and object shapes instead."
     )
     return (
-        "Premium 1:1 editorial cutaway image for a vertical Amazon seller expert video. "
-        "The image must advance the story: show the decision, consequence, or evidence from this exact beat. "
-        "No decorative filler, no generic business people, no poster text, no headline text, no subtitles inside the image. "
+        "Create a central square visual evidence image for a vertical Amazon seller expert video. "
+        "It will be placed inside an HTML/CSS Hyperframes card; Hyperframes adds the headline, metric chip, and evidence caption. "
+        "Do not design a full poster, thumbnail, slide, or complete card. "
+        "No big headline text, no subtitles, no logos, no watermarks, no UI copy. "
         f"{text_rule} "
+        "Keep the top-right and bottom edge visually clean for HTML overlays. "
+        "Show the decision, consequence, or evidence through objects, motion cues, charts without legible labels, and operational props. "
+        "No decorative filler, no generic business people. "
         f"Director role: {role}. Required visual action: {visual_story} "
-        "Use one clear central subject, clean off-white background, deep navy, muted red audit marks, premium magazine style. "
-        f"Director headline context: {title}. Subtitle context: {subtitle}. Visual anchors: {', '.join(terms)}."
+        "Use one clear central subject, clean off-white background, deep navy operational surfaces, muted red audit marks, premium magazine object styling. "
+        f"Visual anchors: {', '.join(terms)}."
     )
 
 

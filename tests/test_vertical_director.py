@@ -28,6 +28,24 @@ def test_vertical_director_uses_transcript_language_for_titles():
     assert all(scene["evidenceLabel"] for scene in plan.scenes)
 
 
+def test_vertical_director_image_prompt_is_visual_only_for_html_overlay():
+    plan = build_montage_plan(
+        _record(),
+        duration_seconds=12,
+        max_scenes=2,
+        transcript_words=_words(
+            "Here is how we test price elasticity without tanking BSR.",
+            "If sales drop by more than 50%, the product is price sensitive.",
+        ),
+    )
+
+    prompt = plan.scenes[0]["imagePrompt"]
+    assert "central square visual evidence image" in prompt
+    assert "HTML/CSS Hyperframes card" in prompt
+    assert "no UI copy" in prompt
+    assert "top-right and bottom edge visually clean" in prompt
+
+
 def test_vertical_director_subtitle_ends_on_complete_phrase():
     plan = build_montage_plan(
         _record(),
@@ -64,6 +82,20 @@ def test_prepare_vertical_montage_assets_generates_expected_kie_files(tmp_path, 
     assert generated_client.resolution == "1K"
 
 
+def test_prepare_vertical_montage_assets_retries_transient_kie_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(montage_assets, "KieImageClient", RetryKieClient)
+    monkeypatch.setattr(montage_assets.time, "sleep", lambda seconds: None)
+
+    montage_assets.prepare_vertical_montage_assets(
+        project_dir=tmp_path,
+        scenes=[{"title": "FBA fee leak", "imagePrompt": "Create visual-only evidence image."}],
+        kie_client=RetryKieClient(),
+    )
+
+    assert (tmp_path / "assets" / "generated" / "youtube-scene-01.png").exists()
+    assert RetryKieClient.instances[-1].attempts == 2
+
+
 @dataclass
 class FakeConfig:
     api_key: str | None = "key"
@@ -93,6 +125,21 @@ class FakeKieClient:
     def generate_image(self, *, prompt: str, output_path: Path, reference_paths=None):
         self.aspect_ratio = self.config.aspect_ratio
         self.resolution = self.config.resolution
+        output_path.write_bytes(b"png")
+        return output_path
+
+
+class RetryKieClient(FakeKieClient):
+    instances = []
+
+    def __init__(self, config=None):
+        super().__init__(config)
+        self.attempts = 0
+
+    def generate_image(self, *, prompt: str, output_path: Path, reference_paths=None):
+        self.attempts += 1
+        if self.attempts == 1:
+            raise montage_assets.KieImageError("temporary KIE failure")
         output_path.write_bytes(b"png")
         return output_path
 
