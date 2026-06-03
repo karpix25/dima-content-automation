@@ -40,6 +40,7 @@ function bindSettingsEvents(root, deps) {
   root.querySelectorAll("[data-action='save-section']").forEach((button) => button.addEventListener("click", () => saveSettingsSection(deps, button).catch(deps.showError)));
   root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => button.addEventListener("click", () => saveOverlayPercent(deps, button.dataset.format).catch(deps.showError)));
   root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => button.addEventListener("click", () => deleteOverlay(deps, button.dataset.format).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-overlay-file']").forEach((button) => button.addEventListener("click", () => deleteOverlayFile(deps, button.dataset.format, button.dataset.index).catch(deps.showError)));
   root.querySelectorAll("[data-action='delete-ref']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "thumbnail-references", button.dataset.id).catch(deps.showError)));
   root.querySelectorAll("[data-action='delete-face']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "thumbnail-face-references", button.dataset.id).catch(deps.showError)));
   root.querySelectorAll("[data-action='delete-avatar-insert']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "avatar-inserts", button.dataset.id).catch(deps.showError)));
@@ -114,6 +115,11 @@ async function uploadOverlay(deps, format, file) {
 
 async function deleteOverlay(deps, format) {
   await deps.api(`/api/settings/overlay?user_id=${encodeURIComponent(deps.state.userId)}&format=${encodeURIComponent(format)}`, { method: "DELETE" });
+  await loadSettingsData(deps);
+}
+
+async function deleteOverlayFile(deps, format, index) {
+  await deps.api(`/api/settings/overlay/file?user_id=${encodeURIComponent(deps.state.userId)}&format=${encodeURIComponent(format)}&index=${encodeURIComponent(index)}`, { method: "DELETE" });
   await loadSettingsData(deps);
 }
 

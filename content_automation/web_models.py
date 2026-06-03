@@ -63,6 +63,11 @@ class OverlayPercentIn(BaseModel):
     start_percent: int
 
 
+class OverlayFileOut(BaseModel):
+    index: int
+    file_name: str
+
+
 class OverlayOut(BaseModel):
     format: str
     label: str
@@ -70,6 +75,7 @@ class OverlayOut(BaseModel):
     file_name: str | None = None
     start_percent: int
     file_count: int = 0
+    files: list[OverlayFileOut] = []
 
 
 class MediaAssetOut(BaseModel):

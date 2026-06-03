@@ -262,6 +262,7 @@ function overlayCard(state, format, escapeHtml) {
         <p>${overlay.has_file ? escapeHtml(overlay.file_name) : "Файлы не загружены"}</p>
       </div>
       ${overlay.has_file ? `<img src="/api/settings/overlay/file?user_id=${encodeURIComponent(state.userId)}&format=${encodeURIComponent(overlay.format)}&t=${Date.now()}" alt="" />` : ""}
+      ${window.renderOverlayFiles ? window.renderOverlayFiles(overlay) : ""}
       <label>Старт %</label>
       <input type="number" min="0" max="100" value="${overlay.start_percent}" data-overlay-percent="${overlay.format}" />
       <input type="file" accept="image/png,image/jpeg,image/webp" data-overlay-file="${overlay.format}" />

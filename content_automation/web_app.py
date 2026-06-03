@@ -21,6 +21,7 @@ from .media_assets import (
 )
 from .settings_service import (
     delete_overlay_file,
+    delete_overlay_file_at,
     get_overlay_path,
     get_user_settings,
     save_overlay_file,
@@ -194,7 +195,7 @@ def update_overlay_percent(payload: OverlayPercentIn) -> OverlayOut:
         state = set_overlay_start_percent(storage, payload.user_id, payload.format, payload.start_percent)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return OverlayOut.model_validate(state.__dict__)
+    return OverlayOut.model_validate(asdict(state))
 
 
 @app.post("/api/settings/overlay", response_model=OverlayOut)
@@ -210,7 +211,7 @@ async def upload_overlay(
         state = save_overlay_file(storage, settings, user_id, format, file.filename or "overlay.png", content)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return OverlayOut.model_validate(state.__dict__)
+    return OverlayOut.model_validate(asdict(state))
 
 
 @app.delete("/api/settings/overlay", response_model=OverlayOut)
@@ -219,7 +220,22 @@ def delete_overlay(user_id: str = Query(..., min_length=1), format: str = Query(
         state = delete_overlay_file(storage, user_id, format)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return OverlayOut.model_validate(state.__dict__)
+    return OverlayOut.model_validate(asdict(state))
+
+
+@app.delete("/api/settings/overlay/file", response_model=OverlayOut)
+def delete_overlay_item(
+    user_id: str = Query(..., min_length=1),
+    format: str = Query(..., min_length=1),
+    index: int = Query(..., ge=0),
+) -> OverlayOut:
+    try:
+        state = delete_overlay_file_at(storage, user_id, format, index)
+    except IndexError as exc:
+        raise HTTPException(status_code=404, detail="Overlay file not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return OverlayOut.model_validate(asdict(state))
 
 
 @app.get("/api/settings/overlay/file")

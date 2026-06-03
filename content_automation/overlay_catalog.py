@@ -61,6 +61,18 @@ def clear_overlay_paths(storage: Storage, user_id: str, format: str) -> list[Pat
     return []
 
 
+def remove_overlay_path(storage: Storage, user_id: str, format: str, index: int) -> list[Path]:
+    paths = list_overlay_paths(storage, user_id, format)
+    if index < 0 or index >= len(paths):
+        raise IndexError("Overlay file not found")
+    removed = paths.pop(index)
+    if removed.exists():
+        removed.unlink()
+    storage.set_setting(user_id, _paths_key(format), json.dumps([str(item) for item in paths], ensure_ascii=False))
+    storage.set_setting(user_id, _legacy_path_key(format), str(paths[-1]) if paths else "")
+    return paths
+
+
 def _paths_key(format: str) -> str:
     return f"{format}_overlay_paths"
 

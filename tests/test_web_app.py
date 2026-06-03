@@ -321,6 +321,26 @@ def test_overlay_upload_appends_multiple_files(tmp_path, monkeypatch):
     assert second.status_code == 200
     assert second.json()["file_count"] == 2
     assert second.json()["file_name"] == "2 файлов, рандомный выбор"
+    assert [item["file_name"] for item in second.json()["files"]] == ["reels_overlay_1.png", "reels_overlay_2.png"]
+
+
+def test_overlay_delete_single_file(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "settings", replace(web_app.settings, data_dir=tmp_path))
+    client = TestClient(web_app.app)
+    for name, content in [("first.png", b"first"), ("second.png", b"second")]:
+        client.post(
+            "/api/settings/overlay",
+            data={"user_id": "42", "format": "shorts"},
+            files={"file": (name, content, "image/png")},
+        )
+
+    deleted = client.delete("/api/settings/overlay/file", params={"user_id": "42", "format": "shorts", "index": 0})
+
+    assert deleted.status_code == 200
+    assert deleted.json()["file_count"] == 1
+    assert deleted.json()["files"][0]["file_name"] == "shorts_overlay_2.png"
 
 
 def test_turan_style_media_settings_flow(tmp_path, monkeypatch):

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import Settings
-from .overlay_catalog import add_overlay_path, clear_overlay_paths, list_overlay_paths, select_overlay_path
+from .overlay_catalog import add_overlay_path, clear_overlay_paths, list_overlay_paths, remove_overlay_path, select_overlay_path
 from .prompts import DEFAULT_AUTHOR_STYLE, DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT
 from .storage import Storage
 from .vizard_models import VizardUserSettings, normalize_vizard_setting_value, normalize_vizard_settings
@@ -40,6 +40,12 @@ OVERLAY_FORMATS = {"short", "youtube", "instagram", "shorts", "reels"}
 
 
 @dataclass(frozen=True)
+class OverlayFileState:
+    index: int
+    file_name: str
+
+
+@dataclass(frozen=True)
 class OverlayState:
     format: str
     label: str
@@ -47,6 +53,7 @@ class OverlayState:
     file_name: str | None
     start_percent: int
     file_count: int = 0
+    files: list[OverlayFileState] | None = None
 
 
 @dataclass(frozen=True)
@@ -257,6 +264,7 @@ def get_overlay_state(storage: Storage, user_id: str, format: str) -> OverlaySta
         file_name=overlay_file_label(paths),
         start_percent=get_overlay_start_percent(storage, user_id, format),
         file_count=len(paths),
+        files=[OverlayFileState(index=index, file_name=path.name) for index, path in enumerate(paths)],
     )
 
 
@@ -294,6 +302,12 @@ def save_overlay_file(storage: Storage, settings: Settings, user_id: str, format
 def delete_overlay_file(storage: Storage, user_id: str, format: str) -> OverlayState:
     normalized = normalize_overlay_format(format)
     clear_overlay_paths(storage, user_id, normalized)
+    return get_overlay_state(storage, user_id, normalized)
+
+
+def delete_overlay_file_at(storage: Storage, user_id: str, format: str, index: int) -> OverlayState:
+    normalized = normalize_overlay_format(format)
+    remove_overlay_path(storage, user_id, normalized, index)
     return get_overlay_state(storage, user_id, normalized)
 
 
