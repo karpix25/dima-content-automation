@@ -7,6 +7,7 @@ from aiogram import Bot
 from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup
 
 from .config import Settings
+from .final_video_variants import build_final_video_variants
 from .settings_service import get_vizard_settings
 from .storage import Storage
 from .vizard_client import VizardApiError
@@ -100,20 +101,28 @@ async def run_vizard_youtube_job(
             await status.edit_text("⚠️ Vizard вернул клипы, но без доступных download URL.")
             return
         for index, item in enumerate(downloaded, start=1):
-            await bot.send_video(
-                chat_id,
-                FSInputFile(item.path),
-                caption=clip_caption(index, item.clip.title, item.clip.viral_score, item.clip.clip_editor_url),
-                message_thread_id=thread_id,
+            variants = build_final_video_variants(
+                storage=storage,
+                user_id=user_id,
+                source_path=item.path,
+                output_dir=item.path.parent,
+                output_stem=item.path.stem,
             )
-        await status.edit_text(f"✅ Vizard-нарезка готова: отправлено {len(downloaded)} роликов.")
+            for variant in variants:
+                await bot.send_video(
+                    chat_id,
+                    FSInputFile(variant.path),
+                    caption=clip_caption(index, variant.label, item.clip.title, item.clip.viral_score, item.clip.clip_editor_url),
+                    message_thread_id=thread_id,
+                )
+        await status.edit_text(f"✅ Vizard-нарезка готова: обработано {len(downloaded)} клипов.")
     except (VizardApiError, Exception) as exc:
         logger.exception("Vizard YouTube job failed")
         await status.edit_text(f"❌ Vizard не смог нарезать видео: {exc}")
 
 
-def clip_caption(index: int, title: str, viral_score: str, editor_url: str) -> str:
-    lines = [f"Vizard clip #{index}"]
+def clip_caption(index: int, platform_label: str, title: str, viral_score: str, editor_url: str) -> str:
+    lines = [f"Vizard clip #{index} - {platform_label}"]
     if title:
         lines.append(title)
     if viral_score:

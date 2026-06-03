@@ -122,6 +122,7 @@ class UserSettingsOut(BaseModel):
     heygen_vertical_avatar_preview_video_url: str | None = None
     heygen_video_api_version: str = "v2"
     heygen_avatar_engine: str = "avatar_iv"
+    heygen_model_selected: bool = False
     elevenlabs_voice_id: str | None = None
     elevenlabs_voice_name: str
     thumbnail_face_path: str | None = None

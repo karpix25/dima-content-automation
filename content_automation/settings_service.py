@@ -35,7 +35,7 @@ TEXT_SETTING_KEYS = {
     "vizard_remove_silence_switch",
     "vizard_template_id",
 }
-OVERLAY_FORMATS = {"short", "youtube"}
+OVERLAY_FORMATS = {"short", "youtube", "instagram"}
 
 
 @dataclass(frozen=True)
@@ -63,6 +63,7 @@ class UserSettingsState:
     heygen_vertical_avatar_preview_video_url: str | None
     heygen_video_api_version: str
     heygen_avatar_engine: str
+    heygen_model_selected: bool
     elevenlabs_voice_id: str | None
     elevenlabs_voice_name: str
     thumbnail_face_path: str | None
@@ -88,12 +89,13 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         heygen_avatar_name=storage.get_setting(user_id, "heygen_avatar_name"),
         heygen_avatar_preview_image_url=storage.get_setting(user_id, "heygen_avatar_preview_image_url"),
         heygen_avatar_preview_video_url=storage.get_setting(user_id, "heygen_avatar_preview_video_url"),
-        heygen_vertical_avatar_id=storage.get_setting(user_id, "heygen_vertical_avatar_id") or storage.get_setting(user_id, "heygen_avatar_id"),
-        heygen_vertical_avatar_name=storage.get_setting(user_id, "heygen_vertical_avatar_name") or storage.get_setting(user_id, "heygen_avatar_name"),
-        heygen_vertical_avatar_preview_image_url=storage.get_setting(user_id, "heygen_vertical_avatar_preview_image_url") or storage.get_setting(user_id, "heygen_avatar_preview_image_url"),
-        heygen_vertical_avatar_preview_video_url=storage.get_setting(user_id, "heygen_vertical_avatar_preview_video_url") or storage.get_setting(user_id, "heygen_avatar_preview_video_url"),
+        heygen_vertical_avatar_id=storage.get_setting(user_id, "heygen_vertical_avatar_id"),
+        heygen_vertical_avatar_name=storage.get_setting(user_id, "heygen_vertical_avatar_name"),
+        heygen_vertical_avatar_preview_image_url=storage.get_setting(user_id, "heygen_vertical_avatar_preview_image_url"),
+        heygen_vertical_avatar_preview_video_url=storage.get_setting(user_id, "heygen_vertical_avatar_preview_video_url"),
         heygen_video_api_version=get_heygen_video_api_version(storage, user_id),
         heygen_avatar_engine=get_heygen_avatar_engine(storage, user_id),
+        heygen_model_selected=bool(storage.get_setting(user_id, "heygen_model_selected")),
         elevenlabs_voice_id=storage.get_setting(user_id, "elevenlabs_voice_id") or settings.elevenlabs_voice_id,
         elevenlabs_voice_name=storage.get_setting(user_id, "elevenlabs_voice_name") or settings.elevenlabs_voice_name,
         thumbnail_face_path=storage.get_setting(user_id, "thumbnail_face_path"),
@@ -164,6 +166,7 @@ def set_heygen_generation_model(storage: Storage, user_id: str, model: str) -> N
         storage.set_setting(user_id, "heygen_avatar_engine", normalized)
     else:
         raise ValueError("Unsupported HeyGen model")
+    storage.set_setting(user_id, "heygen_model_selected", "1")
 
 
 def get_heygen_video_api_version(storage: Storage, user_id: str) -> str:
@@ -254,41 +257,42 @@ def get_overlay_state(storage: Storage, user_id: str, format: str) -> OverlaySta
 
 
 def get_overlay_path(storage: Storage, user_id: str, format: str) -> Path | None:
-    validate_overlay_format(format)
-    value = storage.get_setting(user_id, f"{format}_overlay_path")
+    normalized = normalize_overlay_format(format)
+    value = storage.get_setting(user_id, f"{normalized}_overlay_path")
     return Path(value) if value else None
 
 
 def save_overlay_file(storage: Storage, settings: Settings, user_id: str, format: str, file_name: str, content: bytes) -> OverlayState:
-    validate_overlay_format(format)
+    normalized = normalize_overlay_format(format)
     suffix = Path(file_name or "").suffix.lower()
     if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
         suffix = ".png"
     directory = overlay_directory(settings, user_id)
-    path = directory / f"{format}_overlay{suffix}"
+    path = directory / f"{normalized}_overlay{suffix}"
     path.write_bytes(content)
-    storage.set_setting(user_id, f"{format}_overlay_path", str(path))
-    return get_overlay_state(storage, user_id, format)
+    storage.set_setting(user_id, f"{normalized}_overlay_path", str(path))
+    return get_overlay_state(storage, user_id, normalized)
 
 
 def delete_overlay_file(storage: Storage, user_id: str, format: str) -> OverlayState:
-    path = get_overlay_path(storage, user_id, format)
+    normalized = normalize_overlay_format(format)
+    path = get_overlay_path(storage, user_id, normalized)
     if path and path.exists():
         path.unlink()
-    storage.set_setting(user_id, f"{format}_overlay_path", "")
-    return get_overlay_state(storage, user_id, format)
+    storage.set_setting(user_id, f"{normalized}_overlay_path", "")
+    return get_overlay_state(storage, user_id, normalized)
 
 
 def set_overlay_start_percent(storage: Storage, user_id: str, format: str, value: int) -> OverlayState:
-    validate_overlay_format(format)
+    normalized = normalize_overlay_format(format)
     percent = max(0, min(100, int(value)))
-    storage.set_setting(user_id, f"{format}_overlay_start_percent", str(percent))
-    return get_overlay_state(storage, user_id, format)
+    storage.set_setting(user_id, f"{normalized}_overlay_start_percent", str(percent))
+    return get_overlay_state(storage, user_id, normalized)
 
 
 def get_overlay_start_percent(storage: Storage, user_id: str, format: str) -> int:
-    validate_overlay_format(format)
-    return get_percent_setting(storage, user_id, f"{format}_overlay_start_percent", default=70, minimum=0, maximum=100)
+    normalized = normalize_overlay_format(format)
+    return get_percent_setting(storage, user_id, f"{normalized}_overlay_start_percent", default=70, minimum=0, maximum=100)
 
 
 def get_percent_setting(storage: Storage, user_id: str, key: str, *, default: int, minimum: int, maximum: int) -> int:
@@ -319,9 +323,14 @@ def overlay_directory(settings: Settings, user_id: str) -> Path:
 
 
 def format_label(format: str) -> str:
-    return "YouTube" if format == "youtube" else "Shorts"
+    return "YouTube" if normalize_overlay_format(format) == "youtube" else "Instagram"
 
 
 def validate_overlay_format(format: str) -> None:
     if format not in OVERLAY_FORMATS:
         raise ValueError("Unknown overlay format")
+
+
+def normalize_overlay_format(format: str) -> str:
+    validate_overlay_format(format)
+    return "short" if format == "instagram" else format

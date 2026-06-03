@@ -128,7 +128,7 @@ HEYGEN_PRIVATE_AVATARS_ONLY=true
 Через `/settings` можно отдельно настроить:
 
 ```text
-Плашка Shorts
+Плашка Instagram
 Плашка YouTube
 ```
 
@@ -370,7 +370,7 @@ Vizard в Turan остается отдельным URL/video workflow. Notebook
 ```text
 Аватар HeyGen
 Голос ElevenLabs
-Плашка Shorts
+Плашка Instagram
 Плашка YouTube
 Vizard нарезка
 Контекст оффера

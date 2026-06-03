@@ -16,6 +16,7 @@ from .config import load_settings
 from .deepgram_transcription import DeepgramConfig
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
+from .final_video_variants import build_final_video_variants
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
 from .heygen_video_input import extract_heygen_video_id
 from .kie_image import KieImageClient, KieImageConfig
@@ -478,7 +479,7 @@ def get_cta_mix(user_id: str) -> str:
 
 
 def format_label(format: str) -> str:
-    return "YouTube" if format == "youtube" else "Shorts"
+    return "YouTube" if format == "youtube" else "Instagram"
 
 
 def get_overlay_path(user_id: str, format: str) -> Path | None:
@@ -560,13 +561,13 @@ async def ensure_voice_wpm(user_id: str) -> int:
 def get_active_heygen_avatar_id(user_id: str, target: str = "vertical") -> str | None:
     if target == "horizontal":
         return storage.get_setting(user_id, "heygen_avatar_id")
-    return storage.get_setting(user_id, "heygen_vertical_avatar_id") or storage.get_setting(user_id, "heygen_avatar_id")
+    return storage.get_setting(user_id, "heygen_vertical_avatar_id")
 
 
 def get_active_heygen_avatar_name(user_id: str, target: str = "vertical") -> str | None:
     if target == "horizontal":
         return storage.get_setting(user_id, "heygen_avatar_name")
-    return storage.get_setting(user_id, "heygen_vertical_avatar_name") or storage.get_setting(user_id, "heygen_avatar_name")
+    return storage.get_setting(user_id, "heygen_vertical_avatar_name")
 
 
 def set_active_heygen_avatar(user_id: str, avatar: HeyGenAvatar) -> None:
@@ -1166,15 +1167,15 @@ async def send_final_video(chat_id: int, thread_id: int | None, user_id: str, re
         logger.exception("Failed to apply post-HeyGen visuals")
         await send_to_chat_thread(chat_id, f"⚠️ Cover/перебивки не наложил: {exc}", thread_id=thread_id)
 
-    try:
-        overlay_path = await process_overlay_if_configured(user_id, record, final_path)
-        final_path = overlay_path or final_path
-    except VideoOverlayError as exc:
-        logger.exception("Failed to apply overlay")
-        await send_to_chat_thread(chat_id, f"⚠️ Плашку не наложил: {exc}", thread_id=thread_id)
-
     if final_path and final_path.exists():
-        await bot.send_document(chat_id, FSInputFile(final_path), caption=caption, message_thread_id=thread_id)
+        await send_final_video_variants(
+            chat_id=chat_id,
+            thread_id=thread_id,
+            user_id=user_id,
+            source_path=final_path,
+            output_stem=f"heygen_{record.id}",
+            caption_prefix=caption,
+        )
         return
     await send_generated_video(chat_id, thread_id, video_url, caption)
 
@@ -1215,16 +1216,37 @@ async def render_existing_heygen_video(
     if not montage_path:
         raise VideoOverlayError("Smart montage renderer не вернул файл.")
 
-    final_path = montage_path
-    overlay_path = await process_overlay_if_configured(user_id, record, final_path)
-    final_path = overlay_path or final_path
-    await status_msg.edit_text("✅ Smart montage готов. Отправляю видео в эту тему.")
-    await bot.send_document(
-        chat_id,
-        FSInputFile(final_path),
-        caption=f"🎬 Smart montage из HeyGen #{heygen_video_id}\nСценарий #{record.id}: {record.title}",
-        message_thread_id=thread_id,
+    await status_msg.edit_text("✅ Smart montage готов. Готовлю YouTube и Instagram версии.")
+    await send_final_video_variants(
+        chat_id=chat_id,
+        thread_id=thread_id,
+        user_id=user_id,
+        source_path=montage_path,
+        output_stem=f"existing_heygen_{record.id}_{heygen_video_id}",
+        caption_prefix=f"🎬 Smart montage из HeyGen #{heygen_video_id}\nСценарий #{record.id}: {record.title}",
     )
+
+
+async def send_final_video_variants(
+    *,
+    chat_id: int,
+    thread_id: int | None,
+    user_id: str,
+    source_path: Path,
+    output_stem: str,
+    caption_prefix: str,
+) -> None:
+    variants = await asyncio.to_thread(
+        build_final_video_variants,
+        storage=storage,
+        user_id=user_id,
+        source_path=source_path,
+        output_dir=settings.video_output_directory,
+        output_stem=output_stem,
+    )
+    for variant in variants:
+        caption = f"{caption_prefix}\nФормат: {variant.label}"
+        await bot.send_document(chat_id, FSInputFile(variant.path), caption=caption, message_thread_id=thread_id)
 
 
 async def create_and_send_video(chat_id: int, thread_id: int | None, user_id: str, record: ScriptRecord, audio_path: str) -> None:
@@ -1313,7 +1335,7 @@ def settings_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [button("🎭 Аватар HeyGen", callback_data="settings:heygen_avatars", style="primary")],
             [button("🎙 Голос ElevenLabs", callback_data="settings:elevenlabs_voices", style="primary")],
-            [button("🖼 Плашка Shorts", callback_data="settings:overlay:short")],
+            [button("🖼 Плашка Instagram", callback_data="settings:overlay:short")],
             [button("🖥 Плашка YouTube", callback_data="settings:overlay:youtube")],
             [button("✂️ Vizard нарезка", callback_data="settings:vizard")],
             [button("🎯 Контекст оффера", callback_data="settings:edit:offer_context")],
@@ -1353,7 +1375,7 @@ def format_current_settings(user_id: str) -> str:
             "Текущие настройки контента:",
             f"База NotebookLM:\n{notebook}",
             f"HeyGen avatar YouTube:\n{avatar_name}\n{avatar_id}",
-            f"HeyGen avatar Shorts/Reels:\n{vertical_avatar_name}\n{vertical_avatar_id}",
+            f"HeyGen avatar Instagram/Reels:\n{vertical_avatar_name}\n{vertical_avatar_id}",
             f"ElevenLabs voice:\n{voice_name}\n{voice_id}",
             overlay_summary(user_id, "short"),
             overlay_summary(user_id, "youtube"),

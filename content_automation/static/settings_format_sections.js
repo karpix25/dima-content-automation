@@ -4,7 +4,7 @@ import { renderVoiceSelector } from "/static/settings_voices.js";
 
 const FORMAT_TABS = [
   { key: "youtube", label: "YouTube", hint: "Горизонтальный" },
-  { key: "shorts", label: "Shorts/Reels", hint: "Вертикальный" },
+  { key: "shorts", label: "Instagram", hint: "Вертикальный" },
   { key: "five", label: "5 секунд", hint: "Инфографика" },
   { key: "vizard", label: "Vizard", hint: "YouTube clips" },
   { key: "common", label: "Общие", hint: "База" },
@@ -85,7 +85,7 @@ function renderYoutubeTab({ state, escapeHtml }) {
 function renderShortsTab({ state, escapeHtml }) {
   const settings = state.settings;
   return `
-    ${formatHeader("Shorts/Reels с аватаром", "Вертикальный avatar, лицо для обложек, референсы и плашка Shorts.", shortsSummaryChips(state), escapeHtml)}
+    ${formatHeader("Instagram с аватаром", "Вертикальный avatar, лицо для обложек, референсы и финальная плашка Instagram.", shortsSummaryChips(state), escapeHtml)}
     <section class="settings-stack">
       <div class="soft-box">
         <h3>Вертикальный HeyGen avatar</h3>
@@ -217,7 +217,7 @@ function thumbnailLibraryBox(state, escapeHtml) {
           <input type="file" multiple accept="image/png,image/jpeg,image/webp" data-upload="thumbnail-references" />
         </label>
       </div>
-      <p>Здесь можно включать один референс для YouTube, Shorts или обоих форматов.</p>
+      <p>Здесь можно включать один референс для YouTube, Instagram или обоих форматов.</p>
       ${renderAllThumbnailReferences(state, escapeHtml)}
     </div>
   `;
@@ -359,7 +359,7 @@ function renderAllThumbnailReferences(state, escapeHtml) {
         <button class="delete-chip" data-action="delete-ref" data-id="${item.id}" title="Удалить">x</button>
         <div class="target-row">
           <button class="${isYoutube ? "active dark" : ""}" data-target-ref="horizontal" data-id="${item.id}">YouTube</button>
-          <button class="${isShorts ? "active" : ""}" data-target-ref="vertical" data-id="${item.id}">Shorts</button>
+          <button class="${isShorts ? "active" : ""}" data-target-ref="vertical" data-id="${item.id}">Instagram</button>
         </div>
         <small>${escapeHtml(item.file_name)}</small>
       </article>
@@ -440,7 +440,7 @@ function targetHas(value, target) {
 }
 
 function targetLabel(target) {
-  return target === "horizontal" ? "YouTube" : "Shorts";
+  return target === "horizontal" ? "YouTube" : "Instagram";
 }
 
 function verticalLabel(value) {

@@ -28,3 +28,14 @@ def test_vizard_payload_uses_youtube_format_ratio_and_length():
 
 def test_extract_youtube_url_from_text():
     assert extract_youtube_url("go https://youtu.be/abc123?si=x now") == "https://youtu.be/abc123?si=x"
+
+
+def test_vizard_toggles_default_to_off():
+    settings = normalize_vizard_settings({})
+
+    assert settings.subtitle_switch is False
+    assert settings.headline_switch is False
+    assert settings.emoji_switch is False
+    assert settings.highlight_switch is False
+    assert settings.auto_broll_switch is False
+    assert settings.remove_silence_switch is False

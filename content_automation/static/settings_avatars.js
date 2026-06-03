@@ -1,6 +1,7 @@
 export function renderAvatarSelectors(state, escapeHtml, options = {}) {
   const settings = state.settings;
   const model = selectedModel(settings);
+  const explicitModel = selectedModel(settings, { explicitOnly: true });
   const horizontal = findAvatar(state, settings.heygen_avatar_id);
   const vertical = findAvatar(state, settings.heygen_vertical_avatar_id);
   const visibleAvatars = visibleSelectedAvatars(options.target, horizontal, vertical);
@@ -9,18 +10,18 @@ export function renderAvatarSelectors(state, escapeHtml, options = {}) {
   if (options.mode === "model") {
     return `
       <div class="heygen-model-grid">
-        ${modelButton("avatar_iii", "Avatar III", "$1/min 1080p", model, escapeHtml)}
-        ${modelButton("avatar_iv", "Avatar IV", "TURAN ~$4/min", model, escapeHtml)}
-        ${modelButton("avatar_v", "Avatar V", "TURAN ~$4/min", model, escapeHtml)}
+        ${modelButton("avatar_iii", "Avatar III", "$1/min 1080p", explicitModel, escapeHtml)}
+        ${modelButton("avatar_iv", "Avatar IV", "TURAN ~$4/min", explicitModel, escapeHtml)}
+        ${modelButton("avatar_v", "Avatar V", "TURAN ~$4/min", explicitModel, escapeHtml)}
       </div>
       <p>Модель общая для горизонтального и вертикального HeyGen avatar.</p>
     `;
   }
   return `
     <div class="heygen-model-grid">
-      ${modelButton("avatar_iii", "Avatar III", "$1/min 1080p", model, escapeHtml)}
-      ${modelButton("avatar_iv", "Avatar IV", "TURAN ~$4/min", model, escapeHtml)}
-      ${modelButton("avatar_v", "Avatar V", "TURAN ~$4/min", model, escapeHtml)}
+      ${modelButton("avatar_iii", "Avatar III", "$1/min 1080p", explicitModel, escapeHtml)}
+      ${modelButton("avatar_iv", "Avatar IV", "TURAN ~$4/min", explicitModel, escapeHtml)}
+      ${modelButton("avatar_v", "Avatar V", "TURAN ~$4/min", explicitModel, escapeHtml)}
     </div>
     ${hasMismatch ? `
       <div class="model-warning amber">
@@ -50,7 +51,8 @@ export function bindAvatarEvents(root, deps, renderSettingsPanel) {
   });
 }
 
-function selectedModel(settings) {
+function selectedModel(settings, options = {}) {
+  if (options.explicitOnly && !settings.heygen_model_selected) return "";
   if (settings.heygen_video_api_version === "v2") return "avatar_iii";
   return settings.heygen_avatar_engine === "avatar_v" ? "avatar_v" : "avatar_iv";
 }
@@ -100,10 +102,10 @@ function renderAvatarList(state, escapeHtml, target) {
 function renderAvatarActions(avatar, options) {
   const { isHorizontal, isVertical, target, escapeHtml } = options;
   if (target === "horizontal") return avatarActionButton(avatar, "horizontal", "YouTube", isHorizontal, "youtube", escapeHtml);
-  if (target === "vertical") return avatarActionButton(avatar, "vertical", "Shorts", isVertical, "shorts", escapeHtml);
+  if (target === "vertical") return avatarActionButton(avatar, "vertical", "Instagram", isVertical, "shorts", escapeHtml);
   return `
     ${avatarActionButton(avatar, "horizontal", "YouTube", isHorizontal, "youtube", escapeHtml)}
-    ${avatarActionButton(avatar, "vertical", "Shorts", isVertical, "shorts", escapeHtml)}
+    ${avatarActionButton(avatar, "vertical", "Instagram", isVertical, "shorts", escapeHtml)}
   `;
 }
 
@@ -165,7 +167,7 @@ function visibleSelectedAvatars(target, horizontal, vertical) {
 
 function avatarHint(target) {
   if (target === "horizontal") return "Выберите avatar только для горизонтального YouTube формата.";
-  if (target === "vertical") return "Выберите avatar только для вертикальных Shorts/Reels.";
+  if (target === "vertical") return "Выберите avatar только для вертикального Instagram/Reels.";
   return "Выберите отдельный avatar для каждого формата, как в Turan.";
 }
 
