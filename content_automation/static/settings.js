@@ -37,6 +37,7 @@ function bindSettingsEvents(root, deps) {
   bindAvatarEvents(root, deps, renderSettingsPanel);
   bindVoiceEvents(root, deps, renderSettingsPanel);
   root.querySelectorAll("[data-action='save-text']").forEach((button) => button.addEventListener("click", () => saveTextSetting(deps, button.dataset.key).catch(deps.showError)));
+  root.querySelectorAll("[data-action='save-section']").forEach((button) => button.addEventListener("click", () => saveSettingsSection(deps, button).catch(deps.showError)));
   root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => button.addEventListener("click", () => saveOverlayPercent(deps, button.dataset.format).catch(deps.showError)));
   root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => button.addEventListener("click", () => deleteOverlay(deps, button.dataset.format).catch(deps.showError)));
   root.querySelectorAll("[data-action='delete-ref']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "thumbnail-references", button.dataset.id).catch(deps.showError)));
@@ -62,7 +63,7 @@ function bindFormatTabs(root, deps) {
 
 async function saveTextSetting(deps, key) {
   const field = document.querySelector(`[data-setting="${key}"]`);
-  const value = field.multiple ? Array.from(field.selectedOptions).map((option) => option.value).join(",") : field.value;
+  const value = settingFieldValue(field);
   deps.setStatus("Сохраняю");
   deps.state.settings = await deps.api("/api/settings/text", {
     method: "PATCH",
@@ -70,6 +71,25 @@ async function saveTextSetting(deps, key) {
   });
   await loadSettingsData(deps);
   deps.setStatus("Сохранено");
+}
+
+async function saveSettingsSection(deps, button) {
+  const section = button.closest(".settings-section-body") || button.closest(".settings-section") || document;
+  const fields = Array.from(section.querySelectorAll("[data-setting]"));
+  if (!fields.length) return;
+  deps.setStatus("Сохраняю");
+  for (const field of fields) {
+    await deps.api("/api/settings/text", {
+      method: "PATCH",
+      body: JSON.stringify({ user_id: deps.state.userId, key: field.dataset.setting, value: settingFieldValue(field) }),
+    });
+  }
+  await loadSettingsData(deps);
+  deps.setStatus("Сохранено");
+}
+
+function settingFieldValue(field) {
+  return field.multiple ? Array.from(field.selectedOptions).map((option) => option.value).join(",") : field.value;
 }
 
 async function saveOverlayPercent(deps, format) {

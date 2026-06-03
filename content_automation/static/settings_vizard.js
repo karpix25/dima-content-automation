@@ -28,6 +28,7 @@ export function renderVizardTab({ state, escapeHtml }) {
         <div class="soft-box">
           ${toggleSetting("vizard_remove_silence_switch", "Убрать паузы", settings.remove_silence_switch, escapeHtml)}
         </div>
+        ${saveSectionButton(escapeHtml)}
       `, escapeHtml)}
       ${settingsDisclosure("Отбор клипов", [chip(`до ${settings.max_clip_number || 10}`), chip(settings.keywords ? "keywords заданы" : "keywords пустые", !settings.keywords)], `
         <div class="settings-three">
@@ -36,6 +37,7 @@ export function renderVizardTab({ state, escapeHtml }) {
           ${numberSetting("vizard_template_id", "Template ID", settings.template_id || "", 1, 999999999)}
         </div>
         ${textAreaSetting("vizard_keywords", "Keywords для отбора тем", settings.keywords || "", 3, escapeHtml)}
+        ${saveSectionButton(escapeHtml)}
       `, escapeHtml)}
       ${settingsDisclosure("Автооформление", autoSwitchChips(settings), `
         <div class="soft-box">
@@ -47,6 +49,7 @@ export function renderVizardTab({ state, escapeHtml }) {
             ${toggleSetting("vizard_auto_broll_switch", "Auto B-roll", settings.auto_broll_switch, escapeHtml)}
           </div>
         </div>
+        ${saveSectionButton(escapeHtml)}
       `, escapeHtml)}
     </section>
   `;
@@ -59,7 +62,6 @@ function selectSetting(key, label, value, options, escapeHtml) {
       <select data-setting="${escapeHtml(key)}">
         ${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}" ${value === optionValue ? "selected" : ""}>${escapeHtml(optionLabel)}</option>`).join("")}
       </select>
-      <button data-action="save-text" data-key="${escapeHtml(key)}">Сохранить</button>
     </div>
   `;
 }
@@ -72,7 +74,6 @@ function multiSelectSetting(key, label, values, options, escapeHtml) {
       <select multiple data-setting="${escapeHtml(key)}" size="5">
         ${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}" ${selected.has(optionValue) ? "selected" : ""}>${escapeHtml(optionLabel)}</option>`).join("")}
       </select>
-      <button data-action="save-text" data-key="${escapeHtml(key)}">Сохранить</button>
     </div>
   `;
 }
@@ -82,7 +83,6 @@ function smallTextSetting(key, label, value, maxLength, escapeHtml) {
     <div>
       <label>${escapeHtml(label)}</label>
       <input data-setting="${escapeHtml(key)}" maxlength="${maxLength}" value="${escapeHtml(value)}" />
-      <button data-action="save-text" data-key="${escapeHtml(key)}">Сохранить</button>
     </div>
   `;
 }
@@ -92,7 +92,6 @@ function numberSetting(key, label, value, min, max) {
     <div>
       <label>${label}</label>
       <input type="number" min="${min}" max="${max}" value="${value}" data-setting="${key}" />
-      <button data-action="save-text" data-key="${key}">Сохранить</button>
     </div>
   `;
 }
@@ -102,7 +101,6 @@ function textAreaSetting(key, label, value, rows, escapeHtml) {
     <div class="soft-box">
       <label>${escapeHtml(label)}</label>
       <textarea data-setting="${escapeHtml(key)}" rows="${rows}">${escapeHtml(value)}</textarea>
-      <button data-action="save-text" data-key="${escapeHtml(key)}">Сохранить</button>
     </div>
   `;
 }
@@ -115,9 +113,12 @@ function toggleSetting(key, label, checked, escapeHtml) {
         <option value="1" ${checked ? "selected" : ""}>вкл</option>
         <option value="0" ${checked ? "" : "selected"}>выкл</option>
       </select>
-      <button data-action="save-text" data-key="${escapeHtml(key)}">Сохранить</button>
     </label>
   `;
+}
+
+function saveSectionButton(escapeHtml) {
+  return `<button data-action="save-section">${escapeHtml("Сохранить секцию")}</button>`;
 }
 
 function vizardSummaryChips(settings) {
