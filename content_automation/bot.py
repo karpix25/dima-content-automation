@@ -13,6 +13,7 @@ from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, Inli
 
 from .config import load_settings
 from .deepgram_transcription import DeepgramConfig
+from .editorial import EditorialBrief, apply_editorial_brief, build_editorial_briefs, script_editorial_summary
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .final_video_variants import build_final_video_variants
@@ -250,9 +251,11 @@ def format_script_message(record: ScriptRecord) -> str:
     label = "Короткий" if record.format == "short" else "YouTube"
     cta_type = str(record.raw.get("cta_type") or "unknown").strip()
     cta_reason = str(record.raw.get("cta_reason") or "").strip()
+    editorial = script_editorial_summary(record.raw)
     return "\n\n".join(
         [
             f"{label} сценарий #{record.id}",
+            f"Формат идеи: {editorial}" if editorial else "",
             f"Тема: {record.title}",
             f"Угол: {record.angle}",
             f"Хук: {record.hook}",
@@ -359,13 +362,15 @@ def advance_review_progress(user_id: str) -> None:
 def format_review_message(record: ScriptRecord, user_id: str) -> str:
     done, total = get_review_progress(user_id)
     current = min(done + 1, total) if total else 1
+    editorial = script_editorial_summary(record.raw)
     return "\n\n".join(
         [
             f"Сценарий {current}/{total or 1}",
+            f"Формат идеи:\n{editorial}" if editorial else "",
             f"Хук:\n{record.hook}",
             f"Текст озвучки:\n{record.voiceover}",
         ]
-    )
+    ).replace("\n\n\n", "\n\n").strip()
 
 
 def split_telegram_text(text: str, max_len: int = 3800) -> list[str]:
@@ -592,6 +597,7 @@ async def generate_scripts_for_user(
         all_existing_records = storage.list_scripts_for_dedup(user_id, format=format)
         recent_existing_records = all_existing_records[:60]
         exclusion_context = build_exclusion_context(recent_existing_records)
+        editorial_briefs = build_editorial_briefs(start_index=len(all_existing_records), count=count)
         word_budget = youtube_word_budget(user_settings.youtube_long_duration_minutes, wpm=voice_wpm)
         prompt = build_youtube_script_prompt(
             style,
@@ -599,6 +605,7 @@ async def generate_scripts_for_user(
             cta_mix=cta_mix,
             topic_hint=topic_hint,
             exclusion_context=exclusion_context,
+            editorial_briefs=editorial_briefs[:1],
             word_budget=word_budget,
         )
         items = await ask_notebooklm_for_scripts(
@@ -610,6 +617,7 @@ async def generate_scripts_for_user(
             existing_records=recent_existing_records,
             accepted_payloads=[],
             exact_existing_records=all_existing_records,
+            editorial_briefs=editorial_briefs,
             word_budget=word_budget,
         )
     else:
@@ -619,6 +627,10 @@ async def generate_scripts_for_user(
         word_budget = vertical_word_budget(user_settings.vertical_avatar_duration_mode, wpm=voice_wpm)
         while len(items) < count:
             batch_count = min(settings.notebooklm_short_batch_size, count - len(items))
+            editorial_briefs = build_editorial_briefs(
+                start_index=len(all_existing_records) + len(items),
+                count=batch_count,
+            )
             exclusion_context = "\n".join(
                 part
                 for part in [
@@ -634,6 +646,7 @@ async def generate_scripts_for_user(
                 cta_mix=cta_mix,
                 topic_hint=topic_hint,
                 exclusion_context=exclusion_context,
+                editorial_briefs=editorial_briefs,
                 word_budget=word_budget,
             )
             new_items = await ask_notebooklm_for_scripts(
@@ -645,6 +658,7 @@ async def generate_scripts_for_user(
                 existing_records=recent_existing_records,
                 accepted_payloads=items,
                 exact_existing_records=all_existing_records,
+                editorial_briefs=editorial_briefs,
                 word_budget=word_budget,
             )
             if not new_items:
@@ -668,6 +682,7 @@ async def ask_notebooklm_for_scripts(
     existing_records: list[ScriptRecord],
     accepted_payloads: list[dict[str, object]],
     exact_existing_records: list[ScriptRecord] | None = None,
+    editorial_briefs: list[EditorialBrief] | None = None,
     word_budget: WordBudget | None = None,
 ) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
@@ -700,6 +715,8 @@ async def ask_notebooklm_for_scripts(
                 continue
             if format in {"short", "youtube"} and script_payload_is_duplicate(item, existing_records, accepted_payloads + items):
                 continue
+            brief = editorial_briefs[len(items)] if editorial_briefs and len(items) < len(editorial_briefs) else None
+            item = apply_editorial_brief(item, brief)
             items.append(item)
         if len(items) >= count:
             break

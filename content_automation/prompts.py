@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .editorial import EditorialBrief, editorial_briefs_prompt
 from .script_length import WordBudget, length_instruction, vertical_word_budget, youtube_word_budget
 
 
@@ -34,31 +35,43 @@ def build_short_scripts_prompt(
     cta_mix: str | None = None,
     topic_hint: str | None = None,
     exclusion_context: str | None = None,
+    editorial_briefs: list[EditorialBrief] | None = None,
     word_budget: WordBudget | None = None,
 ) -> str:
     style = _short_prompt_value(author_style or DEFAULT_AUTHOR_STYLE, 260)
+    offer = _short_prompt_value(offer_context or DEFAULT_OFFER_CONTEXT, 420)
+    cta_distribution = _short_prompt_value(cta_mix or DEFAULT_CTA_MIX, 120)
     hint = _short_prompt_value(topic_hint, 160)
     exclusions = _short_prompt_value(exclusion_context, 700)
     budget = word_budget or vertical_word_budget("original")
+    editorial = editorial_briefs_prompt(editorial_briefs or [])
     hint_line = f"\nFocus: {hint}" if hint else ""
     exclusions_line = f"\nAvoid repeating: {exclusions}" if exclusions else ""
+    editorial_line = f"\n{editorial}" if editorial else ""
     return f"""
 Return ONLY valid JSON. Use the NotebookLM sources.
-Write {count} English short vertical-video script(s) for existing Amazon sellers.
+Write {count} English short vertical-video script(s) for the target audience defined by the offer and NotebookLM sources.
 Voice: {style}
-Offer: high-ticket Amazon growth mentorship, from 1400 USD. No direct CTA.
+Offer/context: {offer}
+CTA mix: {cta_distribution}
 Rules: no Cyrillic, no markdown, practical and specific. {length_instruction(budget)}{hint_line}{exclusions_line}
 Social performance rules:
 - One sharp idea only: a pain, a mechanism, and a payoff.
 - The first sentence must create tension in 1-2 seconds: hidden mistake, contrarian warning, or specific money leak.
 - Build retention as setup -> turn -> proof/example -> payoff. No generic advice.
-- Use concrete Amazon seller stakes: margin, PPC waste, cash flow, fees, inventory, rankings, operations, or expansion.
+- Use concrete niche-specific stakes. For Amazon/ecommerce: margin, PPC waste, cash flow, fees, inventory, rankings, operations, or expansion.
 - Resolve the curiosity gap by the end; do not end as a vague teaser.
 - Make the idea feel new compared with the avoided titles, hooks, and fingerprints.
+{editorial_line}
 
 [
   {{
     "title": "",
+    "content_format": "",
+    "content_pillar": "",
+    "proof_type": "",
+    "emotion_angle": "",
+    "series_name": "",
     "topic_fingerprint": "pain + mechanism + audience moment + payoff",
     "angle": "",
     "hook_type": "hidden mistake | contrarian warning | money leak | belief shift",
@@ -81,6 +94,7 @@ def build_youtube_script_prompt(
     cta_mix: str | None = None,
     topic_hint: str | None = None,
     exclusion_context: str | None = None,
+    editorial_briefs: list[EditorialBrief] | None = None,
     word_budget: WordBudget | None = None,
 ) -> str:
     style = (author_style or DEFAULT_AUTHOR_STYLE).strip()
@@ -90,8 +104,10 @@ def build_youtube_script_prompt(
     hint = f"\nAdditional user focus: {topic_hint.strip()}\n" if topic_hint else ""
     exclusions = _short_prompt_value(exclusion_context, 1200)
     exclusions_line = f"\nAvoid repeating these prior title/hook/fingerprint patterns:\n{exclusions}\n" if exclusions else ""
+    editorial = editorial_briefs_prompt(editorial_briefs or [])
+    editorial_line = f"\nEditorial direction:\n{editorial}\n" if editorial else ""
     return f"""
-You are a YouTube strategist and scriptwriter for a high-ticket education product about growing an Amazon business.
+You are a YouTube strategist and scriptwriter for a high-ticket education product in the niche defined by the offer and NotebookLM sources.
 
 OUTPUT LANGUAGE:
 - Write all content in English.
@@ -106,9 +122,9 @@ Product:
 - video goal: deliver strong expert value and warm the viewer up to buy.
 
 Audience:
-- already selling on Amazon;
+- already active in the niche, not beginners;
 - wants growth, systems, more profit, and control;
-- does not need basic explanations like "what is Amazon FBA".
+- does not need basic beginner explanations unless the source context explicitly says otherwise.
 
 Author voice:
 {style}
@@ -130,7 +146,7 @@ Retention and packaging logic:
 - Open with a specific tension, not a broad topic intro.
 - Add a new open loop every 45-75 seconds and close it with a concrete example.
 - Include pattern interrupts: contrarian line, number, mistake, or diagnostic question.
-- Keep every section tied to the seller's stakes: profit, cash flow, PPC waste, inventory, operations, or expansion.
+- Keep every section tied to concrete niche-specific stakes. For Amazon/ecommerce: profit, cash flow, PPC waste, inventory, operations, or expansion.
 - Avoid generic "grow your Amazon business" advice unless it is attached to a mechanism and example.
 
 CTA strategy:
@@ -144,11 +160,17 @@ Using this NotebookLM knowledge base, write 1 YouTube script.
 - Do not make it shorter than the minimum or longer than the maximum word count.
 {hint}
 {exclusions_line}
+{editorial_line}
 Return only valid JSON. No Markdown. No prose outside JSON.
 Schema:
 [
   {{
     "title": "video title",
+    "content_format": "",
+    "content_pillar": "",
+    "proof_type": "",
+    "emotion_angle": "",
+    "series_name": "",
     "topic_fingerprint": "pain + mechanism + audience moment + payoff",
     "angle": "main idea",
     "core_promise": "specific viewer payoff",
