@@ -94,6 +94,30 @@ def script_payload_is_duplicate(
     )
 
 
+def script_payload_is_exact_duplicate(
+    payload: dict[str, object],
+    existing_records: list[Any],
+    accepted_payloads: list[dict[str, object]],
+) -> bool:
+    return any(payload_exactly_matches_record(payload, record) for record in existing_records) or any(
+        payload_exactly_matches_payload(payload, other) for other in accepted_payloads
+    )
+
+
+def payload_exactly_matches_record(payload: dict[str, object], record: Any) -> bool:
+    return (
+        _same_normalized(payload_text(payload, "hook"), getattr(record, "hook", ""))
+        or _same_normalized(payload_text(payload, "voiceover"), getattr(record, "voiceover", ""))
+    )
+
+
+def payload_exactly_matches_payload(payload: dict[str, object], other: dict[str, object]) -> bool:
+    return (
+        _same_normalized(payload_text(payload, "hook"), payload_text(other, "hook"))
+        or _same_normalized(payload_text(payload, "voiceover"), payload_text(other, "voiceover"))
+    )
+
+
 def payload_is_similar_to_record(payload: dict[str, object], record: Any) -> bool:
     return (
         similarity(payload_text(payload, "title"), getattr(record, "title", "")) >= 0.86
@@ -157,3 +181,9 @@ def _limited_terms(text: str) -> str:
         if len(terms) >= FINGERPRINT_TERM_LIMIT:
             break
     return " ".join(terms)
+
+
+def _same_normalized(left: str | None, right: str | None) -> bool:
+    left_norm = normalize_for_similarity(left)
+    right_norm = normalize_for_similarity(right)
+    return bool(left_norm and right_norm and left_norm == right_norm)

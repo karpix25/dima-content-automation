@@ -32,6 +32,7 @@ from .topic_dedupe import (
     build_exclusion_context,
     build_payload_exclusion_context,
     payload_text,
+    script_payload_is_exact_duplicate,
     script_payload_is_duplicate,
 )
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
@@ -304,6 +305,27 @@ def reject_cyrillic_pending_scripts(user_id: str) -> int:
     return rejected
 
 
+def reject_duplicate_pending_scripts(user_id: str, *, format: str = "short") -> int:
+    rejected = 0
+    seen: list[ScriptRecord] = []
+    records = list(reversed(storage.list_scripts_for_dedup(user_id, format=format)))
+    for record in records:
+        payload = {
+            "title": record.title,
+            "angle": record.angle,
+            "hook": record.hook,
+            "trigger": record.trigger,
+            "voiceover": record.voiceover,
+            "topic_fingerprint": record.topic_fingerprint,
+        }
+        if record.status == "pending" and script_payload_is_exact_duplicate(payload, seen, []):
+            storage.update_script_status(user_id, record.id, "rejected")
+            rejected += 1
+            continue
+        seen.append(record)
+    return rejected
+
+
 def get_int_setting(user_id: str, key: str, default: int = 0) -> int:
     value = storage.get_setting(user_id, key)
     if value is None:
@@ -567,8 +589,9 @@ async def generate_scripts_for_user(
     user_settings = get_user_settings(storage, settings, user_id)
     voice_wpm = await ensure_voice_wpm(user_id)
     if format == "youtube":
-        existing_records = storage.list_recent_scripts(user_id, format=format, limit=60)
-        exclusion_context = build_exclusion_context(existing_records)
+        all_existing_records = storage.list_scripts_for_dedup(user_id, format=format)
+        recent_existing_records = all_existing_records[:60]
+        exclusion_context = build_exclusion_context(recent_existing_records)
         word_budget = youtube_word_budget(user_settings.youtube_long_duration_minutes, wpm=voice_wpm)
         prompt = build_youtube_script_prompt(
             style,
@@ -584,20 +607,22 @@ async def generate_scripts_for_user(
             prompt=prompt,
             count=count,
             format=format,
-            existing_records=existing_records,
+            existing_records=recent_existing_records,
             accepted_payloads=[],
+            exact_existing_records=all_existing_records,
             word_budget=word_budget,
         )
     else:
         items: list[dict[str, object]] = []
-        existing_records = storage.list_recent_scripts(user_id, format=format, limit=60)
+        all_existing_records = storage.list_scripts_for_dedup(user_id, format=format)
+        recent_existing_records = all_existing_records[:60]
         word_budget = vertical_word_budget(user_settings.vertical_avatar_duration_mode, wpm=voice_wpm)
         while len(items) < count:
             batch_count = min(settings.notebooklm_short_batch_size, count - len(items))
             exclusion_context = "\n".join(
                 part
                 for part in [
-                    build_exclusion_context(existing_records),
+                    build_exclusion_context(recent_existing_records),
                     build_payload_exclusion_context(items),
                 ]
                 if part
@@ -617,8 +642,9 @@ async def generate_scripts_for_user(
                 prompt=prompt,
                 count=batch_count,
                 format=format,
-                existing_records=existing_records,
+                existing_records=recent_existing_records,
                 accepted_payloads=items,
+                exact_existing_records=all_existing_records,
                 word_budget=word_budget,
             )
             if not new_items:
@@ -641,6 +667,7 @@ async def ask_notebooklm_for_scripts(
     format: str,
     existing_records: list[ScriptRecord],
     accepted_payloads: list[dict[str, object]],
+    exact_existing_records: list[ScriptRecord] | None = None,
     word_budget: WordBudget | None = None,
 ) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
@@ -667,6 +694,9 @@ async def ask_notebooklm_for_scripts(
             if script_payload_has_cyrillic(item):
                 continue
             if word_budget and not script_payload_matches_word_budget(item, word_budget):
+                continue
+            exact_records = exact_existing_records if exact_existing_records is not None else existing_records
+            if script_payload_is_exact_duplicate(item, exact_records, accepted_payloads + items):
                 continue
             if format in {"short", "youtube"} and script_payload_is_duplicate(item, existing_records, accepted_payloads + items):
                 continue
@@ -1369,12 +1399,13 @@ async def start_review_session(
     edit: bool = False,
 ) -> int:
     removed = reject_cyrillic_pending_scripts(user_id)
+    duplicate_removed = reject_duplicate_pending_scripts(user_id)
     pending = storage.count_scripts(user_id, format="short", status="pending")
     if pending == 0:
-        if removed:
+        if removed or duplicate_removed:
             await edit_or_send_text(
                 chat_id,
-                f"Убрал русские сценарии из очереди: {removed}. Запусти /refill для новой английской пачки.",
+                f"Убрал из очереди: русские {removed}, дубли {duplicate_removed}. Запусти /refill для новой пачки.",
                 thread_id=thread_id,
                 message=message,
                 edit=edit,
@@ -1404,6 +1435,7 @@ async def start_review_session(
 
 async def edit_to_next_review_card(callback: CallbackQuery, user_id: str) -> None:
     reject_cyrillic_pending_scripts(user_id)
+    reject_duplicate_pending_scripts(user_id)
     records = storage.list_scripts(user_id, format="short", status="pending", limit=1)
     if records:
         record = records[0]

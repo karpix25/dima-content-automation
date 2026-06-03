@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from content_automation.topic_dedupe import (
     build_exclusion_context,
+    script_payload_is_exact_duplicate,
     script_payload_is_duplicate,
     script_topic_fingerprint,
 )
@@ -34,6 +35,21 @@ def test_duplicate_detection_catches_same_fingerprint_with_different_hook():
     }
 
     assert script_payload_is_duplicate(payload, existing, []) is True
+
+
+def test_exact_duplicate_detection_normalizes_hook_and_voiceover():
+    existing = [
+        SimpleNamespace(
+            hook="Stop fighting your supplier over a five-cent discount.",
+            voiceover="Stop fighting your supplier over a five-cent discount when packaging leaks one dollar.",
+        )
+    ]
+    payload = {
+        "hook": "STOP fighting your supplier over a five cent discount!",
+        "voiceover": "Stop fighting your supplier over a five-cent discount when packaging leaks one dollar.",
+    }
+
+    assert script_payload_is_exact_duplicate(payload, existing, []) is True
 
 
 def test_exclusion_context_includes_fingerprint():

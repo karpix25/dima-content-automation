@@ -249,6 +249,19 @@ class Storage:
             ).fetchall()
         return [row_to_script(row) for row in rows]
 
+    def list_scripts_for_dedup(self, user_id: str, *, format: str = "short") -> list[ScriptRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM scripts
+                WHERE user_id = ? AND format = ?
+                ORDER BY id DESC
+                """,
+                (user_id, format),
+            ).fetchall()
+        return [row_to_script(row) for row in rows]
+
     def list_approved_scripts(self, user_id: str, *, limit: int = 50) -> list[ScriptRecord]:
         with self._connect() as conn:
             rows = conn.execute(
