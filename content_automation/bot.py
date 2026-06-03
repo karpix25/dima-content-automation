@@ -30,7 +30,7 @@ from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_sp
 from .settings_service import get_user_settings
 from .storage import ScriptRecord, Storage
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
-from .post_heygen_video import apply_post_heygen_visuals
+from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_reference_paths
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
 from .vizard_bot import format_vizard_settings, run_vizard_youtube_job, vizard_settings_keyboard
@@ -1110,7 +1110,7 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
         )
         if montage_path:
             logger.info("Post-HeyGen montage rendered with external renderer: %s", montage_path)
-            return montage_path
+            return await apply_cover_frame_to_video(record, montage_path, asset_dir)
     except VideoOverlayError as exc:
         logger.warning("External montage renderer failed; falling back to KIE+ffmpeg overlays: %s", exc)
 
@@ -1144,6 +1144,31 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
         result.broll_starts,
     )
     return result.output_path
+
+
+async def apply_cover_frame_to_video(record: ScriptRecord, video_path: Path, asset_dir: Path) -> Path:
+    assets = await asyncio.to_thread(
+        generate_post_heygen_assets,
+        record=record,
+        output_dir=asset_dir,
+        broll_count=0,
+        kie_client=kie_image,
+        reference_paths=thumbnail_reference_paths(
+            storage=storage,
+            asset_store=asset_store,
+            settings=settings,
+            user_id=record.user_id,
+            target=target_from_record_format(record.format),
+        ),
+    )
+    output_path = settings.video_output_directory / f"{video_path.stem}_cover.mp4"
+    return await asyncio.to_thread(
+        apply_cover_frame,
+        video_path=video_path,
+        cover_path=assets.cover_path,
+        output_path=output_path,
+        cover_seconds=settings.post_heygen_cover_seconds,
+    )
 
 
 async def send_final_video(chat_id: int, thread_id: int | None, user_id: str, record: ScriptRecord, video_url: str) -> None:
@@ -1206,17 +1231,11 @@ async def render_existing_heygen_video(
     cleanup_old_videos(settings.video_output_directory, keep_days=settings.video_keep_days)
     raw_path = settings.video_output_directory / f"existing_heygen_{record.id}_{heygen_video_id}.mp4"
     await download_video(ready.video_url, raw_path)
-    montage_path = await asyncio.to_thread(
-        render_montage_if_configured,
-        record=record,
-        video_path=raw_path,
-        output_dir=settings.video_output_directory / "existing_montage" / str(record.id),
-        config=montage_renderer_config,
-    )
+    montage_path = await process_post_heygen_visuals_if_enabled(record, raw_path)
     if not montage_path:
-        raise VideoOverlayError("Smart montage renderer не вернул файл.")
+        raise VideoOverlayError("Post-HeyGen renderer не вернул файл.")
 
-    await status_msg.edit_text("✅ Smart montage готов. Готовлю YouTube и Instagram версии.")
+    await status_msg.edit_text("✅ Smart montage и cover готовы. Готовлю YouTube и Instagram версии.")
     await send_final_video_variants(
         chat_id=chat_id,
         thread_id=thread_id,

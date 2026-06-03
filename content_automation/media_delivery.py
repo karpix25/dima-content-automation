@@ -15,7 +15,7 @@ from .heygen import HeyGenClient
 from .kie_image import KieImageClient
 from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
-from .post_heygen_video import apply_post_heygen_visuals
+from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_reference_paths
 from .script_length import WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .settings_service import get_overlay_path, get_overlay_start_percent, get_user_settings
@@ -327,7 +327,25 @@ def _post_heygen_visuals(
         )
         if montage_path:
             logger.info("Post-HeyGen montage rendered for script %s: %s", record.id, montage_path)
-            return montage_path
+            cover_assets = generate_post_heygen_assets(
+                record=record,
+                output_dir=settings.video_output_directory / "miniapp_visual_assets" / str(record.id),
+                broll_count=0,
+                kie_client=kie_client,
+                reference_paths=thumbnail_reference_paths(
+                    storage=storage,
+                    asset_store=asset_store,
+                    settings=settings,
+                    user_id=user_id,
+                    target=target_from_record_format(record.format),
+                ),
+            )
+            return apply_cover_frame(
+                video_path=montage_path,
+                cover_path=cover_assets.cover_path,
+                output_path=settings.video_output_directory / f"{montage_path.stem}_cover.mp4",
+                cover_seconds=settings.post_heygen_cover_seconds,
+            )
     except VideoOverlayError as exc:
         montage_error = exc
         logger.warning(

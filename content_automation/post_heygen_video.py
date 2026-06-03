@@ -76,6 +76,54 @@ def apply_post_heygen_visuals(
     return PostHeyGenResult(output_path=output_path, cover_seconds=cover_seconds, broll_starts=starts)
 
 
+def apply_cover_frame(
+    *,
+    video_path: Path,
+    cover_path: Path,
+    output_path: Path,
+    cover_seconds: float,
+) -> Path:
+    if not video_path.exists():
+        raise VideoOverlayError(f"Видео не найдено: {video_path}")
+    if not cover_path.exists():
+        raise VideoOverlayError(f"Cover не найден: {cover_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path),
+        "-loop",
+        "1",
+        "-i",
+        str(cover_path),
+        "-filter_complex",
+        f"{_scale_filter(1, 'cover')};[0:v][cover]overlay=0:0:enable='lt(t,{cover_seconds:.3f})'[v]",
+        "-map",
+        "[v]",
+        "-map",
+        "0:a?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-c:a",
+        "copy",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        "-shortest",
+        str(output_path),
+    ]
+    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise VideoOverlayError(f"ffmpeg cover frame error: {proc.stderr[-2000:]}")
+    return output_path
+
+
 def _scale_filter(input_index: int, label: str) -> str:
     return (
         f"[{input_index}:v]scale=iw*sar:ih,setsar=1,"

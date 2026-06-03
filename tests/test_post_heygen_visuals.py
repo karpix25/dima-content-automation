@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from content_automation.post_heygen_video import _broll_starts
+from content_automation import post_heygen_video
+from content_automation.post_heygen_video import _broll_starts, apply_cover_frame
 from content_automation.storage import ScriptRecord
 from content_automation.visual_assets import generate_post_heygen_assets
 
@@ -21,6 +22,25 @@ def test_broll_starts_fit_inside_video_duration():
     assert len(starts) == 3
     assert starts[0] >= 1.5
     assert starts[-1] + 1.2 <= 19.0
+
+
+def test_apply_cover_frame_overlays_until_cover_seconds(tmp_path: Path, monkeypatch):
+    video = tmp_path / "video.mp4"
+    cover = tmp_path / "cover.png"
+    output = tmp_path / "out.mp4"
+    video.write_bytes(b"video")
+    cover.write_bytes(b"cover")
+    seen = {}
+
+    def fake_run(cmd, check, capture_output, text):
+        seen["cmd"] = cmd
+        output.write_bytes(b"out")
+        return FakeProc()
+
+    monkeypatch.setattr(post_heygen_video.subprocess, "run", fake_run)
+
+    assert apply_cover_frame(video_path=video, cover_path=cover, output_path=output, cover_seconds=0.10) == output
+    assert "enable='lt(t,0.100)'" in ";".join(seen["cmd"])
 
 
 def test_generate_post_heygen_assets_prefers_kie_when_configured(tmp_path: Path):
@@ -66,6 +86,11 @@ class FakeKieClient:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text("kie")
         return output_path
+
+
+class FakeProc:
+    returncode = 0
+    stderr = ""
 
 
 def _record() -> ScriptRecord:
