@@ -768,7 +768,7 @@ const html = `<!doctype html>
         display: block;
         left: 50%;
         right: auto;
-        bottom: 160px;
+        bottom: 210px;
         max-width: 92%;
         padding: 0;
         color: #fff;
