@@ -771,8 +771,9 @@ const html = `<!doctype html>
         width: calc(100% - 80px);
         height: 80%;
         padding: 32px 38px 34px;
-        grid-template-rows: auto 1fr;
-        gap: 4px;
+        grid-template-rows: auto auto;
+        align-content: center;
+        gap: 50px;
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(244, 247, 251, 0.95)),
           #f8fafc;
@@ -782,17 +783,15 @@ const html = `<!doctype html>
       body.layout-vertical-heygen .director-card.motion-2 {
         top: 6.5%;
         height: 80%;
-        grid-template-rows: auto 1fr;
       }
       body.layout-vertical-heygen .director-card.motion-3 {
         top: 8%;
         height: 79%;
-        grid-template-rows: auto 1fr;
       }
       body.layout-vertical-heygen .director-copy {
         padding: 4px 6px 0 30px;
         justify-content: flex-start;
-        min-height: 138px;
+        min-height: 0;
       }
       body.layout-vertical-heygen .director-copy::before {
         top: 5px;
@@ -818,8 +817,8 @@ const html = `<!doctype html>
       }
       body.layout-vertical-heygen .director-card h2 {
         max-width: 96%;
-        font-size: 64px;
-        line-height: 0.9;
+        font-size: 72px;
+        line-height: 0.92;
         font-weight: 920;
         text-wrap: balance;
         -webkit-line-clamp: 2;
@@ -837,12 +836,12 @@ const html = `<!doctype html>
         font-weight: 980;
       }
       body.layout-vertical-heygen .director-card.title-compact h2 {
-        font-size: 52px;
+        font-size: 62px;
         line-height: 0.94;
         -webkit-line-clamp: 3;
       }
       body.layout-vertical-heygen .director-card.title-dense h2 {
-        font-size: 45px;
+        font-size: 54px;
         line-height: 0.96;
         -webkit-line-clamp: 3;
       }
@@ -861,9 +860,9 @@ const html = `<!doctype html>
       }
       body.layout-vertical-heygen .director-visual {
         position: relative;
-        width: min(100%, 820px);
+        width: min(100%, 800px);
         border-radius: 8px;
-        align-self: start;
+        align-self: center;
       }
       body.layout-vertical-heygen .director-image {
         transform-origin: center center;

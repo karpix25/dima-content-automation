@@ -81,6 +81,18 @@ def test_vertical_director_rewrites_profit_title_for_vertical_layout():
     assert plan.scenes[0]["title"] == "Daily Profit Lever"
 
 
+def test_vertical_director_rewrites_price_bump_title_for_vertical_layout():
+    plan = build_montage_plan(
+        _record(),
+        duration_seconds=14,
+        max_scenes=1,
+        transcript_words=_words("Then bump the price by exactly one dollar and watch hourly velocity."),
+    )
+
+    assert plan.scenes[0]["title"] == "$1 Price Bump"
+    assert plan.scenes[0]["subtitle"] == ""
+
+
 def test_prepare_vertical_montage_assets_generates_expected_kie_files(tmp_path, monkeypatch):
     client = FakeKieClient()
     monkeypatch.setattr(montage_assets, "KieImageClient", FakeKieClient)

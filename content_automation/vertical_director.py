@@ -113,11 +113,11 @@ def _scene_from_sentence(
 ) -> dict:
     text = _clean(str(sentence["text"]))
     title = _fit_title(text, language=language)
-    subtitle = _fit_subtitle(text, title=title)
     start = max(0.8, float(sentence["start"]) - 0.05)
     end = min(duration_seconds, max(start + 3.8, float(sentence["end"]) + 2.2))
     terms = _visual_terms(text)
     visual = _visual_story(title=title, text=text, index=index)
+    subtitle = _fit_subtitle(text, title=title, role=visual["role"])
     return {
         "id": f"scene-{index + 1}",
         "start": round(start, 3),
@@ -154,14 +154,16 @@ def _fit_title(text: str, *, language: str) -> str:
     clean = re.sub(r"\b(because|without|instead of|which is exactly)\b.*$", "", clean, flags=re.I)
     words = clean.split()
     if language == "en":
-        title = _trim_trailing_stopword(" ".join(words[:7]))
+        title = _trim_trailing_stopword(" ".join(words[:5]))
         title = _title_case(title)
     else:
-        title = " ".join(words[:6])
+        title = " ".join(words[:5])
     return _clean(title).rstrip(".,;:") or _clean(text).split(".")[0][:42]
 
 
-def _fit_subtitle(text: str, *, title: str) -> str:
+def _fit_subtitle(text: str, *, title: str, role: str = "") -> str:
+    if role in {"proof", "greenlight", "price move"}:
+        return ""
     clean = _clean(text)
     if clean.lower().startswith(title.lower()):
         clean = _clean(clean[len(title) :])
@@ -192,9 +194,15 @@ def _trim_incomplete_subtitle(value: str) -> str:
 def _headline_rewrite(text: str) -> str:
     clean = _clean(text).rstrip(".")
     patterns = [
+        (r"^here is how we test price elasticity.+$", r"Price elasticity test"),
+        (r"^.*\bexactly one dollar\b.*$", r"$1 price bump"),
+        (r"^.*\bbump the price by exactly\b.*$", r"$1 price bump"),
+        (r"^if by \d+\s*(am|pm),?\s+sales drop by more than ([^,]+),.+$", r"Demand broke"),
+        (r"^sales drop means price sensitive.+$", r"Demand broke"),
+        (r"^but if velocity holds.+$", r"Velocity holds"),
+        (r"^if velocity holds.+$", r"Velocity holds"),
         (r"^here is how we (.+)$", r"\1"),
         (r"^at \d+\s*(am|pm),?\s+we (.+)$", r"\2"),
-        (r"^if by \d+\s*(am|pm),?\s+sales drop by more than ([^,]+),.+$", r"Sales drop means price sensitive"),
         (r"^but if (.+),\s+we keep the (.+)$", r"If \1, keep the \2"),
         (r"^we just added .*pure daily profit.+$", r"Daily profit lever"),
         (r"^that .* becomes pure daily profit.+$", r"Daily profit lever"),
@@ -318,6 +326,7 @@ def _image_prompt(
         "Keep the top-right and bottom edge visually clean for HTML overlays. "
         "Show the decision, consequence, or evidence through objects, motion cues, annotated charts, small labels, numeric callouts, and operational props. "
         "Make the image information-rich: include 3-5 small evidence details such as SKU card, margin note, price tag, BSR line, fee tier marker, check mark, warning dot, or before/after value. "
+        "Prefer Amazon listing screens, Buy Box panels, unit-economics cards, trust-signal checklists, review stars, price blocks, product thumbnails, and seller dashboard fragments when they fit the beat. "
         "No decorative filler, no generic business people. "
         f"Director role: {role}. Required visual action: {visual_story} "
         "Use one clear central subject with controlled negative space, a bright off-white workspace, light paper surfaces, pale gray UI panels, thin navy lines, and muted red audit accents. "
