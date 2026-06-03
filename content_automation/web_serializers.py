@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .editorial import script_editorial_summary
 from .storage import FormatJob, ScriptRecord
 from .turan_formats import TuranFormat
 from .web_models import FormatJobOut, FormatOut, ScriptOut
@@ -15,6 +16,7 @@ def format_to_out(item: TuranFormat) -> FormatOut:
 
 
 def script_to_out(record: ScriptRecord) -> ScriptOut:
+    raw = record.raw or {}
     return ScriptOut(
         id=record.id,
         title=record.title,
@@ -23,6 +25,12 @@ def script_to_out(record: ScriptRecord) -> ScriptOut:
         voiceover=record.voiceover,
         cta=record.cta,
         source_basis=record.source_basis,
+        editorial_summary=script_editorial_summary(raw),
+        content_format=str(raw.get("content_format") or ""),
+        content_pillar=str(raw.get("content_pillar") or ""),
+        proof_type=str(raw.get("proof_type") or ""),
+        emotion_angle=str(raw.get("emotion_angle") or ""),
+        series_name=str(raw.get("series_name") or ""),
     )
 
 

@@ -18,6 +18,12 @@ class ScriptOut(BaseModel):
     voiceover: str
     cta: str
     source_basis: str
+    editorial_summary: str = ""
+    content_format: str = ""
+    content_pillar: str = ""
+    proof_type: str = ""
+    emotion_angle: str = ""
+    series_name: str = ""
 
 
 class CreateFormatJobIn(BaseModel):

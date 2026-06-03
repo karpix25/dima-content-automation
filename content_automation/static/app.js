@@ -131,6 +131,7 @@ function renderScripts() {
   root.innerHTML = state.scripts.map((script) => `
     <article class="card">
       <h3>#${script.id} ${escapeHtml(script.title || script.hook)}</h3>
+      ${window.editorialBadges ? window.editorialBadges(script) : ""}
       <p>${escapeHtml(script.hook)}</p>
       <div class="formats">
         ${state.formats.map((format) => `

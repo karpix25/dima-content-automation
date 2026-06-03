@@ -44,6 +44,40 @@ def test_formats_endpoint_lists_catalog():
     assert {item["key"] for item in response.json()} >= {"avatar_reels", "infographic_reels"}
 
 
+def test_approved_scripts_include_editorial_metadata(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    record = storage.add_script(
+        "42",
+        "short",
+        {
+            "title": "Margin trap",
+            "hook": "Revenue is not profit",
+            "trigger": "Cash conversion",
+            "voiceover": "Your revenue can grow while your cash disappears.",
+            "cta": "",
+            "source_basis": "NotebookLM notes.",
+            "content_format": "money_leak",
+            "content_format_label": "Money Leak",
+            "content_pillar": "profit_economics",
+            "content_pillar_label": "Profit & economics",
+            "proof_type": "numbers",
+            "proof_type_label": "Numbers",
+            "emotion_angle": "shock",
+            "emotion_angle_label": "Shock",
+            "series_name": "Hidden Leaks",
+        },
+    )
+    storage.update_script_status("42", record.id, "approved")
+    monkeypatch.setattr(web_app, "storage", storage)
+    client = TestClient(web_app.app)
+
+    response = client.get("/api/scripts/approved", params={"user_id": "42"})
+
+    assert response.status_code == 200
+    assert response.json()[0]["editorial_summary"] == "Money Leak · Profit & economics · Numbers · Shock · Hidden Leaks"
+    assert response.json()[0]["content_format"] == "money_leak"
+
+
 def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     storage = make_storage(tmp_path)
     asset_store = make_asset_store(tmp_path)
