@@ -75,7 +75,8 @@ const defaultFps = isYoutubeLayout
 const fps = normalizeHyperframesFps(getArgValue('fps', defaultFps), isYoutubeLayout || isVerticalHeygenLayout ? 24 : 30);
 const compositeSourceVideo = renderLayout.compositeSourceVideo;
 const youtubeCaptionsEnabled =
-  isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_CAPTIONS', false);
+  (isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_CAPTIONS', false)) ||
+  (isVerticalHeygenLayout && envFlag('HYPERFRAMES_VERTICAL_CAPTIONS', true));
 const youtubeChapterRibbonEnabled =
   isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_CHAPTER_RIBBON', false);
 const youtubeRequireAllImages =
@@ -417,34 +418,33 @@ const youtubeChapterClips = scenes
   .filter(Boolean)
   .join('\n');
 
-const captionChunks = wordCues.flatMap((sceneCues) => {
-  if (!Array.isArray(sceneCues)) return [];
-  const chunks = [];
-  let current = [];
-  for (const cue of sceneCues) {
-    const time = Number(cue?.time);
-    const text = normalizeText(cue?.text);
-    if (!Number.isFinite(time) || !text || time > rootDuration) continue;
-    current.push({ time, text });
-    const closesSentence = /[.!?…]$/.test(text);
-    if (current.length >= 7 || (current.length >= 4 && closesSentence)) {
-      chunks.push(current);
-      current = [];
-    }
-  }
-  if (current.length) chunks.push(current);
-  return chunks;
-}).map((chunk, index, chunks) => {
-  const start = Math.max(0, Number(chunk[0]?.time) || 0);
-  const nextStart = Number(chunks[index + 1]?.[0]?.time);
-  const maxEnd = Number.isFinite(nextStart) ? Math.max(start + 0.4, nextStart - 0.08) : start + 2.4;
-  const duration = Math.max(0.45, Math.min(2.6, maxEnd - start));
+const normalizedWordCues = wordCues
+  .flatMap((cueGroup) => Array.isArray(cueGroup) ? cueGroup : [cueGroup])
+  .map((cue) => {
+    const start = Number(cue?.start ?? cue?.time);
+    const end = Number(cue?.end);
+    const text = normalizeText(cue?.punctuated_word || cue?.text || cue?.word);
+    return { start, end, text };
+  })
+  .filter((cue) => Number.isFinite(cue.start) && cue.start <= rootDuration && cue.text)
+  .sort((a, b) => a.start - b.start);
+
+const captionChunks = normalizedWordCues.map((cue, index, cues) => {
+  const start = Math.max(0, cue.start);
+  const nextStart = Number(cues[index + 1]?.start);
+  const cueEnd = Number.isFinite(cue.end) ? cue.end : NaN;
+  const end = Number.isFinite(cueEnd)
+    ? Math.max(start + 0.32, cueEnd)
+    : Number.isFinite(nextStart)
+      ? Math.max(start + 0.32, nextStart - 0.03)
+      : start + 0.55;
+  const duration = Math.max(0.34, Math.min(0.9, end - start));
   return {
     start,
     duration,
-    text: chunk.map((item) => item.text).join(' '),
+    text: cue.text.replace(/[.!?,;:]+$/g, ''),
   };
-});
+}).filter((caption) => caption.text);
 
 const youtubeCaptionClips = captionChunks
   .map((caption, index) => `
@@ -487,8 +487,8 @@ ${directorPatternTweens({index, scene, start: scene.start, duration})}
   ...(youtubeCaptionsEnabled ? captionChunks.map((caption, index) => {
     const fadeOutAt = Math.max(caption.start + 0.25, caption.start + caption.duration - 0.18);
     return `
-      tl.fromTo("#caption-${index}", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.18, ease: "power2.out" }, ${caption.start.toFixed(3)});
-      tl.to("#caption-${index}", { opacity: 0, y: 8, duration: 0.16, ease: "power2.in" }, ${fadeOutAt.toFixed(3)});`;
+      tl.fromTo("#caption-${index}", { opacity: 0, y: 18, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.12, ease: "power2.out" }, ${caption.start.toFixed(3)});
+      tl.to("#caption-${index}", { opacity: 0, y: 10, scale: 0.98, duration: 0.12, ease: "power2.in" }, ${fadeOutAt.toFixed(3)});`;
   }) : []),
 ].filter(Boolean).join('\n');
 
@@ -764,6 +764,32 @@ const html = `<!doctype html>
         pointer-events: none;
         overflow-wrap: anywhere;
       }
+      body.layout-vertical-heygen .caption-strip {
+        display: block;
+        left: 50%;
+        right: auto;
+        bottom: 160px;
+        max-width: 92%;
+        padding: 0;
+        color: #fff;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        font-size: 86px;
+        line-height: 0.95;
+        font-weight: 950;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        text-align: center;
+        -webkit-text-stroke: 8px rgba(0, 0, 0, 0.88);
+        paint-order: stroke fill;
+        text-shadow:
+          0 3px 0 rgba(0, 0, 0, 0.95),
+          0 8px 22px rgba(0, 0, 0, 0.58);
+        z-index: 8;
+        white-space: nowrap;
+        overflow: visible;
+      }
       body.layout-vertical-heygen .director-card {
         left: 40px;
         right: auto;
@@ -900,7 +926,6 @@ const html = `<!doctype html>
         pointer-events: none;
         mix-blend-mode: multiply;
       }
-      body.layout-vertical-heygen .caption-strip,
       body.layout-vertical-heygen .chapter-ribbon {
         display: none;
       }
