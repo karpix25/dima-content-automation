@@ -78,8 +78,10 @@ def apply_overlay(
     clamped_percent = max(0, min(100, start_percent))
     start_seconds = duration * clamped_percent / 100
     filter_complex = (
-        f"[1:v]format=rgba[ov];"
-        f"[0:v][ov]overlay=(W-w)/2:(H-h)/2:enable='gte(t,{start_seconds:.3f})'[v]"
+        "[1:v]format=rgba[ovraw];"
+        "[ovraw][0:v]scale2ref="
+        "w='min(iw,main_w)':h='min(ih,main_h)':force_original_aspect_ratio=decrease[ov][base];"
+        f"[base][ov]overlay=(W-w)/2:(H-h)/2:enable='gte(t,{start_seconds:.3f})'[v]"
     )
     proc = subprocess.run(
         [

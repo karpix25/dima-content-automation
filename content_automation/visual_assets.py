@@ -90,16 +90,22 @@ def _broll_texts(record: ScriptRecord) -> list[str]:
 
 def _cover_prompt(record: ScriptRecord, *, has_references: bool = False) -> str:
     reference_rule = (
-        "Use the uploaded face/style references for consistent person appearance and brand styling. "
-        "Do not copy text from references. "
+        "Uploaded images are mandatory references, not loose inspiration. "
+        "If a face/person reference is present, use it only for the author's identity and likeness. "
+        "Use the uploaded thumbnail/style references as a style board: match their layout logic, visual hierarchy, "
+        "large-text rhythm, bold numbers, color energy, contrast, spacing, face placement, and social-thumbnail composition. "
+        "The result must feel like the same thumbnail system as the references, adapted to the new topic. "
+        "Do not copy old text, logos, exact numbers, old faces, or identities from style references. "
         if has_references
         else ""
     )
     return (
         "Create a premium vertical 9:16 cover frame for a business short video. "
         f"{reference_rule}"
-        "Cinematic realistic business/editorial style, sharp composition, high contrast, expensive clean look. "
-        "No logos, no watermarks, no UI. Include bold readable Russian/English on-screen text only if it is exact. "
+        "Prioritize social-media thumbnail performance over cinematic poster style. "
+        "Use a clear face + oversized readable headline/numbers composition when it fits the references. "
+        "High contrast, sharp composition, simple visual story, instantly understandable at phone size. "
+        "No logos, no watermarks, no fake platform UI. Replace all reference text with new exact topic text. "
         f"Main cover headline: {_clean_text(record.hook or record.title)}. "
         f"Supporting idea: {_clean_text(record.trigger or record.angle)}. "
         f"Context: {_clean_text(record.source_basis or record.voiceover)[:900]}."
@@ -108,7 +114,8 @@ def _cover_prompt(record: ScriptRecord, *, has_references: bool = False) -> str:
 
 def _broll_prompt(record: ScriptRecord, text: str, *, has_references: bool = False) -> str:
     reference_rule = (
-        "Use uploaded style references for color, composition, and brand feel without copying their text. "
+        "Use uploaded style references as a style board for color, contrast, hierarchy, spacing, and composition. "
+        "Do not copy their old text, logos, numbers, faces, or identities. "
         if has_references
         else ""
     )

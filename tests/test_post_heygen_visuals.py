@@ -69,7 +69,9 @@ def test_generate_post_heygen_assets_passes_references_to_kie(tmp_path: Path):
     )
 
     assert client.reference_batches == [[reference], [reference]]
-    assert "references" in client.prompts[0]
+    assert "mandatory references" in client.prompts[0]
+    assert "style board" in client.prompts[0]
+    assert "same thumbnail system" in client.prompts[0]
 
 
 class FakeKieClient:
