@@ -44,6 +44,8 @@ def test_vertical_director_image_prompt_is_visual_only_for_html_overlay():
     assert "HTML/CSS Hyperframes card" in prompt
     assert "no UI copy" in prompt
     assert "top-right and bottom edge visually clean" in prompt
+    assert "generous negative space" in prompt
+    assert "Avoid dark dashboards" in prompt
 
 
 def test_vertical_director_subtitle_ends_on_complete_phrase():

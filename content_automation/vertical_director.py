@@ -317,7 +317,9 @@ def _image_prompt(
         "Show the decision, consequence, or evidence through objects, motion cues, charts without legible labels, and operational props. "
         "No decorative filler, no generic business people. "
         f"Director role: {role}. Required visual action: {visual_story} "
-        "Use one clear central subject, clean off-white background, deep navy operational surfaces, muted red audit marks, premium magazine object styling. "
+        "Use one clear central subject with generous negative space, a bright off-white workspace, light paper surfaces, pale gray UI panels, thin navy lines, and small muted red audit accents. "
+        "Avoid dark dashboards, black blocks, heavy machinery, dense shadows, cluttered panels, and cargo-heavy compositions. "
+        "Make it feel airy, premium, editorial, and easy to scan. "
         f"Visual anchors: {', '.join(terms)}."
     )
 
