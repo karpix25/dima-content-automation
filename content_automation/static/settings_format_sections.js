@@ -85,11 +85,11 @@ function renderYoutubeTab({ state, escapeHtml }) {
 function renderShortsTab({ state, escapeHtml }) {
   const settings = state.settings;
   return `
-    ${formatHeader("Instagram с аватаром", "Вертикальный avatar, лицо для обложек, референсы и финальная плашка Instagram.", shortsSummaryChips(state), escapeHtml)}
+    ${formatHeader("Вертикальное видео", "Один входной ролик, два выхода: Shorts и Reels со своими финальными плашками.", shortsSummaryChips(state), escapeHtml)}
     <section class="settings-stack">
-      <div class="soft-box">
-        <h3>Вертикальный HeyGen avatar</h3>
-        ${renderAvatarSelectors(state, escapeHtml, { target: "vertical" })}
+      <div class="settings-two">
+        ${overlayCard(state, "shorts", escapeHtml)}
+        ${overlayCard(state, "reels", escapeHtml)}
       </div>
       <div class="settings-two">
         ${durationCard("vertical_avatar_duration_mode", "Длина вертикального AI-аватара", settings.vertical_avatar_duration_mode || "original", "", [
@@ -99,7 +99,10 @@ function renderShortsTab({ state, escapeHtml }) {
           ["60", "60 сек"],
           ["90", "90 сек"],
         ], escapeHtml)}
-        ${overlayCard(state, "short", escapeHtml)}
+        <div class="soft-box">
+          <h3>Вертикальный HeyGen avatar</h3>
+          ${renderAvatarSelectors(state, escapeHtml, { target: "vertical" })}
+        </div>
       </div>
       <div class="settings-two cover-grid">
         ${faceReferenceBox(state, "vertical", escapeHtml)}

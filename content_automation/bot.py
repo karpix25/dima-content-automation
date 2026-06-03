@@ -1354,7 +1354,8 @@ def settings_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [button("🎭 Аватар HeyGen", callback_data="settings:heygen_avatars", style="primary")],
             [button("🎙 Голос ElevenLabs", callback_data="settings:elevenlabs_voices", style="primary")],
-            [button("🖼 Плашка Instagram", callback_data="settings:overlay:short")],
+            [button("🖼 Плашка Shorts", callback_data="settings:overlay:shorts")],
+            [button("🖼 Плашка Reels", callback_data="settings:overlay:reels")],
             [button("🖥 Плашка YouTube", callback_data="settings:overlay:youtube")],
             [button("✂️ Vizard нарезка", callback_data="settings:vizard")],
             [button("🎯 Контекст оффера", callback_data="settings:edit:offer_context")],
@@ -1396,7 +1397,8 @@ def format_current_settings(user_id: str) -> str:
             f"HeyGen avatar YouTube:\n{avatar_name}\n{avatar_id}",
             f"HeyGen avatar Instagram/Reels:\n{vertical_avatar_name}\n{vertical_avatar_id}",
             f"ElevenLabs voice:\n{voice_name}\n{voice_id}",
-            overlay_summary(user_id, "short"),
+            overlay_summary(user_id, "shorts"),
+            overlay_summary(user_id, "reels"),
             overlay_summary(user_id, "youtube"),
             format_vizard_settings(get_user_settings(storage, settings, user_id).vizard),
             f"Микс CTA:\n{cta_mix}",
@@ -1787,7 +1789,7 @@ async def settings_callback(callback: CallbackQuery) -> None:
                 reply_markup=settings_keyboard(),
             )
         return
-    if len(parts) == 3 and parts[1] == "overlay" and parts[2] in {"short", "youtube"}:
+    if len(parts) == 3 and parts[1] == "overlay" and parts[2] in {"short", "youtube", "shorts", "reels"}:
         await callback.answer()
         await edit_or_send_text(
             callback.message.chat.id,
@@ -1958,7 +1960,7 @@ async def eleven_voice_callback(callback: CallbackQuery) -> None:
 async def overlay_callback(callback: CallbackQuery) -> None:
     parts = (callback.data or "").split(":")
     user_id = activate_from_callback(callback)
-    if len(parts) != 3 or parts[2] not in {"short", "youtube"}:
+    if len(parts) != 3 or parts[2] not in {"short", "youtube", "shorts", "reels"}:
         await callback.answer("Некорректная команда", show_alert=True)
         return
     action = parts[1]

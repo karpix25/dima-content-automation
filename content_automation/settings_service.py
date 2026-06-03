@@ -35,7 +35,7 @@ TEXT_SETTING_KEYS = {
     "vizard_remove_silence_switch",
     "vizard_template_id",
 }
-OVERLAY_FORMATS = {"short", "youtube", "instagram"}
+OVERLAY_FORMATS = {"short", "youtube", "instagram", "shorts", "reels"}
 
 
 @dataclass(frozen=True)
@@ -108,7 +108,7 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         vertical_avatar_duration_mode=get_duration_mode(storage, user_id),
         instagram_post_5s_cta_text=storage.get_setting(user_id, "instagram_post_5s_cta_text") or "",
         vizard=get_vizard_settings(storage, user_id),
-        overlays=[get_overlay_state(storage, user_id, item) for item in ("short", "youtube")],
+        overlays=[get_overlay_state(storage, user_id, item) for item in ("youtube", "shorts", "reels")],
     )
 
 
@@ -259,6 +259,8 @@ def get_overlay_state(storage: Storage, user_id: str, format: str) -> OverlaySta
 def get_overlay_path(storage: Storage, user_id: str, format: str) -> Path | None:
     normalized = normalize_overlay_format(format)
     value = storage.get_setting(user_id, f"{normalized}_overlay_path")
+    if not value and normalized in {"shorts", "reels"}:
+        value = storage.get_setting(user_id, "short_overlay_path")
     return Path(value) if value else None
 
 
@@ -323,7 +325,14 @@ def overlay_directory(settings: Settings, user_id: str) -> Path:
 
 
 def format_label(format: str) -> str:
-    return "YouTube" if normalize_overlay_format(format) == "youtube" else "Instagram"
+    normalized = normalize_overlay_format(format)
+    if normalized == "youtube":
+        return "YouTube"
+    if normalized == "shorts":
+        return "Shorts"
+    if normalized == "reels":
+        return "Reels"
+    return "Instagram"
 
 
 def validate_overlay_format(format: str) -> None:
@@ -333,4 +342,4 @@ def validate_overlay_format(format: str) -> None:
 
 def normalize_overlay_format(format: str) -> str:
     validate_overlay_format(format)
-    return "short" if format == "instagram" else format
+    return "shorts" if format in {"short", "instagram"} else format

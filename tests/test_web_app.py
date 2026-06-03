@@ -243,7 +243,8 @@ def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
     assert overlay.status_code == 200
     assert overlay.json()["start_percent"] == 55
     assert settings.status_code == 200
-    assert settings.json()["overlays"][0]["start_percent"] == 55
+    shorts_overlay = next(item for item in settings.json()["overlays"] if item["format"] == "shorts")
+    assert shorts_overlay["start_percent"] == 55
 
 
 def test_overlay_upload_and_preview(tmp_path, monkeypatch):

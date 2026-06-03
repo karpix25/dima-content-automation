@@ -10,7 +10,8 @@ from .video_overlay import apply_overlay
 
 PLATFORM_OVERLAY_KEYS = {
     "youtube": "youtube",
-    "instagram": "short",
+    "shorts": "shorts",
+    "reels": "reels",
 }
 
 
@@ -29,7 +30,7 @@ def build_final_video_variants(
     source_path: Path,
     output_dir: Path,
     output_stem: str,
-    platforms: tuple[str, ...] = ("youtube", "instagram"),
+    platforms: tuple[str, ...] = ("youtube", "shorts", "reels"),
 ) -> list[FinalVideoVariant]:
     variants: list[FinalVideoVariant] = []
     for platform in platforms:
@@ -68,6 +69,8 @@ def build_final_video_variants(
 def platform_label(platform: str) -> str:
     if platform == "youtube":
         return "YouTube"
-    if platform == "instagram":
-        return "Instagram"
+    if platform == "shorts":
+        return "Shorts"
+    if platform == "reels":
+        return "Reels"
     return platform
