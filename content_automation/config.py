@@ -79,6 +79,7 @@ class Settings:
     scrapecreators_mcp_url: str
     scrapecreators_request_timeout_seconds: int
     scrapecreators_reddit_subreddits: tuple[str, ...]
+    scrapecreators_reddit_timeframe: str
     scrapecreators_trend_limit: int
 
 
@@ -222,5 +223,11 @@ def load_settings() -> Settings:
             for item in (os.getenv("SCRAPECREATORS_REDDIT_SUBREDDITS") or "FulfillmentByAmazon,AmazonFBA,ecommerce").split(",")
             if item.strip()
         ),
+        scrapecreators_reddit_timeframe=normalize_scrapecreators_timeframe(os.getenv("SCRAPECREATORS_REDDIT_TIMEFRAME")),
         scrapecreators_trend_limit=max(1, get_int_env("SCRAPECREATORS_TREND_LIMIT", 5)),
     )
+
+
+def normalize_scrapecreators_timeframe(value: str | None) -> str:
+    timeframe = (value or "week").strip().lower()
+    return timeframe if timeframe in {"day", "week", "month", "year", "all"} else "week"

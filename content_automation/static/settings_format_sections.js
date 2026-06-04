@@ -2,12 +2,14 @@ import { renderAvatarSelectors } from "/static/settings_avatars.js";
 import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js";
 import { renderVizardTab } from "/static/settings_vizard.js";
 import { renderVoiceSelector } from "/static/settings_voices.js";
+import { renderIdeasTab } from "/static/settings_ideas.js";
 
 const FORMAT_TABS = [
   { key: "youtube", label: "YouTube", hint: "Горизонтальный" },
   { key: "shorts", label: "Instagram", hint: "Вертикальный" },
   { key: "five", label: "5 секунд", hint: "Инфографика" },
   { key: "vizard", label: "Vizard", hint: "YouTube clips" },
+  { key: "ideas", label: "Идеи", hint: "Reddit" },
   { key: "common", label: "Общие", hint: "База" },
 ];
 
@@ -50,6 +52,7 @@ function renderActiveFormatTab(active, deps) {
   if (active === "shorts") return renderShortsTab(deps);
   if (active === "five") return renderFiveSecondTab(deps);
   if (active === "vizard") return renderVizardTab(deps);
+  if (active === "ideas") return renderIdeasTab(deps);
   if (active === "common") return renderCommonTab(deps);
   return renderYoutubeTab(deps);
 }

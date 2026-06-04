@@ -40,6 +40,7 @@ SCRAPECREATORS_API_BASE_URL=https://api.scrapecreators.com
 SCRAPECREATORS_MCP_URL=https://api.scrapecreators.com/mcp
 SCRAPECREATORS_REQUEST_TIMEOUT_SECONDS=45
 SCRAPECREATORS_REDDIT_SUBREDDITS=FulfillmentByAmazon,AmazonFBA,ecommerce
+SCRAPECREATORS_REDDIT_TIMEFRAME=week
 SCRAPECREATORS_TREND_LIMIT=5
 ELEVENLABS_API_KEY=...
 ELEVENLABS_MCP_OUTPUT_MODE=files
@@ -135,7 +136,7 @@ npx skills add scrapecreators/agent-skills
 
 Файлы лежат в `.agents/skills/scrapecreators-api`, lock-файл — `skills-lock.json`. Skill не вызывает API сам по себе; он дает агенту справочник по endpoint selection, pagination, credit costs и особенностям платформ. Для реальных запросов все равно нужен `SCRAPECREATORS_API_KEY`.
 
-Команда `/reddit_radar` по запросу собирает 10 Reddit-тем за неделю, сохраняет их в банк идей и показывает карточки с кнопками:
+Команда `/reddit_radar` по запросу собирает 10 Reddit-тем за выбранный период, сохраняет их в банк идей и показывает карточки с кнопками:
 
 ```text
 ✅ Взять тему и написать сценарий
@@ -145,10 +146,11 @@ npx skills add scrapecreators/agent-skills
 
 Если тему взять, бот отправляет Reddit-бриф в NotebookLM как актуальный market signal. NotebookLM пишет сценарий через базу экспертности автора, а не копирует Reddit.
 
-Сабреддиты и размер выдачи меняются через:
+Сабреддиты, период поиска и размер выдачи меняются через `.env` или вкладку `Идеи` в Mini App:
 
 ```text
 SCRAPECREATORS_REDDIT_SUBREDDITS=FulfillmentByAmazon,AmazonFBA,ecommerce
+SCRAPECREATORS_REDDIT_TIMEFRAME=week
 SCRAPECREATORS_TREND_LIMIT=5
 ```
 

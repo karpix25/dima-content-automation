@@ -1,12 +1,17 @@
 from pathlib import Path
 
+from content_automation.config import normalize_scrapecreators_timeframe
 from content_automation.idea_bank import IdeaBank
 from content_automation.idea_cards import idea_to_topic_hint
 from content_automation.reddit_radar import collect_reddit_ideas
 
 
 class FakeRedditClient:
+    def __init__(self):
+        self.calls = []
+
     def reddit_subreddit_search(self, *, subreddit, query, sort="comments", timeframe="week"):
+        self.calls.append({"subreddit": subreddit, "query": query, "sort": sort, "timeframe": timeframe})
         return {
             "posts": [
                 {
@@ -26,14 +31,17 @@ class FakeRedditClient:
 
 
 def test_collect_reddit_ideas_filters_and_builds_angles():
+    client = FakeRedditClient()
     ideas = collect_reddit_ideas(
-        FakeRedditClient(),
+        client,
         subreddits=("AmazonFBA",),
         queries=("Amazon FBA fees",),
+        timeframe="day",
         limit=10,
     )
 
     assert len(ideas) == 1
+    assert client.calls[0]["timeframe"] == "day"
     assert ideas[0]["source"] == "reddit"
     assert "прибыль" in ideas[0]["pain"]
     assert ideas[0]["source_url"] == "https://www.reddit.com/r/AmazonFBA/comments/1/example"
@@ -77,3 +85,8 @@ def test_idea_to_topic_hint_keeps_source_context(tmp_path: Path):
 
     assert "Reddit title: Amazon returns badge hurt conversion" in hint
     assert "Do not quote Reddit directly" in hint
+
+
+def test_normalize_scrapecreators_timeframe():
+    assert normalize_scrapecreators_timeframe("day") == "day"
+    assert normalize_scrapecreators_timeframe("bad") == "week"

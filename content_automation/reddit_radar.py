@@ -33,9 +33,10 @@ def collect_reddit_ideas(
     *,
     subreddits: tuple[str, ...],
     queries: tuple[str, ...] = DEFAULT_REDDIT_QUERIES,
+    timeframe: str = "week",
     limit: int = 10,
 ) -> list[dict[str, Any]]:
-    posts = collect_reddit_posts(client, subreddits=subreddits, queries=queries)
+    posts = collect_reddit_posts(client, subreddits=subreddits, queries=queries, timeframe=timeframe)
     posts.sort(key=lambda post: (post.comments, post.score), reverse=True)
     return [_post_to_idea(post) for post in posts[:limit]]
 
@@ -45,12 +46,13 @@ def collect_reddit_posts(
     *,
     subreddits: tuple[str, ...],
     queries: tuple[str, ...] = DEFAULT_REDDIT_QUERIES,
+    timeframe: str = "week",
 ) -> list[RedditRadarPost]:
     posts: list[RedditRadarPost] = []
     seen: set[str] = set()
     for subreddit in subreddits:
         for query in queries:
-            payload = client.reddit_subreddit_search(subreddit=subreddit, query=query, sort="comments", timeframe="week")
+            payload = client.reddit_subreddit_search(subreddit=subreddit, query=query, sort="comments", timeframe=timeframe)
             for post in _extract_posts(payload, subreddit=subreddit, query=query):
                 key = post.url or post.title.lower()
                 if key in seen:

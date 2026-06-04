@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config import Settings
+from .config import Settings, normalize_scrapecreators_timeframe
 from .overlay_catalog import add_overlay_path, clear_overlay_paths, list_overlay_paths, remove_overlay_path, select_overlay_path
 from .prompts import DEFAULT_AUTHOR_STYLE, DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT
 from .storage import Storage
@@ -23,6 +23,7 @@ TEXT_SETTING_KEYS = {
     "avatar_insert_clips_count",
     "youtube_long_duration_minutes",
     "vertical_avatar_duration_mode",
+    "reddit_timeframe",
     "vizard_lang",
     "vizard_ratio_of_clip",
     "vizard_prefer_length",
@@ -84,6 +85,7 @@ class UserSettingsState:
     youtube_long_duration_minutes: int
     vertical_avatar_duration_mode: str
     instagram_post_5s_cta_text: str
+    reddit_timeframe: str
     vizard: VizardUserSettings
     overlays: list[OverlayState]
 
@@ -116,6 +118,7 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         youtube_long_duration_minutes=get_int_setting(storage, user_id, "youtube_long_duration_minutes", default=10, minimum=3, maximum=30),
         vertical_avatar_duration_mode=get_duration_mode(storage, user_id),
         instagram_post_5s_cta_text=storage.get_setting(user_id, "instagram_post_5s_cta_text") or "",
+        reddit_timeframe=get_reddit_timeframe(storage, settings, user_id),
         vizard=get_vizard_settings(storage, user_id),
         overlays=[get_overlay_state(storage, user_id, item) for item in ("youtube", "shorts", "reels")],
     )
@@ -221,9 +224,17 @@ def normalize_text_setting(key: str, value: str) -> str:
         return str(max(3, min(30, parse_int(stripped, 10))))
     if key == "vertical_avatar_duration_mode":
         return normalize_duration_mode(stripped)
+    if key == "reddit_timeframe":
+        return normalize_scrapecreators_timeframe(stripped)
     if key.startswith("vizard_"):
         return normalize_vizard_setting_value(key, stripped)
     return stripped
+
+
+def get_reddit_timeframe(storage: Storage, settings: Settings, user_id: str) -> str:
+    return normalize_scrapecreators_timeframe(
+        storage.get_setting(user_id, "reddit_timeframe") or settings.scrapecreators_reddit_timeframe
+    )
 
 
 def get_vizard_settings(storage: Storage, user_id: str) -> VizardUserSettings:

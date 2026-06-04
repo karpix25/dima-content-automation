@@ -31,7 +31,7 @@ from .overlay_catalog import add_overlay_path, list_overlay_paths, select_overla
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .scrapecreators import ScrapeCreatorsClient, ScrapeCreatorsError
-from .settings_service import get_user_settings
+from .settings_service import get_reddit_timeframe, get_user_settings
 from .storage import ScriptRecord, Storage
 from .topic_dedupe import (
     build_exclusion_context,
@@ -2240,6 +2240,7 @@ async def reddit_radar(message: Message) -> None:
             collect_reddit_ideas,
             scrapecreators,
             subreddits=settings.scrapecreators_reddit_subreddits,
+            timeframe=get_reddit_timeframe(storage, settings, user_id),
             limit=10,
         )
         inserted = idea_bank.add_many(user_id, ideas)
