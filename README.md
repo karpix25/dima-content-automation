@@ -35,6 +35,12 @@ NOTEBOOKLM_SHORT_BATCH_SIZE=1
 DEFAULT_NOTEBOOK_ID=...
 DATA_DIR=.data
 APP_MODE=bot
+SCRAPECREATORS_API_KEY=...
+SCRAPECREATORS_API_BASE_URL=https://api.scrapecreators.com
+SCRAPECREATORS_MCP_URL=https://api.scrapecreators.com/mcp
+SCRAPECREATORS_REQUEST_TIMEOUT_SECONDS=45
+SCRAPECREATORS_REDDIT_SUBREDDITS=FulfillmentByAmazon,AmazonFBA,ecommerce
+SCRAPECREATORS_TREND_LIMIT=5
 ELEVENLABS_API_KEY=...
 ELEVENLABS_MCP_OUTPUT_MODE=files
 ELEVENLABS_OUTPUT_DIRECTORY=outputs/elevenlabs
@@ -103,6 +109,48 @@ python scripts/elevenlabs_mcp_config.py
 После нажатия `Принять` бот отправляет в ElevenLabs только поле `voiceover`, создает mp3, затем передает этот файл в активный HeyGen avatar. Когда ролик готов, бот присылает видео в ту же группу и тему Telegram. Если HeyGen не настроен или avatar не выбран, бот присылает только озвучку и пишет, чего не хватает.
 
 Через `/settings` можно открыть список голосов ElevenLabs, прослушать preview и активировать нужный voice. При наличии `ELEVENLABS_VOICE_ID` он используется как дефолт.
+
+## ScrapeCreators MCP и радар тем
+
+ScrapeCreators подключается серверным API key и готов к MCP-конфигурации:
+
+```text
+SCRAPECREATORS_API_KEY=...
+SCRAPECREATORS_MCP_URL=https://api.scrapecreators.com/mcp
+```
+
+Для Claude/Cursor MCP-сервер можно добавить как `npx @scrape-creators/mcp`, а в runtime бота используется REST API с тем же `x-api-key`. Команда `/trends <тема>` собирает свежие сигналы из Reddit subreddit search и Instagram Reels search, после чего показывает ссылки и углы, которые можно отправить в `/daily_scripts фокус: ...`.
+
+Локальную MCP-конфигурацию можно вывести так:
+
+```bash
+python scripts/scrapecreators_mcp_config.py
+```
+
+Agent Skill установлен в проект через официальный установщик:
+
+```bash
+npx skills add scrapecreators/agent-skills
+```
+
+Файлы лежат в `.agents/skills/scrapecreators-api`, lock-файл — `skills-lock.json`. Skill не вызывает API сам по себе; он дает агенту справочник по endpoint selection, pagination, credit costs и особенностям платформ. Для реальных запросов все равно нужен `SCRAPECREATORS_API_KEY`.
+
+Команда `/reddit_radar` по запросу собирает 10 Reddit-тем за неделю, сохраняет их в банк идей и показывает карточки с кнопками:
+
+```text
+✅ Взять тему и написать сценарий
+❌ Пропустить
+➡️ Следующая тема
+```
+
+Если тему взять, бот отправляет Reddit-бриф в NotebookLM как актуальный market signal. NotebookLM пишет сценарий через базу экспертности автора, а не копирует Reddit.
+
+Сабреддиты и размер выдачи меняются через:
+
+```text
+SCRAPECREATORS_REDDIT_SUBREDDITS=FulfillmentByAmazon,AmazonFBA,ecommerce
+SCRAPECREATORS_TREND_LIMIT=5
+```
 
 ## HeyGen
 
@@ -273,6 +321,8 @@ APP_MODE=bot
 /daily_scripts
 /daily_scripts фокус: PPC и cash flow
 /youtube_script
+/trends Amazon FBA returns
+/reddit_radar
 /vizard <youtube_url>
 /formats
 /formats <script_id>

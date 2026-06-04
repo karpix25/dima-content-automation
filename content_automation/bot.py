@@ -19,6 +19,8 @@ from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .final_video_variants import build_final_video_variants
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
 from .heygen_video_input import extract_heygen_video_id
+from .idea_bank import ContentIdea, IdeaBank
+from .idea_cards import format_idea_card, idea_to_topic_hint
 from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
@@ -28,6 +30,7 @@ from .notebooklm_py import NotebookLMPyClient
 from .overlay_catalog import add_overlay_path, list_overlay_paths, select_overlay_path
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
+from .scrapecreators import ScrapeCreatorsClient, ScrapeCreatorsError
 from .settings_service import get_user_settings
 from .storage import ScriptRecord, Storage
 from .topic_dedupe import (
@@ -38,8 +41,10 @@ from .topic_dedupe import (
     script_payload_is_duplicate,
 )
 from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
+from .trend_radar import collect_trend_radar, format_trend_radar
 from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_face_reference_paths, thumbnail_style_reference_paths
+from .reddit_radar import collect_reddit_ideas
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
 from .vizard_bot import format_vizard_settings, run_vizard_youtube_job, vizard_settings_keyboard
 from .vizard_models import normalize_vizard_setting_value
@@ -54,6 +59,7 @@ logger = logging.getLogger(__name__)
 
 settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
+idea_bank = IdeaBank(settings.data_dir / "content_automation.sqlite3")
 asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
 if settings.notebooklm_backend == "py":
     notebooklm = NotebookLMPyClient(
@@ -81,6 +87,11 @@ heygen = HeyGenClient(
     poll_seconds=settings.heygen_video_poll_seconds,
     timeout_seconds=settings.heygen_video_timeout_seconds,
     private_avatars_only=settings.heygen_private_avatars_only,
+)
+scrapecreators = ScrapeCreatorsClient(
+    api_key=settings.scrapecreators_api_key,
+    base_url=settings.scrapecreators_api_base_url,
+    timeout_seconds=settings.scrapecreators_request_timeout_seconds,
 )
 kie_image = KieImageClient(
     KieImageConfig(
@@ -246,6 +257,16 @@ def turan_formats_keyboard(script_id: int) -> InlineKeyboardMarkup:
     ]
     rows.append([button("🚀 Сделать все версии", callback_data=f"turan:format:all:{script_id}", style="success")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def idea_keyboard(idea_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [button("✅ Взять тему и написать сценарий", callback_data=f"idea:take:{idea_id}", style="success")],
+            [button("❌ Пропустить", callback_data=f"idea:skip:{idea_id}", style="danger")],
+            [button("➡️ Следующая тема", callback_data="idea:next")],
+        ]
+    )
 
 
 def format_script_message(record: ScriptRecord) -> str:
@@ -777,6 +798,37 @@ async def send_scripts(
             if first_chunk:
                 message = sent
                 first_chunk = False
+
+
+async def show_next_content_idea(
+    chat_id: int,
+    user_id: str,
+    *,
+    thread_id: int | None = None,
+    message: Message | None = None,
+    edit: bool = False,
+) -> bool:
+    ideas = idea_bank.list_new(user_id, limit=10)
+    if not ideas:
+        await edit_or_send_text(
+            chat_id,
+            "Нет новых Reddit-тем. Запусти /reddit_radar, чтобы собрать свежую пачку.",
+            thread_id=thread_id,
+            message=message,
+            edit=edit,
+        )
+        return False
+    idea = ideas[0]
+    await edit_or_send_text(
+        chat_id,
+        format_idea_card(idea, index=1, total=len(ideas)),
+        thread_id=thread_id,
+        message=message,
+        edit=edit,
+        reply_markup=idea_keyboard(idea.id),
+        disable_web_page_preview=True,
+    )
+    return True
 
 
 def format_bank_status(user_id: str) -> str:
@@ -1586,6 +1638,8 @@ async def start(message: Message) -> None:
                 "/bank - статус банка сценариев",
                 "/daily_scripts - вручную сгенерировать 10 и открыть очередь",
                 "/youtube_script - сгенерировать недельный YouTube-сценарий",
+                "/trends <тема> - собрать свежие темы из ScrapeCreators",
+                "/reddit_radar - собрать Reddit-темы на выбор",
                 "/vizard <youtube_url> - отправить YouTube-видео в Vizard и получить нарезку",
                 "/formats - собрать Turan-форматы из последнего одобренного сценария",
                 "/settings - служебные настройки, если нужно что-то поменять вручную",
@@ -2149,6 +2203,62 @@ async def daily_scripts(message: Message) -> None:
     await refill_if_needed(message.chat.id, user_id, thread_id=message_thread_id(message), force=True, topic_hint=topic_hint)
 
 
+@dp.message(Command("trends"))
+async def trends(message: Message) -> None:
+    user_id = activate_from_message(message)
+    clear_pending_edit(user_id)
+    query = command_tail(message.text)
+    if not query:
+        await answer_in_same_thread(message, "Отправь так: /trends Amazon FBA returns или /trends PPC margin leak")
+        return
+    status_msg = await answer_in_same_thread(message, "⏳ Собираю свежие сигналы через ScrapeCreators...")
+    try:
+        result = await asyncio.to_thread(
+            collect_trend_radar,
+            scrapecreators,
+            query=query,
+            reddit_subreddits=settings.scrapecreators_reddit_subreddits,
+            limit=settings.scrapecreators_trend_limit,
+        )
+    except ScrapeCreatorsError as exc:
+        await status_msg.edit_text(f"❌ ScrapeCreators не настроен: {exc}")
+        return
+    except Exception as exc:
+        logger.exception("Failed to collect trend radar")
+        await status_msg.edit_text(f"❌ Не удалось собрать радар тем: {exc}")
+        return
+    await status_msg.edit_text(format_trend_radar(result))
+
+
+@dp.message(Command("reddit_radar"))
+async def reddit_radar(message: Message) -> None:
+    user_id = activate_from_message(message)
+    clear_pending_edit(user_id)
+    status_msg = await answer_in_same_thread(message, "⏳ Ищу свежие Reddit-темы за неделю...")
+    try:
+        ideas = await asyncio.to_thread(
+            collect_reddit_ideas,
+            scrapecreators,
+            subreddits=settings.scrapecreators_reddit_subreddits,
+            limit=10,
+        )
+        inserted = idea_bank.add_many(user_id, ideas)
+    except ScrapeCreatorsError as exc:
+        await status_msg.edit_text(f"❌ ScrapeCreators не настроен: {exc}")
+        return
+    except Exception as exc:
+        logger.exception("Failed to collect Reddit radar")
+        await status_msg.edit_text(f"❌ Не удалось собрать Reddit-темы: {exc}")
+        return
+
+    prefix = f"Нашел {len(ideas)} тем, новых после дедупликации: {len(inserted)}."
+    if not inserted:
+        await status_msg.edit_text(prefix + "\nНовых тем нет. Можно попробовать позже или расширить сабреддиты.")
+        return
+    await status_msg.edit_text(prefix)
+    await show_next_content_idea(message.chat.id, user_id, thread_id=message_thread_id(message))
+
+
 @dp.message(Command("youtube_script"))
 async def youtube_script(message: Message) -> None:
     user_id = activate_from_message(message)
@@ -2287,6 +2397,74 @@ async def turan_format_callback(callback: CallbackQuery) -> None:
         script_id,
         format_key,
     )
+
+
+@dp.callback_query(F.data.startswith("idea:"))
+async def idea_callback(callback: CallbackQuery) -> None:
+    parts = (callback.data or "").split(":")
+    user_id = activate_from_callback(callback)
+
+    if len(parts) == 2 and parts[1] == "next":
+        await callback.answer()
+        await show_next_content_idea(
+            callback.message.chat.id,
+            user_id,
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+        )
+        return
+
+    if len(parts) != 3:
+        await callback.answer("Некорректная команда", show_alert=True)
+        return
+
+    _, action, idea_id_raw = parts
+    try:
+        idea_id = int(idea_id_raw)
+    except ValueError:
+        await callback.answer("Некорректный ID", show_alert=True)
+        return
+
+    idea = idea_bank.get(user_id, idea_id)
+    if not idea:
+        await callback.answer("Тема не найдена", show_alert=True)
+        return
+
+    if action == "skip":
+        idea_bank.update_status(user_id, idea.id, "rejected")
+        await callback.answer("Пропустил")
+        await show_next_content_idea(
+            callback.message.chat.id,
+            user_id,
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+        )
+        return
+
+    if action == "take":
+        idea_bank.update_status(user_id, idea.id, "selected")
+        await callback.answer("Генерирую сценарий")
+        await callback.message.edit_text("⏳ Отправил Reddit-тему в NotebookLM. Жду сценарий...")
+        try:
+            records = await generate_scripts_for_user(user_id, 1, format="short", topic_hint=idea_to_topic_hint(idea))
+        except Exception as exc:
+            logger.exception("Failed to generate script from Reddit idea")
+            idea_bank.update_status(user_id, idea.id, "new")
+            await callback.message.edit_text(f"❌ Не удалось сгенерировать сценарий по теме: {exc}")
+            return
+        idea_bank.update_status(user_id, idea.id, "used_for_script")
+        await send_scripts(
+            callback.message.chat.id,
+            records,
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+        )
+        return
+
+    await callback.answer("Некорректное действие", show_alert=True)
 
 
 @dp.callback_query(F.data.startswith("script:"))

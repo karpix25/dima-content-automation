@@ -74,6 +74,12 @@ class Settings:
     vizard_poll_seconds: int
     vizard_timeout_seconds: int
     vizard_request_timeout_seconds: int
+    scrapecreators_api_key: str | None
+    scrapecreators_api_base_url: str
+    scrapecreators_mcp_url: str
+    scrapecreators_request_timeout_seconds: int
+    scrapecreators_reddit_subreddits: tuple[str, ...]
+    scrapecreators_trend_limit: int
 
 
 def get_float_env(name: str, default: float) -> float:
@@ -207,4 +213,14 @@ def load_settings() -> Settings:
         vizard_poll_seconds=max(5, get_int_env("VIZARD_POLL_SECONDS", 30)),
         vizard_timeout_seconds=max(60, get_int_env("VIZARD_TIMEOUT_SECONDS", 3600)),
         vizard_request_timeout_seconds=max(10, get_int_env("VIZARD_REQUEST_TIMEOUT_SECONDS", 60)),
+        scrapecreators_api_key=(os.getenv("SCRAPECREATORS_API_KEY") or "").strip() or None,
+        scrapecreators_api_base_url=(os.getenv("SCRAPECREATORS_API_BASE_URL") or "https://api.scrapecreators.com").strip().rstrip("/"),
+        scrapecreators_mcp_url=(os.getenv("SCRAPECREATORS_MCP_URL") or "https://api.scrapecreators.com/mcp").strip(),
+        scrapecreators_request_timeout_seconds=max(10, get_int_env("SCRAPECREATORS_REQUEST_TIMEOUT_SECONDS", 45)),
+        scrapecreators_reddit_subreddits=tuple(
+            item.strip().removeprefix("r/")
+            for item in (os.getenv("SCRAPECREATORS_REDDIT_SUBREDDITS") or "FulfillmentByAmazon,AmazonFBA,ecommerce").split(",")
+            if item.strip()
+        ),
+        scrapecreators_trend_limit=max(1, get_int_env("SCRAPECREATORS_TREND_LIMIT", 5)),
     )

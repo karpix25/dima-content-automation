@@ -1,0 +1,79 @@
+from pathlib import Path
+
+from content_automation.idea_bank import IdeaBank
+from content_automation.idea_cards import idea_to_topic_hint
+from content_automation.reddit_radar import collect_reddit_ideas
+
+
+class FakeRedditClient:
+    def reddit_subreddit_search(self, *, subreddit, query, sort="comments", timeframe="week"):
+        return {
+            "posts": [
+                {
+                    "title": f"{query}: Amazon fees and PPC make profit impossible",
+                    "permalink": f"/r/{subreddit}/comments/1/example",
+                    "score": 12,
+                    "num_comments": 40,
+                },
+                {
+                    "title": "Help",
+                    "permalink": f"/r/{subreddit}/comments/2/low_signal",
+                    "score": 1,
+                    "num_comments": 99,
+                },
+            ]
+        }
+
+
+def test_collect_reddit_ideas_filters_and_builds_angles():
+    ideas = collect_reddit_ideas(
+        FakeRedditClient(),
+        subreddits=("AmazonFBA",),
+        queries=("Amazon FBA fees",),
+        limit=10,
+    )
+
+    assert len(ideas) == 1
+    assert ideas[0]["source"] == "reddit"
+    assert "прибыль" in ideas[0]["pain"]
+    assert ideas[0]["source_url"] == "https://www.reddit.com/r/AmazonFBA/comments/1/example"
+
+
+def test_idea_bank_deduplicates_similar_topics(tmp_path: Path):
+    bank = IdeaBank(tmp_path / "ideas.sqlite3")
+    idea = {
+        "source": "reddit",
+        "source_url": "https://reddit.test/1",
+        "title": "Amazon fees and PPC make profit impossible",
+        "pain": "Sellers lose margin to ads and fees.",
+        "angle": "Revenue without unit economics is fake growth.",
+        "summary": "40 comments",
+        "source_meta": {"comments": 40},
+    }
+
+    first = bank.add_if_new("42", idea)
+    second = bank.add_if_new("42", {**idea, "source_url": "https://reddit.test/2"})
+
+    assert first is not None
+    assert second is None
+    assert len(bank.list_new("42")) == 1
+
+
+def test_idea_to_topic_hint_keeps_source_context(tmp_path: Path):
+    bank = IdeaBank(tmp_path / "ideas.sqlite3")
+    idea = bank.add_if_new(
+        "42",
+        {
+            "source": "reddit",
+            "source_url": "https://reddit.test/1",
+            "title": "Amazon returns badge hurt conversion",
+            "pain": "Returns destroy trust.",
+            "angle": "Explain the hidden conversion cost of returns.",
+            "summary": "11 comments",
+        },
+    )
+
+    hint = idea_to_topic_hint(idea)
+
+    assert "Reddit title: Amazon returns badge hurt conversion" in hint
+    assert "Do not quote Reddit directly" in hint
