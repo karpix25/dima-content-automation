@@ -1,8 +1,8 @@
 from pathlib import Path
 
 from content_automation.config import normalize_scrapecreators_timeframe
-from content_automation.idea_bank import IdeaBank
-from content_automation.idea_cards import idea_to_topic_hint
+from content_automation.idea_bank import ContentIdea, IdeaBank
+from content_automation.idea_cards import idea_to_topic_hint, select_visible_idea
 from content_automation.reddit_radar import collect_reddit_ideas
 
 
@@ -87,6 +87,45 @@ def test_idea_to_topic_hint_keeps_source_context(tmp_path: Path):
     assert "Do not quote Reddit directly" in hint
 
 
+def test_select_visible_idea_moves_to_next_card(tmp_path: Path):
+    first = make_idea(1, "First Amazon PPC topic")
+    second = make_idea(2, "Inventory storage limit crisis")
+    ideas = [second, first]
+
+    assert [idea.id for idea in ideas] == [second.id, first.id]
+    assert select_visible_idea(ideas, after_id=second.id).id == first.id
+    assert select_visible_idea(ideas, after_id=first.id).id == second.id
+
+
 def test_normalize_scrapecreators_timeframe():
     assert normalize_scrapecreators_timeframe("day") == "day"
     assert normalize_scrapecreators_timeframe("bad") == "week"
+
+
+def idea_payload(url: str, title: str) -> dict[str, object]:
+    return {
+        "source": "reddit",
+        "source_url": url,
+        "title": title,
+        "pain": f"Sellers need a practical answer about {title}.",
+        "angle": f"Turn {title} into a clear operating lesson.",
+        "summary": "10 comments",
+    }
+
+
+def make_idea(idea_id: int, title: str) -> ContentIdea:
+    return ContentIdea(
+        id=idea_id,
+        user_id="42",
+        source="reddit",
+        source_url=f"https://reddit.test/{idea_id}",
+        status="new",
+        title=title,
+        pain=f"Pain {idea_id}",
+        angle=f"Angle {idea_id}",
+        summary="10 comments",
+        source_meta={},
+        fingerprint=title.lower(),
+        created_at="",
+        updated_at="",
+    )

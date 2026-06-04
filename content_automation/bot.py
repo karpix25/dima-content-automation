@@ -20,7 +20,7 @@ from .final_video_variants import build_final_video_variants
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
 from .heygen_video_input import extract_heygen_video_id
 from .idea_bank import ContentIdea, IdeaBank
-from .idea_cards import format_idea_card, idea_to_topic_hint
+from .idea_cards import format_idea_card, idea_to_topic_hint, select_visible_idea
 from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
@@ -264,7 +264,7 @@ def idea_keyboard(idea_id: int) -> InlineKeyboardMarkup:
         inline_keyboard=[
             [button("✅ Взять тему и написать сценарий", callback_data=f"idea:take:{idea_id}", style="success")],
             [button("❌ Пропустить", callback_data=f"idea:skip:{idea_id}", style="danger")],
-            [button("➡️ Следующая тема", callback_data="idea:next")],
+            [button("➡️ Следующая тема", callback_data=f"idea:next:{idea_id}")],
         ]
     )
 
@@ -804,6 +804,7 @@ async def show_next_content_idea(
     chat_id: int,
     user_id: str,
     *,
+    after_id: int | None = None,
     thread_id: int | None = None,
     message: Message | None = None,
     edit: bool = False,
@@ -818,10 +819,13 @@ async def show_next_content_idea(
             edit=edit,
         )
         return False
-    idea = ideas[0]
+    idea = select_visible_idea(ideas, after_id=after_id)
+    if not idea:
+        return False
+    index = ideas.index(idea) + 1
     await edit_or_send_text(
         chat_id,
-        format_idea_card(idea, index=1, total=len(ideas)),
+        format_idea_card(idea, index=index, total=len(ideas)),
         thread_id=thread_id,
         message=message,
         edit=edit,
@@ -1638,7 +1642,6 @@ async def start(message: Message) -> None:
                 "/bank - статус банка сценариев",
                 "/daily_scripts - вручную сгенерировать 10 и открыть очередь",
                 "/youtube_script - сгенерировать недельный YouTube-сценарий",
-                "/trends <тема> - собрать свежие темы из ScrapeCreators",
                 "/reddit_radar - собрать Reddit-темы на выбор",
                 "/vizard <youtube_url> - отправить YouTube-видео в Vizard и получить нарезку",
                 "/formats - собрать Turan-форматы из последнего одобренного сценария",
@@ -2405,17 +2408,6 @@ async def idea_callback(callback: CallbackQuery) -> None:
     parts = (callback.data or "").split(":")
     user_id = activate_from_callback(callback)
 
-    if len(parts) == 2 and parts[1] == "next":
-        await callback.answer()
-        await show_next_content_idea(
-            callback.message.chat.id,
-            user_id,
-            thread_id=message_thread_id(callback.message),
-            message=callback.message,
-            edit=True,
-        )
-        return
-
     if len(parts) != 3:
         await callback.answer("Некорректная команда", show_alert=True)
         return
@@ -2425,6 +2417,18 @@ async def idea_callback(callback: CallbackQuery) -> None:
         idea_id = int(idea_id_raw)
     except ValueError:
         await callback.answer("Некорректный ID", show_alert=True)
+        return
+
+    if action == "next":
+        await callback.answer()
+        await show_next_content_idea(
+            callback.message.chat.id,
+            user_id,
+            after_id=idea_id,
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+        )
         return
 
     idea = idea_bank.get(user_id, idea_id)

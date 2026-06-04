@@ -3,6 +3,14 @@ from __future__ import annotations
 from .idea_bank import ContentIdea
 
 
+def select_visible_idea(ideas: list[ContentIdea], *, after_id: int | None = None) -> ContentIdea | None:
+    if not ideas:
+        return None
+    if after_id is None:
+        return ideas[0]
+    return next((item for item in ideas if item.id < after_id), ideas[0])
+
+
 def format_idea_card(idea: ContentIdea, *, index: int | None = None, total: int | None = None) -> str:
     prefix = f"Reddit-тема {index}/{total}" if index and total else f"Reddit-тема #{idea.id}"
     meta = idea.source_meta
