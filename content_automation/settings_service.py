@@ -24,6 +24,7 @@ TEXT_SETTING_KEYS = {
     "youtube_long_duration_minutes",
     "vertical_avatar_duration_mode",
     "reddit_timeframe",
+    "reddit_subreddits",
     "vizard_lang",
     "vizard_ratio_of_clip",
     "vizard_prefer_length",
@@ -86,6 +87,7 @@ class UserSettingsState:
     vertical_avatar_duration_mode: str
     instagram_post_5s_cta_text: str
     reddit_timeframe: str
+    reddit_subreddits: str
     vizard: VizardUserSettings
     overlays: list[OverlayState]
 
@@ -119,6 +121,7 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         vertical_avatar_duration_mode=get_duration_mode(storage, user_id),
         instagram_post_5s_cta_text=storage.get_setting(user_id, "instagram_post_5s_cta_text") or "",
         reddit_timeframe=get_reddit_timeframe(storage, settings, user_id),
+        reddit_subreddits=", ".join(get_reddit_subreddits(storage, settings, user_id)),
         vizard=get_vizard_settings(storage, user_id),
         overlays=[get_overlay_state(storage, user_id, item) for item in ("youtube", "shorts", "reels")],
     )
@@ -226,6 +229,8 @@ def normalize_text_setting(key: str, value: str) -> str:
         return normalize_duration_mode(stripped)
     if key == "reddit_timeframe":
         return normalize_scrapecreators_timeframe(stripped)
+    if key == "reddit_subreddits":
+        return ", ".join(normalize_reddit_subreddits(stripped))
     if key.startswith("vizard_"):
         return normalize_vizard_setting_value(key, stripped)
     return stripped
@@ -235,6 +240,20 @@ def get_reddit_timeframe(storage: Storage, settings: Settings, user_id: str) -> 
     return normalize_scrapecreators_timeframe(
         storage.get_setting(user_id, "reddit_timeframe") or settings.scrapecreators_reddit_timeframe
     )
+
+
+def get_reddit_subreddits(storage: Storage, settings: Settings, user_id: str) -> tuple[str, ...]:
+    saved = normalize_reddit_subreddits(storage.get_setting(user_id, "reddit_subreddits") or "")
+    return saved or settings.scrapecreators_reddit_subreddits
+
+
+def normalize_reddit_subreddits(value: str) -> tuple[str, ...]:
+    items = []
+    for raw in value.replace("\n", ",").split(","):
+        item = raw.strip().removeprefix("r/").strip("/")
+        if item and item not in items:
+            items.append(item)
+    return tuple(items[:20])
 
 
 def get_vizard_settings(storage: Storage, user_id: str) -> VizardUserSettings:

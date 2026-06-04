@@ -148,6 +148,7 @@ class UserSettingsOut(BaseModel):
     vertical_avatar_duration_mode: str
     instagram_post_5s_cta_text: str
     reddit_timeframe: str
+    reddit_subreddits: str
     vizard: VizardSettingsOut
     overlays: list[OverlayOut]
 

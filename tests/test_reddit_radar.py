@@ -4,6 +4,7 @@ from content_automation.config import normalize_scrapecreators_timeframe
 from content_automation.idea_bank import ContentIdea, IdeaBank
 from content_automation.idea_cards import idea_to_topic_hint, select_visible_idea
 from content_automation.reddit_radar import collect_reddit_ideas
+from content_automation.settings_service import normalize_reddit_subreddits
 
 
 class FakeRedditClient:
@@ -100,6 +101,14 @@ def test_select_visible_idea_moves_to_next_card(tmp_path: Path):
 def test_normalize_scrapecreators_timeframe():
     assert normalize_scrapecreators_timeframe("day") == "day"
     assert normalize_scrapecreators_timeframe("bad") == "week"
+
+
+def test_normalize_reddit_subreddits():
+    assert normalize_reddit_subreddits("r/AmazonFBA, AmazonSeller\n/ecommerce, AmazonFBA") == (
+        "AmazonFBA",
+        "AmazonSeller",
+        "ecommerce",
+    )
 
 
 def idea_payload(url: str, title: str) -> dict[str, object]:
