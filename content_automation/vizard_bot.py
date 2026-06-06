@@ -17,6 +17,7 @@ from .vizard_models import VIZARD_LENGTH_OPTIONS, VIZARD_RATIO_OPTIONS, VizardUs
 from .vizard_postprocess import apply_vizard_cover_frame
 from .vizard_service import build_vizard_client, download_vizard_clips, submit_and_wait_for_vizard_clips
 from .vizard_youtube import extract_youtube_url
+from .video_geometry import vizard_platforms_for_ratio
 
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,8 @@ async def run_vizard_youtube_job(
             )
         )
         for index, item in enumerate(downloaded, start=1):
+            platforms = vizard_platforms_for_ratio(user_settings.ratio_of_clip)
+            cover_format = "youtube" if platforms == ("youtube",) else "short"
             clip_source_path = await asyncio.to_thread(
                 apply_vizard_cover_frame,
                 storage=storage,
@@ -132,7 +135,7 @@ async def run_vizard_youtube_job(
                 clip_path=item.path,
                 output_dir=item.path.parent,
                 index=index,
-                format="youtube" if user_settings.ratio_of_clip == 4 else "short",
+                format=cover_format,
             )
             variants = build_final_video_variants(
                 storage=storage,
@@ -140,6 +143,7 @@ async def run_vizard_youtube_job(
                 source_path=clip_source_path,
                 output_dir=item.path.parent,
                 output_stem=clip_source_path.stem,
+                platforms=platforms,
             )
             for variant in variants:
                 await bot.send_video(

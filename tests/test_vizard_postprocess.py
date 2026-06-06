@@ -43,8 +43,8 @@ def test_apply_vizard_cover_frame_generates_and_applies_cover(tmp_path: Path, mo
         cover.write_bytes(b"cover")
         return SimpleNamespace(cover_path=cover, broll_paths=[])
 
-    def fake_apply_cover_frame(*, video_path, cover_path, output_path, cover_seconds):
-        calls["cover"] = (video_path, cover_path, output_path, cover_seconds)
+    def fake_apply_cover_frame(*, video_path, cover_path, output_path, cover_seconds, target_size):
+        calls["cover"] = (video_path, cover_path, output_path, cover_seconds, target_size)
         output_path.write_bytes(b"out")
         return output_path
 
@@ -79,3 +79,44 @@ def test_apply_vizard_cover_frame_generates_and_applies_cover(tmp_path: Path, mo
     assert calls["record"].hook == "Amazon ranking changed"
     assert calls["broll_count"] == 0
     assert calls["cover"][3] == 0.10
+    assert calls["cover"][4] == (1080, 1920)
+
+
+def test_apply_vizard_cover_frame_uses_horizontal_size_for_youtube(tmp_path: Path, monkeypatch):
+    storage = Storage(tmp_path / "db.sqlite3")
+    asset_store = MediaAssetStore(tmp_path / "db.sqlite3")
+    clip_path = tmp_path / "clip.mp4"
+    clip_path.write_bytes(b"clip")
+    settings = SimpleNamespace(post_heygen_cover_seconds=0.10)
+    calls = {}
+
+    monkeypatch.setattr(
+        vizard_postprocess,
+        "generate_post_heygen_assets",
+        lambda **_: SimpleNamespace(cover_path=tmp_path / "cover.png", broll_paths=[]),
+    )
+    (tmp_path / "cover.png").write_bytes(b"cover")
+
+    def fake_apply_cover_frame(**kwargs):
+        calls.update(kwargs)
+        kwargs["output_path"].write_bytes(b"out")
+        return kwargs["output_path"]
+
+    monkeypatch.setattr(vizard_postprocess, "apply_cover_frame", fake_apply_cover_frame)
+    monkeypatch.setattr(vizard_postprocess, "thumbnail_face_reference_paths", lambda **_: [])
+    monkeypatch.setattr(vizard_postprocess, "thumbnail_style_reference_paths", lambda **_: [])
+
+    apply_vizard_cover_frame(
+        storage=storage,
+        settings=settings,
+        asset_store=asset_store,
+        kie_client=None,
+        user_id="42",
+        clip=VizardClip("", "", None, "Title", "", "", "", ""),
+        clip_path=clip_path,
+        output_dir=tmp_path,
+        index=1,
+        format="youtube",
+    )
+
+    assert calls["target_size"] == (1920, 1080)

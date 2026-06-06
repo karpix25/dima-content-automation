@@ -21,6 +21,7 @@ from .script_length import WordBudget, count_spoken_words, vertical_word_budget,
 from .settings_service import get_overlay_start_percent, get_random_overlay_path, get_user_settings
 from .storage import ScriptRecord, Storage
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video
+from .video_geometry import video_size_for_format
 from .voice_speed_profile import calibrated_voice_wpm
 from .voiceover_timing import analyze_voiceover_timing, estimate_initial_voiceover_speed
 from .visual_assets import generate_post_heygen_assets
@@ -46,7 +47,7 @@ def create_and_send_avatar_video(
     kie_client: KieImageClient,
 ) -> AvatarDeliveryResult:
     target = "horizontal" if format_key == "avatar_horizontal" else "vertical"
-    output_record = replace(record, format="youtube" if target == "horizontal" else "short")
+    output_record = replace(record, format=output_format_for_job(format_key))
     state = get_user_settings(storage, settings, user_id)
     avatar_id = state.heygen_avatar_id if target == "horizontal" else state.heygen_vertical_avatar_id
     avatar_name = state.heygen_avatar_name if target == "horizontal" else state.heygen_vertical_avatar_name
@@ -106,7 +107,7 @@ def create_and_send_existing_heygen_video(
     kie_client: KieImageClient,
 ) -> AvatarDeliveryResult:
     target = "horizontal" if format_key == "avatar_horizontal" else "vertical"
-    output_record = replace(record, format="youtube" if target == "horizontal" else "short")
+    output_record = replace(record, format=output_format_for_job(format_key))
     video_id = heygen_video_id.strip()
     if not video_id:
         raise RuntimeError("HeyGen video id не задан")
@@ -349,6 +350,7 @@ def _post_heygen_visuals(
                 cover_path=cover_assets.cover_path,
                 output_path=settings.video_output_directory / f"{montage_path.stem}_cover.mp4",
                 cover_seconds=settings.post_heygen_cover_seconds,
+                target_size=video_size_for_format(record.format),
             )
     except VideoOverlayError as exc:
         montage_error = exc
@@ -386,15 +388,24 @@ def _post_heygen_visuals(
         output_path=settings.video_output_directory / f"miniapp_visual_{record.id}_{record.format}.mp4",
         cover_seconds=settings.post_heygen_cover_seconds,
         broll_seconds=settings.post_heygen_broll_seconds,
+        target_size=video_size_for_format(record.format),
     )
     return result.output_path
 
 
 def _requires_smart_montage(record: ScriptRecord) -> bool:
-    if record.format != "short":
+    if record.format not in {"short", "shorts", "reels"}:
         return False
     raw = (os.getenv("ALLOW_PRIMITIVE_VERTICAL_HEYGEN_FALLBACK") or "").strip().lower()
     return raw not in {"1", "true", "yes", "on"}
+
+
+def output_format_for_job(format_key: str) -> str:
+    if format_key == "avatar_horizontal":
+        return "youtube"
+    if format_key == "avatar_reels":
+        return "reels"
+    return "short"
 
 
 def send_video_document_to_telegram(*, token: str, chat_id: str, video_path: Path, caption: str) -> str | None:

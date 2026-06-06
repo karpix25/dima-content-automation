@@ -95,7 +95,7 @@ def _post_to_idea(post: RedditRadarPost) -> dict[str, Any]:
         "title": post.title,
         "pain": pain,
         "angle": infer_angle(post.title, pain),
-        "summary": f"Обсуждение в r/{post.subreddit}: {post.comments} comments, {post.score} upvotes.",
+        "summary": f"Discussion in r/{post.subreddit}: {post.comments} comments, {post.score} upvotes.",
         "source_meta": {
             "subreddit": post.subreddit,
             "query": post.query,
@@ -108,27 +108,27 @@ def _post_to_idea(post: RedditRadarPost) -> dict[str, Any]:
 def infer_pain(title: str) -> str:
     lowered = title.lower()
     if any(term in lowered for term in ("fee", "fees", "profit", "margin", "ppc")):
-        return "Селлеры видят продажи, но прибыль съедают комиссии, реклама или скрытые издержки."
+        return "Sellers may see sales growth while Amazon fees, ads, or hidden costs eat the actual profit."
     if any(term in lowered for term in ("rank", "ranking", "launch", "keyword")):
-        return "Селлеры не понимают, какие действия реально двигают ranking и запуск товара."
+        return "Sellers are unsure which launch and ranking actions still move the needle."
     if any(term in lowered for term in ("return", "returned", "refund")):
-        return "Возвраты и badges бьют по конверсии, марже и доверию к товару."
+        return "Returns and return-related badges can damage conversion, margin, and buyer trust."
     if any(term in lowered for term in ("inventory", "logistics", "awd", "global logistics", "stock")):
-        return "Операционные решения по складу и логистике начинают напрямую ломать cashflow."
+        return "Inventory and logistics choices are directly affecting cash flow and operational control."
     if any(term in lowered for term in ("letter", "policy", "section 3", "flagged", "suppressed")):
-        return "Compliance и brand enforcement могут остановить продажи быстрее, чем реклама успеет окупиться."
-    return "Селлеры ищут практическое решение для свежей проблемы в Amazon-бизнесе."
+        return "Compliance, policy, and brand enforcement can stop sales before ads have time to pay back."
+    return "Sellers are looking for a practical answer to a current Amazon business problem."
 
 
 def infer_angle(title: str, pain: str) -> str:
     if "profit" in title.lower() or "margin" in title.lower():
-        return "Показать, почему revenue без unit economics создает ложное чувство роста."
+        return "Show why revenue without unit economics creates a false sense of growth."
     if "ranking" in title.lower():
-        return "Разобрать, почему старые ranking-тактики перестают работать и что проверять первым."
+        return "Explain why old ranking tactics stop working and what operators should check first."
     if "returns" in title.lower() or "returned" in title.lower():
-        return "Объяснить, как одна причина возврата превращается в системную потерю конверсии."
+        return "Explain how one return reason can become a system-wide conversion leak."
     if "flagged" in title.lower() or "suppressed" in title.lower():
-        return "Показать, как подготовить листинг и supply chain до того, как Amazon нажмет стоп."
+        return "Show how to prepare the listing and supply chain before Amazon hits stop."
     return pain
 
 

@@ -22,6 +22,7 @@ def apply_post_heygen_visuals(
     output_path: Path,
     cover_seconds: float,
     broll_seconds: float,
+    target_size: tuple[int, int] = (1080, 1920),
 ) -> PostHeyGenResult:
     if not video_path.exists():
         raise VideoOverlayError(f"Видео не найдено: {video_path}")
@@ -36,12 +37,12 @@ def apply_post_heygen_visuals(
         if path.exists():
             inputs.extend(["-loop", "1", "-i", str(path)])
 
-    filter_parts = [_scale_filter(1, "cover"), f"[0:v][cover]overlay=0:0:enable='lt(t,{cover_seconds:.3f})'[v1]"]
+    filter_parts = [_scale_filter(1, "cover", target_size), f"[0:v][cover]overlay=0:0:enable='lt(t,{cover_seconds:.3f})'[v1]"]
     current = "v1"
     for index, start in enumerate(starts, start=2):
         label = f"b{index}"
         next_label = f"v{index}"
-        filter_parts.append(_scale_filter(index, label))
+        filter_parts.append(_scale_filter(index, label, target_size))
         filter_parts.append(
             f"[{current}][{label}]overlay=0:0:enable='between(t,{start:.3f},{start + broll_seconds:.3f})'[{next_label}]"
         )
@@ -82,6 +83,7 @@ def apply_cover_frame(
     cover_path: Path,
     output_path: Path,
     cover_seconds: float,
+    target_size: tuple[int, int] = (1080, 1920),
 ) -> Path:
     if not video_path.exists():
         raise VideoOverlayError(f"Видео не найдено: {video_path}")
@@ -98,7 +100,7 @@ def apply_cover_frame(
         "-i",
         str(cover_path),
         "-filter_complex",
-        f"{_scale_filter(1, 'cover')};[0:v][cover]overlay=0:0:enable='lt(t,{cover_seconds:.3f})'[v]",
+        f"{_scale_filter(1, 'cover', target_size)};[0:v][cover]overlay=0:0:enable='lt(t,{cover_seconds:.3f})'[v]",
         "-map",
         "[v]",
         "-map",
@@ -124,11 +126,12 @@ def apply_cover_frame(
     return output_path
 
 
-def _scale_filter(input_index: int, label: str) -> str:
+def _scale_filter(input_index: int, label: str, target_size: tuple[int, int]) -> str:
+    width, height = target_size
     return (
         f"[{input_index}:v]scale=iw*sar:ih,setsar=1,"
-        f"scale=1080:1920:force_original_aspect_ratio=increase,"
-        f"crop=1080:1920,format=rgba[{label}]"
+        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height},format=rgba[{label}]"
     )
 
 

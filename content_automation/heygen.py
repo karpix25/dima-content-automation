@@ -247,7 +247,7 @@ class HeyGenClient:
     async def get_video(self, video_id: str) -> HeyGenVideoResult:
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.get(f"{self.api_base_url}/v3/videos/{video_id}", headers=self.headers())
-            if response.status_code in {404, 405}:
+            if response.status_code in {400, 404, 405}:
                 response = await client.get(
                     f"{self.api_base_url}/v1/video_status.get",
                     headers=self.headers(),

@@ -44,7 +44,7 @@ def test_collect_reddit_ideas_filters_and_builds_angles():
     assert len(ideas) == 1
     assert client.calls[0]["timeframe"] == "day"
     assert ideas[0]["source"] == "reddit"
-    assert "прибыль" in ideas[0]["pain"]
+    assert "profit" in ideas[0]["pain"]
     assert ideas[0]["source_url"] == "https://www.reddit.com/r/AmazonFBA/comments/1/example"
 
 

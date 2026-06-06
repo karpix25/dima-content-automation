@@ -1,5 +1,6 @@
 from content_automation.vizard_models import normalize_vizard_settings, vizard_settings_to_payload
 from content_automation.vizard_youtube import extract_youtube_url
+from content_automation.video_geometry import vizard_platforms_for_ratio
 
 
 def test_vizard_payload_uses_youtube_format_ratio_and_length():
@@ -39,3 +40,8 @@ def test_vizard_toggles_default_to_off():
     assert settings.highlight_switch is False
     assert settings.auto_broll_switch is False
     assert settings.remove_silence_switch is False
+
+
+def test_vizard_platforms_follow_ratio():
+    assert vizard_platforms_for_ratio(4) == ("youtube",)
+    assert vizard_platforms_for_ratio(1) == ("shorts", "reels")

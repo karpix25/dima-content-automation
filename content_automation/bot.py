@@ -46,6 +46,7 @@ from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_face_reference_paths, thumbnail_style_reference_paths
 from .reddit_radar import collect_reddit_ideas
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
+from .video_geometry import video_size_for_format
 from .vizard_bot import format_vizard_settings, run_vizard_youtube_job, vizard_settings_keyboard
 from .vizard_models import normalize_vizard_setting_value
 from .vizard_youtube import extract_youtube_url
@@ -241,11 +242,11 @@ async def edit_or_send_text(
     )
 
 
-def script_keyboard(script_id: int) -> InlineKeyboardMarkup:
+def script_keyboard(script_id: int, *, flow: str = "review") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [button("✅ Одобрить сценарий", callback_data=f"script:approve:{script_id}", style="success")],
-            [button("❌ Отклонить", callback_data=f"script:reject:{script_id}", style="danger")],
+            [button("✅ Одобрить сценарий", callback_data=f"script:approve:{script_id}:{flow}", style="success")],
+            [button("❌ Отклонить", callback_data=f"script:reject:{script_id}:{flow}", style="danger")],
         ]
     )
 
@@ -780,6 +781,7 @@ async def send_scripts(
     thread_id: int | None = None,
     message: Message | None = None,
     edit: bool = False,
+    review_flow: bool = True,
 ) -> None:
     first_chunk = True
     for record in records:
@@ -792,7 +794,7 @@ async def send_scripts(
                 thread_id=thread_id,
                 message=message if first_chunk else None,
                 edit=edit and first_chunk,
-                reply_markup=script_keyboard(record.id) if is_last else None,
+                reply_markup=script_keyboard(record.id, flow="review" if review_flow else "single") if is_last else None,
                 disable_web_page_preview=True,
             )
             if first_chunk:
@@ -1204,6 +1206,7 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
         output_path=output_path,
         cover_seconds=settings.post_heygen_cover_seconds,
         broll_seconds=settings.post_heygen_broll_seconds,
+        target_size=video_size_for_format(record.format),
     )
     logger.info(
         "Post-HeyGen visuals applied to script %s: cover %.2fs, broll starts=%s",
@@ -1240,6 +1243,7 @@ async def apply_cover_frame_to_video(record: ScriptRecord, video_path: Path, ass
         cover_path=assets.cover_path,
         output_path=output_path,
         cover_seconds=settings.post_heygen_cover_seconds,
+        target_size=video_size_for_format(record.format),
     )
 
 
@@ -1536,7 +1540,7 @@ async def edit_to_next_review_card(callback: CallbackQuery, user_id: str) -> Non
         return
 
     approved = storage.count_scripts(user_id, format="short", status="approved")
-    if approved <= APPROVED_BANK_TARGET:
+    if approved < APPROVED_BANK_TARGET:
         await callback.message.edit_text(
             "\n".join(
                 [
@@ -1587,7 +1591,7 @@ async def refill_if_needed(
         )
         await start_review_session(chat_id, user_id, thread_id=thread_id, message=status_msg, edit=True)
         return
-    if not force and approved > APPROVED_BANK_TARGET:
+    if not force and approved >= APPROVED_BANK_TARGET:
         await edit_or_send_text(
             chat_id,
             "\n".join(
@@ -2466,6 +2470,7 @@ async def idea_callback(callback: CallbackQuery) -> None:
             thread_id=message_thread_id(callback.message),
             message=callback.message,
             edit=True,
+            review_flow=False,
         )
         return
 
@@ -2475,11 +2480,12 @@ async def idea_callback(callback: CallbackQuery) -> None:
 @dp.callback_query(F.data.startswith("script:"))
 async def script_review(callback: CallbackQuery) -> None:
     parts = (callback.data or "").split(":")
-    if len(parts) != 3:
+    if len(parts) not in {3, 4}:
         await callback.answer("Некорректная команда", show_alert=True)
         return
 
     _, action, script_id_raw = parts
+    flow = parts[3] if len(parts) == 4 else "review"
     try:
         script_id = int(script_id_raw)
     except ValueError:
@@ -2495,7 +2501,7 @@ async def script_review(callback: CallbackQuery) -> None:
     if action == "approve":
         updated = storage.update_script_status(user_id, script_id, "approved")
         await callback.answer("Принято")
-        if updated and updated.format == "short":
+        if flow == "review" and updated and updated.format == "short":
             advance_review_progress(user_id)
             await edit_to_next_review_card(callback, user_id)
             return
@@ -2505,7 +2511,7 @@ async def script_review(callback: CallbackQuery) -> None:
     if action == "reject":
         updated = storage.update_script_status(user_id, script_id, "rejected")
         await callback.answer("Отклонено")
-        if updated and updated.format == "short":
+        if flow == "review" and updated and updated.format == "short":
             advance_review_progress(user_id)
             await edit_to_next_review_card(callback, user_id)
             return

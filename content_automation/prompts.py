@@ -41,7 +41,7 @@ def build_short_scripts_prompt(
     style = _short_prompt_value(author_style or DEFAULT_AUTHOR_STYLE, 260)
     offer = _short_prompt_value(offer_context or DEFAULT_OFFER_CONTEXT, 420)
     cta_distribution = _short_prompt_value(cta_mix or DEFAULT_CTA_MIX, 120)
-    hint = _short_prompt_value(topic_hint, 160)
+    hint = _short_prompt_value(topic_hint, 700)
     exclusions = _short_prompt_value(exclusion_context, 700)
     budget = word_budget or vertical_word_budget("original")
     editorial = editorial_briefs_prompt(editorial_briefs or [])

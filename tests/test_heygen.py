@@ -70,6 +70,33 @@ class FakeVideoStatusClient:
         )
 
 
+class FakeVideoStatusFallbackClient:
+    def __init__(self, *args, **kwargs):
+        self.calls = 0
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return None
+
+    async def get(self, *args, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            response = FakeResponse({"error": "bad id for v3"})
+            response.status_code = 400
+            response.text = "bad id for v3"
+            return response
+        return FakeResponse(
+            {
+                "data": {
+                    "status": "completed",
+                    "video_url": "https://example.com/legacy.mp4",
+                }
+            }
+        )
+
+
 @pytest.mark.asyncio
 async def test_list_avatar_looks_returns_supported_avatar_versions(monkeypatch):
     monkeypatch.setattr("content_automation.heygen.httpx.AsyncClient", FakeAsyncClient)
@@ -89,3 +116,14 @@ async def test_get_video_extracts_nested_download_url(monkeypatch):
 
     assert result.status == "completed"
     assert result.video_url == "https://example.com/ready.mp4"
+
+
+@pytest.mark.asyncio
+async def test_get_video_falls_back_to_legacy_status_on_v3_400(monkeypatch):
+    monkeypatch.setattr("content_automation.heygen.httpx.AsyncClient", FakeVideoStatusFallbackClient)
+
+    client = HeyGenClient(api_key="key")
+    result = await client.get_video("legacy-video")
+
+    assert result.status == "completed"
+    assert result.video_url == "https://example.com/legacy.mp4"

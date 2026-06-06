@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from .kie_image import KieImageClient
 from .storage import ScriptRecord
+from .video_geometry import is_horizontal_format, video_size_for_format
 
 
 @dataclass(frozen=True)
@@ -27,7 +28,7 @@ def generate_post_heygen_assets(
     style_reference_paths: list[Path] | None = None,
 ) -> VisualAssetSet:
     output_dir.mkdir(parents=True, exist_ok=True)
-    size = (1080, 1920) if record.format == "short" else (1920, 1080)
+    size = video_size_for_format(record.format)
     cover_path = output_dir / f"cover_{record.id}.png"
     face_paths = face_reference_paths or []
     style_paths = style_reference_paths or []
@@ -42,6 +43,7 @@ def generate_post_heygen_assets(
             has_references=has_references,
             has_face_reference=bool(face_paths),
             has_style_references=bool(style_paths or legacy_paths),
+            horizontal=is_horizontal_format(record.format),
         ),
         reference_paths=all_references,
         size=size,
@@ -106,6 +108,7 @@ def _cover_prompt(
     has_references: bool = False,
     has_face_reference: bool = False,
     has_style_references: bool = False,
+    horizontal: bool = False,
 ) -> str:
     if not has_references:
         reference_rule = ""
@@ -129,8 +132,9 @@ def _cover_prompt(
         "The result must feel like the same thumbnail system as the references, adapted to the new topic. "
         "Do not copy old text, logos, exact numbers, old faces, or identities from style references. "
         )
+    orientation = "horizontal 16:9" if horizontal else "vertical 9:16"
     return (
-        "Create a premium vertical 9:16 cover frame for a business short video. "
+        f"Create a premium {orientation} cover frame for a business video. "
         f"{reference_rule}"
         "Prioritize social-media thumbnail performance over cinematic poster style. "
         "Use a clear face + oversized readable headline/numbers composition when it fits the references. "
@@ -149,8 +153,9 @@ def _broll_prompt(record: ScriptRecord, text: str, *, has_references: bool = Fal
         if has_references
         else ""
     )
+    orientation = "horizontal 16:9" if is_horizontal_format(record.format) else "vertical 9:16"
     return (
-        "Create a premium vertical 9:16 cutaway image for a business explainer video. "
+        f"Create a premium {orientation} cutaway image for a business explainer video. "
         f"{reference_rule}"
         "This is a visual interruption after an AI avatar segment: cinematic, realistic, clean, high contrast. "
         "No logos, no watermarks, no UI, no fake screenshots. "

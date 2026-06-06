@@ -8,6 +8,7 @@ from .media_assets import MediaAssetStore
 from .post_heygen_video import apply_cover_frame
 from .reference_paths import thumbnail_face_reference_paths, thumbnail_style_reference_paths
 from .storage import ScriptRecord, Storage
+from .video_geometry import video_size_for_format
 from .visual_assets import generate_post_heygen_assets
 from .vizard_models import VizardClip
 
@@ -50,6 +51,7 @@ def apply_vizard_cover_frame(
         cover_path=assets.cover_path,
         output_path=output_dir / f"{clip_path.stem}_cover.mp4",
         cover_seconds=settings.post_heygen_cover_seconds,
+        target_size=video_size_for_format(format),
     )
 
 
