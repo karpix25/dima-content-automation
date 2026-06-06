@@ -8,10 +8,13 @@ from aiogram.types import FSInputFile, InlineKeyboardButton, InlineKeyboardMarku
 
 from .config import Settings
 from .final_video_variants import build_final_video_variants
+from .kie_image import KieImageClient, KieImageConfig
+from .media_assets import MediaAssetStore
 from .settings_service import get_vizard_settings
 from .storage import Storage
 from .vizard_client import VizardApiError
 from .vizard_models import VIZARD_LENGTH_OPTIONS, VIZARD_RATIO_OPTIONS, VizardUserSettings
+from .vizard_postprocess import apply_vizard_cover_frame
 from .vizard_service import build_vizard_client, download_vizard_clips, submit_and_wait_for_vizard_clips
 from .vizard_youtube import extract_youtube_url
 
@@ -102,13 +105,41 @@ async def run_vizard_youtube_job(
         if not downloaded:
             await status.edit_text("⚠️ Vizard вернул клипы, но без доступных download URL.")
             return
+        asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
+        kie_client = KieImageClient(
+            KieImageConfig(
+                api_key=settings.kie_api_key,
+                base_url=settings.kie_base_url,
+                upload_base_url=settings.kie_upload_base_url,
+                model=settings.kie_image_model,
+                aspect_ratio=settings.kie_image_aspect_ratio,
+                resolution=settings.kie_image_resolution,
+                poll_timeout_seconds=settings.kie_poll_timeout_seconds,
+                poll_interval_seconds=settings.kie_poll_interval_seconds,
+                max_create_attempts=settings.kie_create_task_max_attempts,
+                create_retry_delay_seconds=settings.kie_create_task_retry_delay_seconds,
+            )
+        )
         for index, item in enumerate(downloaded, start=1):
+            clip_source_path = await asyncio.to_thread(
+                apply_vizard_cover_frame,
+                storage=storage,
+                settings=settings,
+                asset_store=asset_store,
+                kie_client=kie_client,
+                user_id=user_id,
+                clip=item.clip,
+                clip_path=item.path,
+                output_dir=item.path.parent,
+                index=index,
+                format="youtube" if user_settings.ratio_of_clip == 4 else "short",
+            )
             variants = build_final_video_variants(
                 storage=storage,
                 user_id=user_id,
-                source_path=item.path,
+                source_path=clip_source_path,
                 output_dir=item.path.parent,
-                output_stem=item.path.stem,
+                output_stem=clip_source_path.stem,
             )
             for variant in variants:
                 await bot.send_video(
