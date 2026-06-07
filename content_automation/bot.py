@@ -29,6 +29,13 @@ from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
 from .notebooklm_py import NotebookLMPyClient
 from .overlay_catalog import add_overlay_path, list_overlay_paths, select_overlay_path
+from .bot_menu_actions import (
+    BotMenuDeps,
+    run_daily_action,
+    run_reddit_action,
+    run_vizard_hint_action,
+    run_youtube_action,
+)
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .scrapecreators import ScrapeCreatorsClient, ScrapeCreatorsError
@@ -41,7 +48,6 @@ from .topic_dedupe import (
     script_payload_is_exact_duplicate,
     script_payload_is_duplicate,
 )
-from .turan_formats import build_all_turan_packages, build_turan_package, get_turan_format, list_turan_formats
 from .trend_radar import collect_trend_radar, format_trend_radar
 from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
 from .reference_paths import target_from_record_format, thumbnail_face_reference_paths, thumbnail_style_reference_paths
@@ -252,15 +258,6 @@ def script_keyboard(script_id: int, *, flow: str = "review") -> InlineKeyboardMa
     )
 
 
-def turan_formats_keyboard(script_id: int) -> InlineKeyboardMarkup:
-    rows = [
-        [button(item.label, callback_data=f"turan:format:{item.key}:{script_id}", style="primary")]
-        for item in list_turan_formats()
-    ]
-    rows.append([button("🚀 Сделать все версии", callback_data=f"turan:format:all:{script_id}", style="success")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
-
-
 def idea_keyboard(idea_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -417,37 +414,6 @@ def split_telegram_text(text: str, max_len: int = 3800) -> list[str]:
         chunks.append(remaining[:split_at].strip())
         remaining = remaining[split_at:].strip()
     return chunks
-
-
-async def send_turan_package(
-    chat_id: int,
-    thread_id: int | None,
-    user_id: str,
-    script_id: int,
-    format_key: str,
-) -> None:
-    record = storage.get_script(user_id, script_id)
-    if not record:
-        await send_to_chat_thread(chat_id, "Сценарий не найден.", thread_id=thread_id)
-        return
-    if record.status != "approved":
-        await send_to_chat_thread(chat_id, "Turan-форматы доступны только для одобренных сценариев.", thread_id=thread_id)
-        return
-
-    if format_key == "all":
-        package = build_all_turan_packages(record)
-        title = f"Готовые Turan-форматы для сценария #{record.id}"
-    else:
-        spec = get_turan_format(format_key)
-        if not spec:
-            await send_to_chat_thread(chat_id, "Неизвестный Turan-формат.", thread_id=thread_id)
-            return
-        package = build_turan_package(record, format_key)
-        title = f"{spec.label} для сценария #{record.id}"
-
-    chunks = split_telegram_text(f"{title}\n\n{package}")
-    for chunk in chunks:
-        await send_to_chat_thread(chat_id, chunk, thread_id=thread_id, disable_web_page_preview=True)
 
 
 def get_notebook_ref(user_id: str) -> str | None:
@@ -1451,12 +1417,41 @@ def settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def main_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [button("✅ Проверить сценарии", callback_data="main:review", style="primary")],
-            [button("📝 Сгенерировать вручную", callback_data="main:refill")],
-            [button("📊 Статус сценариев", callback_data="main:bank")],
-        ]
+    rows: list[list[InlineKeyboardButton]] = [
+        [button("✅ Проверить сценарии", callback_data="main:review", style="primary")],
+        [
+            button("📝 Пополнить банк", callback_data="main:refill"),
+            button("⚡ Сгенерировать 10", callback_data="main:daily"),
+        ],
+        [
+            button("📊 Статус банка", callback_data="main:bank"),
+            button("🔎 Reddit-темы", callback_data="main:reddit"),
+        ],
+        [button("📺 YouTube-сценарий", callback_data="main:youtube")],
+        [button("✂️ Нарезать YouTube через Vizard", callback_data="main:vizard")],
+    ]
+    if settings.miniapp_url:
+        rows.append([InlineKeyboardButton(text="⚙️ Открыть Mini App", web_app=WebAppInfo(url=settings.miniapp_url))])
+    else:
+        rows.append([button("⚙️ Настройки", callback_data="main:settings")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def menu_action_deps() -> BotMenuDeps:
+    return BotMenuDeps(
+        storage=storage,
+        settings=settings,
+        idea_bank=idea_bank,
+        scrapecreators=scrapecreators,
+        logger=logger,
+        refill_if_needed=refill_if_needed,
+        generate_scripts_for_user=generate_scripts_for_user,
+        send_scripts=send_scripts,
+        show_next_content_idea=show_next_content_idea,
+        collect_reddit_ideas=collect_reddit_ideas,
+        edit_or_send_text=edit_or_send_text,
+        main_keyboard=main_keyboard,
+        message_thread_id=message_thread_id,
     )
 
 
@@ -1646,16 +1641,7 @@ async def start(message: Message) -> None:
             [
                 "Бот готовит сценарии из NotebookLM и отправляет их на апрув.",
                 "",
-                "Команды:",
-                "/review - открыть очередь сценариев на проверку",
-                "/refill - вручную пополнить банк сценариев",
-                "/bank - статус банка сценариев",
-                "/daily_scripts - вручную сгенерировать 10 и открыть очередь",
-                "/youtube_script - сгенерировать недельный YouTube-сценарий",
-                "/reddit_radar - собрать Reddit-темы на выбор",
-                "/vizard <youtube_url> - отправить YouTube-видео в Vizard и получить нарезку",
-                "/formats - собрать Turan-форматы из последнего одобренного сценария",
-                "/settings - служебные настройки, если нужно что-то поменять вручную",
+                "Выбери действие кнопкой ниже.",
             ]
         ),
         reply_markup=main_keyboard(),
@@ -1845,6 +1831,18 @@ async def main_callback(callback: CallbackQuery) -> None:
             message=callback.message,
             edit=True,
         )
+        return
+    if action == "daily":
+        await run_daily_action(callback, user_id, menu_action_deps())
+        return
+    if action == "reddit":
+        await run_reddit_action(callback, user_id, menu_action_deps())
+        return
+    if action == "youtube":
+        await run_youtube_action(callback, user_id, menu_action_deps())
+        return
+    if action == "vizard":
+        await run_vizard_hint_action(callback, menu_action_deps())
         return
 
 
@@ -2312,38 +2310,6 @@ async def vizard_clip_command(message: Message) -> None:
     )
 
 
-@dp.message(Command("formats"))
-async def turan_formats(message: Message) -> None:
-    user_id = activate_from_message(message)
-    clear_pending_edit(user_id)
-    tail = command_tail(message.text)
-
-    if tail:
-        try:
-            script_id = int(tail)
-        except ValueError:
-            await answer_in_same_thread(message, "Отправь так: /formats или /formats <script_id>")
-            return
-        record = storage.get_script(user_id, script_id)
-    else:
-        records = storage.list_scripts(user_id, format="short", status="approved", limit=100)
-        record = records[-1] if records else None
-
-    if not record:
-        await answer_in_same_thread(message, "Нет одобренного short-сценария. Сначала прими сценарий через /review.")
-        return
-    if record.status != "approved":
-        await answer_in_same_thread(message, "Turan-форматы можно собрать только из одобренного сценария.")
-        return
-
-    await answer_in_same_thread(
-        message,
-        f"Выбери Turan-формат для сценария #{record.id}:\n\n{record.hook}",
-        reply_markup=turan_formats_keyboard(record.id),
-        disable_web_page_preview=True,
-    )
-
-
 @dp.message(F.text, lambda message: not (message.text or "").startswith("/") and bool(extract_youtube_url(message.text)))
 async def youtube_link_for_vizard(message: Message) -> None:
     user_id = activate_from_message(message)
@@ -2384,33 +2350,6 @@ async def existing_heygen_video_message(message: Message) -> None:
     except (HeyGenError, VideoOverlayError) as exc:
         logger.exception("Failed to render existing HeyGen video")
         await answer_in_same_thread(message, f"⚠️ Не удалось собрать montage из HeyGen video id {video_id}: {exc}")
-
-
-@dp.callback_query(F.data.startswith("turan:format:"))
-async def turan_format_callback(callback: CallbackQuery) -> None:
-    parts = (callback.data or "").split(":")
-    if len(parts) != 4:
-        await callback.answer("Некорректная команда", show_alert=True)
-        return
-    _, _, format_key, script_id_raw = parts
-    try:
-        script_id = int(script_id_raw)
-    except ValueError:
-        await callback.answer("Некорректный ID", show_alert=True)
-        return
-    if not callback.message:
-        await callback.answer("Нет сообщения для ответа", show_alert=True)
-        return
-
-    user_id = activate_from_callback(callback)
-    await callback.answer("Собираю формат")
-    await send_turan_package(
-        callback.message.chat.id,
-        message_thread_id(callback.message),
-        user_id,
-        script_id,
-        format_key,
-    )
 
 
 @dp.callback_query(F.data.startswith("idea:"))

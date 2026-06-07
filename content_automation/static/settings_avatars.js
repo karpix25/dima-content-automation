@@ -168,7 +168,7 @@ function visibleSelectedAvatars(target, horizontal, vertical) {
 function avatarHint(target) {
   if (target === "horizontal") return "Выберите avatar только для горизонтального YouTube формата.";
   if (target === "vertical") return "Выберите avatar только для вертикального Instagram/Reels.";
-  return "Выберите отдельный avatar для каждого формата, как в Turan.";
+  return "Выберите отдельный avatar для каждого выхода.";
 }
 
 async function loadAvatars(deps, renderSettingsPanel) {

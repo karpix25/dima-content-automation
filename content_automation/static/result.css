@@ -1,5 +1,6 @@
 .job-card {
   cursor: pointer;
+  min-width: 0;
 }
 
 .job-card:active {
@@ -19,11 +20,14 @@
 .result-head {
   align-items: flex-start;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .job-row h3,
 .result-head h3 {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .secondary-button {
@@ -74,11 +78,15 @@
 
 .result-output {
   margin: 12px 0 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .result-card {
   display: grid;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
   min-height: 180px;
   padding: 14px;
   border: 1px solid var(--line);
@@ -98,10 +106,12 @@
 .result-meta,
 .readiness {
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .result-meta span,
 .readiness span {
+  max-width: 100%;
   min-height: 24px;
   padding: 4px 8px;
   border-radius: 999px;
@@ -109,6 +119,7 @@
   color: #475569;
   font-size: 11px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .readiness {
@@ -155,10 +166,12 @@
 .file-path,
 .result-text {
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .result-text {
+  max-width: 100%;
   max-height: 220px;
   overflow: auto;
   margin: 0;
@@ -172,4 +185,17 @@
 .empty-state {
   border: 1px dashed #cbd5e1;
   background: #f8fafc;
+}
+
+@media (max-width: 520px) {
+  .job-row,
+  .result-head,
+  .result-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .result-actions .secondary-button {
+    width: 100%;
+  }
 }

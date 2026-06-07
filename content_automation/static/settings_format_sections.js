@@ -18,7 +18,7 @@ export function renderSettingsContent(deps) {
   const active = activeSettingsTab(state);
   return `
     <div class="format-settings-shell">
-      <div class="format-tabbar" role="tablist" aria-label="Настройки по форматам">
+      <div class="format-tabbar" role="tablist" aria-label="Разделы настроек">
         ${FORMAT_TABS.map((tab) => formatTabButton(tab, active, escapeHtml)).join("")}
       </div>
       <div class="format-tab-panel">
@@ -146,7 +146,7 @@ function renderFiveSecondTab({ state, escapeHtml }) {
 function renderCommonTab({ state, escapeHtml }) {
   const settings = state.settings;
   return `
-    ${formatHeader("Общие настройки", "База для всех форматов: NotebookLM, голос, модель HeyGen и стиль текстов.", commonSummaryChips(state), escapeHtml)}
+    ${formatHeader("Общие настройки", "База для контента: NotebookLM, голос, модель HeyGen и стиль текстов.", commonSummaryChips(state), escapeHtml)}
     <section class="settings-stack">
       ${settingsDisclosure("Голос и модель", commonSummaryChips(state), `
         <div class="settings-two">

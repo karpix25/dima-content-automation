@@ -21,7 +21,7 @@ const state = {
   thumbnailFaces: [],
   avatarInserts: [],
   fiveSecondSettings: null,
-  tab: localStorage.getItem("dima_active_tab") || "formats",
+  tab: localStorage.getItem("dima_active_tab") || "result",
   output: "",
   activeJob: null,
   creating: null,
@@ -29,7 +29,6 @@ const state = {
 };
 
 const tabTitles = {
-  formats: "Форматы",
   result: "Результат",
   history: "История",
   settings: "Настройки",
@@ -115,7 +114,7 @@ function renderSettings() {
 }
 
 function renderTabs() {
-  if (!tabTitles[state.tab]) state.tab = "formats";
+  if (!tabTitles[state.tab]) state.tab = "result";
   localStorage.setItem("dima_active_tab", state.tab);
   $("page-title").textContent = tabTitles[state.tab] || "DIMA";
   document.querySelectorAll(".nav-item").forEach((button) => {
@@ -192,7 +191,7 @@ function formatUsage(scriptId) {
 function renderJobs() {
   const root = $("jobs");
   if (!state.jobs.length) {
-    root.innerHTML = emptyState("История пока пустая", "Запустите любой формат. Здесь появятся статусы, ошибки и готовые результаты.");
+    root.innerHTML = emptyState("История пока пустая", "Здесь появятся статусы, ошибки и готовые результаты после запуска видео.");
     return;
   }
   root.innerHTML = state.jobs.slice(0, 8).map((job) => `
@@ -253,13 +252,13 @@ function pendingMessage(scriptId, formatKey) {
   const format = state.formats.find((item) => item.key === formatKey);
   const label = format?.label || (formatKey === "all" ? "Все форматы" : formatKey);
   const lines = [
-    `⏳ Запустил генерацию: ${label}`,
+    `⏳ Запустил задачу: ${label}`,
     `Сценарий #${scriptId}`,
     "",
-    "Можно оставить это окно открытым. Когда Kie/HeyGen/Telegram закончат работу, здесь появится результат.",
+    "Можно оставить это окно открытым. Когда сервисы закончат работу, здесь появится результат.",
   ];
   if (formatKey === "infographic_reels") {
-    lines.push("", "Для формата 5 секунд сейчас генерирую карточку через Kie, затем собираю MP4 и отправляю в Telegram.");
+    lines.push("", "Для 5-секундного ролика сейчас генерирую карточку через Kie, затем собираю MP4 и отправляю в Telegram.");
   }
   return lines.join("\n");
 }
