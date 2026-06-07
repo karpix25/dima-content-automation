@@ -68,7 +68,15 @@ RUN python3 -m venv /opt/venv \
     done
 
 RUN cd hyperframes-auto \
-    && npm ci --omit=dev --no-audit --no-fund \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && for attempt in 1 2 3; do \
+        npm ci --omit=dev --no-audit --no-fund && break; \
+        if [ "$attempt" = "3" ]; then exit 1; fi; \
+        echo "npm ci failed, retrying in 15 seconds..."; \
+        sleep 15; \
+    done \
     && keep_arch="$(case "${TARGETARCH:-amd64}" in arm64) echo arm64 ;; *) echo x64 ;; esac)" \
     && if [ -d node_modules/onnxruntime-node/bin/napi-v6 ]; then \
         find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 1 -maxdepth 1 ! -name linux -exec rm -rf {} +; \
