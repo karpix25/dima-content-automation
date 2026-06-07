@@ -7,6 +7,7 @@ import time
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
 from content_automation.web_auth import install_miniapp_auth, validate_init_data
@@ -77,3 +78,22 @@ def test_miniapp_auth_passes_matching_json_body():
 
     assert response.status_code == 200
     assert response.json()["value"] == "ok"
+
+
+def test_miniapp_auth_does_not_replay_empty_get_body_to_streaming_response():
+    app = FastAPI()
+    install_miniapp_auth(app, bot_token=BOT_TOKEN, required=True)
+
+    @app.get("/api/stream")
+    def stream(user_id: str):
+        return StreamingResponse(iter([f"ok:{user_id}".encode("utf-8")]))
+
+    client = TestClient(app)
+    response = client.get(
+        "/api/stream",
+        params={"user_id": "42"},
+        headers={"X-Telegram-Init-Data": signed_init_data("42")},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"ok:42"

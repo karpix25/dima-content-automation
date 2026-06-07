@@ -32,12 +32,16 @@ def install_miniapp_auth(app: FastAPI, *, bot_token: str, required: bool, max_ag
         except ValueError as exc:
             return JSONResponse({"detail": str(exc)}, status_code=401)
 
-        body = await request.body()
-        requested_user_id = _request_user_id(request, body)
+        requested_user_id = _query_user_id(request)
+        body: bytes | None = None
+        if not requested_user_id and _may_contain_body_user_id(request):
+            body = await request.body()
+            requested_user_id = _body_user_id(request, body)
         if requested_user_id and requested_user_id != telegram_user_id:
             return JSONResponse({"detail": "Telegram user does not match request user_id"}, status_code=403)
 
-        await _restore_body(request, body)
+        if body is not None:
+            await _restore_body(request, body)
         request.state.telegram_user_id = telegram_user_id
         return await call_next(request)
 
@@ -67,10 +71,15 @@ def _should_check(request: Request) -> bool:
     return request.url.path.startswith("/api/") and request.url.path not in PUBLIC_API_PATHS and request.method != "OPTIONS"
 
 
-def _request_user_id(request: Request, body: bytes) -> str:
-    query_user_id = (request.query_params.get("user_id") or request.query_params.get("tg_id") or "").strip()
-    if query_user_id:
-        return query_user_id
+def _query_user_id(request: Request) -> str:
+    return (request.query_params.get("user_id") or request.query_params.get("tg_id") or "").strip()
+
+
+def _may_contain_body_user_id(request: Request) -> bool:
+    return request.method in {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def _body_user_id(request: Request, body: bytes) -> str:
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type and body:
         try:
@@ -88,7 +97,13 @@ def _request_user_id(request: Request, body: bytes) -> str:
 
 
 async def _restore_body(request: Request, body: bytes) -> None:
+    sent = False
+
     async def receive() -> dict:
+        nonlocal sent
+        if sent:
+            return {"type": "http.disconnect"}
+        sent = True
         return {"type": "http.request", "body": body, "more_body": False}
 
     request._receive = receive  # noqa: SLF001 - Starlette requires this pattern after middleware body reads.
