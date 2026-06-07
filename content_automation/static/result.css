@@ -35,6 +35,12 @@
   font-size: 12px;
 }
 
+.secondary-button.danger {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #be123c;
+}
+
 .status-chip {
   display: inline-flex;
   min-height: 24px;

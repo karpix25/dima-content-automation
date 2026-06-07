@@ -6,6 +6,7 @@ from content_automation.topic_dedupe import (
     script_payload_is_duplicate,
     script_topic_fingerprint,
 )
+from content_automation.storage import DuplicateScriptError, Storage
 
 
 def test_topic_fingerprint_prefers_explicit_model_field():
@@ -67,3 +68,37 @@ def test_exclusion_context_includes_fingerprint():
 
     assert "Inventory is eating profit" in context
     assert "inventory cash conversion margin leak" in context
+
+
+def test_storage_can_enforce_unique_generated_scripts(tmp_path):
+    storage = Storage(tmp_path / "dedupe.sqlite3")
+    payload = {
+        "title": "PPC margin leak",
+        "hook": "Your PPC dashboard can lie about profit.",
+        "voiceover": "Your PPC dashboard can lie about profit when contribution margin is ignored.",
+        "topic_fingerprint": "ppc margin leak contribution profit",
+    }
+
+    storage.add_script("42", "short", payload, enforce_unique=True)
+
+    try:
+        storage.add_script("42", "short", payload, enforce_unique=True)
+    except DuplicateScriptError as exc:
+        assert exc.kind in {"topic", "hook", "voiceover"}
+    else:
+        raise AssertionError("duplicate script was not rejected")
+
+
+def test_storage_allows_fixture_duplicates_without_unique_mode(tmp_path):
+    storage = Storage(tmp_path / "fixtures.sqlite3")
+    payload = {
+        "title": "PPC margin leak",
+        "hook": "Your PPC dashboard can lie about profit.",
+        "voiceover": "Your PPC dashboard can lie about profit when contribution margin is ignored.",
+        "topic_fingerprint": "ppc margin leak contribution profit",
+    }
+
+    first = storage.add_script("42", "short", payload)
+    second = storage.add_script("42", "short", payload)
+
+    assert second.id == first.id + 1

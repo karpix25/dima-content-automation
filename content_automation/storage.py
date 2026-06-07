@@ -6,6 +6,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .script_unique_store import (
+    DuplicateScriptError,
+    attach_script_unique_keys,
+    backfill_script_unique_keys,
+    claim_script_unique_keys,
+    create_script_unique_keys_table,
+)
+from .script_uniqueness import unique_script_keys
 from .topic_dedupe import script_topic_fingerprint
 
 
@@ -109,10 +117,12 @@ class Storage:
                 )
                 """
             )
+            create_script_unique_keys_table(conn)
             self._add_column_if_missing(conn, "format_jobs", "external_task_id", "TEXT")
             self._add_column_if_missing(conn, "format_jobs", "output_url", "TEXT")
             self._add_column_if_missing(conn, "format_jobs", "error", "TEXT")
             self._add_column_if_missing(conn, "scripts", "topic_fingerprint", "TEXT NOT NULL DEFAULT ''")
+            backfill_script_unique_keys(conn, normalize_script_payload)
 
     def _add_column_if_missing(self, conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
         rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
@@ -139,9 +149,11 @@ class Storage:
                 (user_id, key, value),
             )
 
-    def add_script(self, user_id: str, format: str, payload: dict[str, Any]) -> ScriptRecord:
+    def add_script(self, user_id: str, format: str, payload: dict[str, Any], *, enforce_unique: bool = False) -> ScriptRecord:
         normalized = normalize_script_payload(payload)
+        unique_keys = unique_script_keys(payload, normalized) if enforce_unique else []
         with self._connect() as conn:
+            claim_script_unique_keys(conn, user_id=user_id, format=format, keys=unique_keys)
             cursor = conn.execute(
                 """
                 INSERT INTO scripts (
@@ -166,6 +178,7 @@ class Storage:
                 ),
             )
             script_id = int(cursor.lastrowid)
+            attach_script_unique_keys(conn, user_id=user_id, format=format, keys=unique_keys, script_id=script_id)
         record = self.get_script(user_id, script_id)
         if not record:
             raise RuntimeError("failed to load inserted script")

@@ -1,5 +1,6 @@
 import { loadSettingsData, renderSettingsPanel } from "/static/settings.js";
 import { formatButtonState, usageSummary } from "/static/format_usage.js";
+import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
@@ -56,7 +57,7 @@ function escapeHtml(value) {
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: { "Content-Type": "application/json", ...telegramAuthHeaders(), ...(options.headers || {}) },
     ...options,
   });
   if (!res.ok) {
@@ -64,6 +65,10 @@ async function api(path, options = {}) {
     throw new Error(detail.detail || `Запрос не выполнен: ${res.status}`);
   }
   return res.json();
+}
+
+function telegramAuthHeaders() {
+  return tg?.initData ? { "X-Telegram-Init-Data": tg.initData } : {};
 }
 
 async function loadAll() {
@@ -194,7 +199,7 @@ function renderJobs() {
     <article class="card job-card" data-job="${job.id}">
       <div class="job-row">
         <h3>${escapeHtml(job.title)}</h3>
-        ${statusChip(job.status)}
+        ${statusChip(job.status, job)}
       </div>
       <p>${escapeHtml(formatDisplayName(job.format_key, job.task_type))} · сценарий #${job.script_id}</p>
       <p>${escapeHtml(formatDate(job.updated_at || job.created_at))}</p>
@@ -224,7 +229,7 @@ async function createJob(scriptId, formatKey) {
     renderJobs();
     renderResultJob(job);
     pollJob(job.id);
-    setStatus(job.status === "failed" ? "Error" : "Working");
+    setStatus(isErrorStatus(job.status) ? "Error" : "Working");
   } finally {
     state.creating = null;
     renderScripts();
@@ -241,7 +246,7 @@ async function showJob(jobId) {
   renderJobs();
   renderResultJob(job);
   if (isLiveStatus(job.status)) pollJob(job.id);
-  setStatus(job.status === "failed" ? "Error" : isLiveStatus(job.status) ? "Working" : "Ready");
+  setStatus(isErrorStatus(job.status) ? "Error" : isLiveStatus(job.status) ? "Working" : "Ready");
 }
 
 function pendingMessage(scriptId, formatKey) {
@@ -293,7 +298,7 @@ function renderResultJob(job) {
           <span class="eyebrow">Задача #${job.id}</span>
           <h3>${escapeHtml(formatDisplayName(job.format_key, job.task_type))}</h3>
         </div>
-        ${statusChip(job.status)}
+        ${statusChip(job.status, job)}
       </div>
       ${renderResultMeta(job)}
       ${renderResultBody(job)}
@@ -313,14 +318,14 @@ function renderResultMeta(job) {
 }
 
 function renderResultBody(job) {
-  if (job.status === "failed") {
+  if (isErrorStatus(job.status)) {
     return `<div class="result-error">${escapeHtml(job.error || job.output_text || "Задача завершилась с ошибкой.")}</div>`;
   }
   if (isLiveStatus(job.status)) {
     return `
       <ol class="timeline">
         <li class="done">Задача создана</li>
-        <li class="active">${job.status === "queued" ? "Ожидает запуска" : "Генерация и отправка"}</li>
+        <li class="active">${isStaleJob(job) ? "Давно без обновлений" : job.status === "queued" ? "Ожидает запуска" : "Генерация и отправка"}</li>
         <li>Готовый файл придёт в Telegram</li>
       </ol>
       <p>${escapeHtml(job.output_text || jobStatusMessage(job))}</p>
@@ -335,24 +340,15 @@ function renderResultBody(job) {
 
 function renderResultActions(job) {
   const parts = [`<button class="secondary-button" type="button" data-refresh-job="${job.id}">Обновить статус</button>`];
+  if (canRetryJob(job)) parts.push(`<button class="secondary-button" type="button" data-retry-job="${job.id}">Повторить</button>`);
+  if (canStopJob(job)) parts.push(`<button class="secondary-button danger" type="button" data-stop-job="${job.id}">Остановить</button>`);
   if (job.output_url) parts.push(`<button class="secondary-button" type="button" data-copy-path>Скопировать путь</button>`);
   return `<div class="result-actions">${parts.join("")}</div>`;
 }
 
-function jobStatusLabel(status) {
-  const labels = {
-    draft: "черновик",
-    submitted: "отправлено",
-    queued: "в очереди",
-    processing: "в работе",
-    delivered: "готово",
-    failed: "ошибка",
-  };
-  return labels[status] || status || "создано";
-}
-
-function statusChip(status) {
-  return `<span class="status-chip ${escapeHtml(status || "ready")}">${escapeHtml(jobStatusLabel(status))}</span>`;
+function statusChip(status, job = null) {
+  const label = job && isStaleJob(job) ? "зависло?" : jobStatusLabel(status);
+  return `<span class="status-chip ${escapeHtml(status || "ready")}">${escapeHtml(label)}</span>`;
 }
 
 function formatDisplayName(formatKey, fallback) {
@@ -385,10 +381,6 @@ function formatReadiness() {
   return `<div class="readiness">${items.map((item) => `<span>${escapeHtml(item)}</span>`).join("")}</div>`;
 }
 
-function isLiveStatus(status) {
-  return ["queued", "processing", "submitted"].includes(status);
-}
-
 function resultCopyText(job) {
   return [
     `Задача #${job.id}: ${formatDisplayName(job.format_key, job.task_type)}`,
@@ -412,7 +404,7 @@ function pollJob(jobId) {
       upsertJob(job);
       renderJobs();
       if (state.tab === "result") renderResultJob(job);
-      setStatus(job.status === "failed" ? "Error" : isLiveStatus(job.status) ? "Working" : "Ready");
+      setStatus(isErrorStatus(job.status) ? "Error" : isLiveStatus(job.status) ? "Working" : "Ready");
       if (!isLiveStatus(job.status)) stopPolling();
     } catch (error) {
       stopPolling();
@@ -425,11 +417,6 @@ function stopPolling() {
   if (!state.pollTimer) return;
   window.clearInterval(state.pollTimer);
   state.pollTimer = null;
-}
-
-function jobStatusMessage(job) {
-  if (job.status === "failed") return job.error || "Задача завершилась с ошибкой.";
-  return `Задача ${jobStatusLabel(job.status)}.`;
 }
 
 $("save-user").addEventListener("click", () => {
@@ -478,10 +465,34 @@ $("copy").addEventListener("click", async () => {
 $("output").addEventListener("click", (event) => {
   const refresh = event.target.closest("[data-refresh-job]");
   if (refresh) showJob(refresh.dataset.refreshJob).catch(showError);
+  const retry = event.target.closest("[data-retry-job]");
+  if (retry) retryJob(retry.dataset.retryJob).catch(showError);
+  const stop = event.target.closest("[data-stop-job]");
+  if (stop) stopJob(stop.dataset.stopJob).catch(showError);
   if (!event.target.closest("[data-copy-path]") || !state.activeJob?.output_url) return;
   state.output = state.activeJob.output_url;
   $("copy").click();
 });
+
+async function retryJob(jobId) {
+  setStatus("Working");
+  const userQuery = encodeURIComponent(state.userId);
+  const job = await api(`/api/format-jobs/${jobId}/retry?user_id=${userQuery}`, { method: "POST" });
+  upsertJob(job);
+  renderJobs();
+  renderResultJob(job);
+  pollJob(job.id);
+}
+
+async function stopJob(jobId) {
+  setStatus("Working");
+  const userQuery = encodeURIComponent(state.userId);
+  const job = await api(`/api/format-jobs/${jobId}/mark-failed?user_id=${userQuery}`, { method: "POST" });
+  upsertJob(job);
+  renderJobs();
+  renderResultJob(job);
+  setStatus("Error");
+}
 
 function showError(error) {
   console.error(error);

@@ -69,18 +69,21 @@ def _sentences_from_words(words: list[dict]) -> list[dict]:
             continue
         current.append({"text": text, "start": start, "end": end})
         if re.search(r"[.!?]$", text) or len(current) >= 20:
-            sentences.append(_pack_sentence(current))
+            sentences.append(_pack_sentence(current, closed=True))
             current = []
     if current:
-        sentences.append(_pack_sentence(current))
+        sentences.append(_pack_sentence(current, closed=False))
+    if len(sentences) == 1 and not sentences[0]["closed"]:
+        return []
     return [sentence for sentence in sentences if len(sentence["text"].split()) >= 5]
 
 
-def _pack_sentence(words: list[dict]) -> dict:
+def _pack_sentence(words: list[dict], *, closed: bool) -> dict:
     return {
         "text": _clean(" ".join(str(item["text"]) for item in words)),
         "start": round(float(words[0]["start"]), 3),
         "end": round(float(words[-1]["end"]), 3),
+        "closed": closed,
     }
 
 

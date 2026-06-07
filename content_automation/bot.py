@@ -13,7 +13,8 @@ from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, Inli
 
 from .config import load_settings
 from .deepgram_transcription import DeepgramConfig
-from .editorial import EditorialBrief, apply_editorial_brief, build_editorial_briefs, script_editorial_summary
+from .editorial import EditorialBrief, apply_editorial_brief, script_editorial_summary
+from .editorial_planner import plan_editorial_briefs
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .final_video_variants import build_final_video_variants
@@ -32,7 +33,7 @@ from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .scrapecreators import ScrapeCreatorsClient, ScrapeCreatorsError
 from .settings_service import get_reddit_subreddits, get_reddit_timeframe, get_user_settings
-from .storage import ScriptRecord, Storage
+from .storage import DuplicateScriptError, ScriptRecord, Storage
 from .topic_dedupe import (
     build_exclusion_context,
     build_payload_exclusion_context,
@@ -634,7 +635,7 @@ async def generate_scripts_for_user(
         all_existing_records = storage.list_scripts_for_dedup(user_id, format=format)
         recent_existing_records = all_existing_records[:60]
         exclusion_context = build_exclusion_context(recent_existing_records)
-        editorial_briefs = build_editorial_briefs(start_index=len(all_existing_records), count=count)
+        editorial_briefs = plan_editorial_briefs(all_existing_records, count=count)
         word_budget = youtube_word_budget(user_settings.youtube_long_duration_minutes, wpm=voice_wpm)
         prompt = build_youtube_script_prompt(
             style,
@@ -664,10 +665,7 @@ async def generate_scripts_for_user(
         word_budget = vertical_word_budget(user_settings.vertical_avatar_duration_mode, wpm=voice_wpm)
         while len(items) < count:
             batch_count = min(settings.notebooklm_short_batch_size, count - len(items))
-            editorial_briefs = build_editorial_briefs(
-                start_index=len(all_existing_records) + len(items),
-                count=batch_count,
-            )
+            editorial_briefs = plan_editorial_briefs(all_existing_records, count=batch_count, pending_payloads=items)
             exclusion_context = "\n".join(
                 part
                 for part in [
@@ -706,7 +704,15 @@ async def generate_scripts_for_user(
         raise ValueError("NotebookLM не вернул новые английские сценарии в JSON. Попробуй /refill еще раз.")
 
     logger.info("Saving %s generated %s script(s) for user %s", len(items), format, user_id)
-    return [storage.add_script(user_id, format, item) for item in items]
+    records: list[ScriptRecord] = []
+    for item in items:
+        try:
+            records.append(storage.add_script(user_id, format, item, enforce_unique=True))
+        except DuplicateScriptError as exc:
+            logger.info("Skipped duplicate generated %s script for user %s by %s", format, user_id, exc.kind)
+    if not records:
+        raise ValueError("NotebookLM вернул только темы, которые уже есть в банке. Попробуй другой фокус или /reddit_radar.")
+    return records
 
 
 async def ask_notebooklm_for_scripts(

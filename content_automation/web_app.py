@@ -42,6 +42,7 @@ from .web_format_jobs import (
     deliver_existing_format_job,
     deliver_existing_heygen_video_job,
 )
+from .web_job_actions import build_job_actions_router
 from .web_models import (
     CreateFormatJobIn,
     CreateExistingHeyGenJobIn,
@@ -61,6 +62,7 @@ from .web_models import (
     TextSettingIn,
     UserSettingsOut,
 )
+from .web_auth import install_miniapp_auth
 from .web_serializers import format_to_out, job_to_out, script_to_out
 
 settings = load_settings()
@@ -81,6 +83,8 @@ elevenlabs = ElevenLabsAPIClient(api_key=settings.elevenlabs_api_key)
 static_dir = Path(__file__).with_name("static")
 
 app = FastAPI(title="DIMA Content Mini App")
+install_miniapp_auth(app, bot_token=settings.telegram_bot_token, required=settings.miniapp_require_telegram_auth)
+app.include_router(build_job_actions_router(storage=storage, asset_store=asset_store, settings=settings))
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 

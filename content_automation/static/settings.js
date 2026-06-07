@@ -195,7 +195,12 @@ function formWithUser(userId) {
 }
 
 async function postForm(path, form) {
-  const res = await fetch(path, { method: "POST", body: form });
+  const res = await fetch(path, { method: "POST", body: form, headers: telegramAuthHeaders() });
   if (!res.ok) throw new Error((await res.json()).detail || "Загрузка не удалась");
   return res.json();
+}
+
+function telegramAuthHeaders() {
+  const initData = window.Telegram?.WebApp?.initData || "";
+  return initData ? { "X-Telegram-Init-Data": initData } : {};
 }
