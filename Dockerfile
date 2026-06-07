@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/playwright:v1.60.0-noble
 
 ARG INSTALL_AUTH_TOOLS=false
+ARG TARGETARCH
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -67,7 +68,14 @@ RUN python3 -m venv /opt/venv \
     done
 
 RUN cd hyperframes-auto \
-    && npm ci --omit=dev --no-audit --no-fund
+    && npm ci --omit=dev --no-audit --no-fund \
+    && keep_arch="$(case "${TARGETARCH:-amd64}" in arm64) echo arm64 ;; *) echo x64 ;; esac)" \
+    && if [ -d node_modules/onnxruntime-node/bin/napi-v6 ]; then \
+        find node_modules/onnxruntime-node/bin/napi-v6 -mindepth 1 -maxdepth 1 ! -name linux -exec rm -rf {} +; \
+        find node_modules/onnxruntime-node/bin/napi-v6/linux -mindepth 1 -maxdepth 1 ! -name "$keep_arch" -exec rm -rf {} +; \
+    fi \
+    && npm cache clean --force \
+    && rm -rf /root/.npm /tmp/*
 
 COPY content_automation ./content_automation
 COPY hyperframes-auto ./hyperframes-auto

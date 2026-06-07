@@ -8,9 +8,14 @@ outputs
 hyperframes-auto/node_modules
 hyperframes-auto/renders
 hyperframes-auto/.thumbnails
+hyperframes-auto/.preview
 hyperframes-auto/assets/input/*
 hyperframes-auto/assets/generated/*
 __pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.cache
 *.pyc
 .DS_Store
 *.log
