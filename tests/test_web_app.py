@@ -265,6 +265,10 @@ def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
         "/api/settings/text",
         json={"user_id": "42", "key": "vertical_avatar_duration_mode", "value": "60"},
     )
+    vizard_lengths = client.patch(
+        "/api/settings/text",
+        json={"user_id": "42", "key": "vizard_prefer_length", "value": "2,3"},
+    )
     overlay = client.patch(
         "/api/settings/overlay",
         json={"user_id": "42", "format": "short", "start_percent": 55},
@@ -275,6 +279,7 @@ def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
     assert saved.json()["author_style"] == "Direct operator voice."
     assert duration.json()["youtube_long_duration_minutes"] == 12
     assert vertical_duration.json()["vertical_avatar_duration_mode"] == "60"
+    assert vizard_lengths.json()["vizard"]["prefer_length"] == [2, 3]
     assert overlay.status_code == 200
     assert overlay.json()["start_percent"] == 55
     assert settings.status_code == 200

@@ -118,7 +118,7 @@ function toggleSetting(key, label, checked, escapeHtml) {
 }
 
 function saveSectionButton(escapeHtml) {
-  return `<button data-action="save-section">${escapeHtml("Сохранить секцию")}</button>`;
+  return `<button type="button" data-action="save-section">${escapeHtml("Сохранить секцию")}</button>`;
 }
 
 function vizardSummaryChips(settings) {

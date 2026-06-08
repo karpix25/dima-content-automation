@@ -36,20 +36,27 @@ function bindSettingsEvents(root, deps) {
   bindFormatTabs(root, deps);
   bindAvatarEvents(root, deps, renderSettingsPanel);
   bindVoiceEvents(root, deps, renderSettingsPanel);
-  root.querySelectorAll("[data-action='save-text']").forEach((button) => button.addEventListener("click", () => saveTextSetting(deps, button.dataset.key).catch(deps.showError)));
-  root.querySelectorAll("[data-action='save-section']").forEach((button) => button.addEventListener("click", () => saveSettingsSection(deps, button).catch(deps.showError)));
-  root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => button.addEventListener("click", () => saveOverlayPercent(deps, button.dataset.format).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => button.addEventListener("click", () => deleteOverlay(deps, button.dataset.format).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-overlay-file']").forEach((button) => button.addEventListener("click", () => deleteOverlayFile(deps, button.dataset.format, button.dataset.index).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-ref']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "thumbnail-references", button.dataset.id).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-face']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "thumbnail-face-references", button.dataset.id).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-avatar-insert']").forEach((button) => button.addEventListener("click", () => deleteMedia(deps, "avatar-inserts", button.dataset.id).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-five-audio']").forEach((button) => button.addEventListener("click", () => deleteFiveAudio(deps, button.dataset.id).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-five-reference']").forEach((button) => button.addEventListener("click", () => deleteFiveReference(deps, button.dataset.id).catch(deps.showError)));
+  root.querySelectorAll("[data-action='save-text']").forEach((button) => bindAction(button, () => saveTextSetting(deps, button.dataset.key).catch(deps.showError)));
+  root.querySelectorAll("[data-action='save-section']").forEach((button) => bindAction(button, () => saveSettingsSection(deps, button).catch(deps.showError)));
+  root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => bindAction(button, () => saveOverlayPercent(deps, button.dataset.format).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => bindAction(button, () => deleteOverlay(deps, button.dataset.format).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-overlay-file']").forEach((button) => bindAction(button, () => deleteOverlayFile(deps, button.dataset.format, button.dataset.index).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-ref']").forEach((button) => bindAction(button, () => deleteMedia(deps, "thumbnail-references", button.dataset.id).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-face']").forEach((button) => bindAction(button, () => deleteMedia(deps, "thumbnail-face-references", button.dataset.id).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-avatar-insert']").forEach((button) => bindAction(button, () => deleteMedia(deps, "avatar-inserts", button.dataset.id).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-five-audio']").forEach((button) => bindAction(button, () => deleteFiveAudio(deps, button.dataset.id).catch(deps.showError)));
+  root.querySelectorAll("[data-action='delete-five-reference']").forEach((button) => bindAction(button, () => deleteFiveReference(deps, button.dataset.id).catch(deps.showError)));
   root.querySelectorAll("[data-target-ref]").forEach((button) => button.addEventListener("click", () => toggleRefTarget(deps, button.dataset.id, button.dataset.targetRef).catch(deps.showError)));
   root.querySelectorAll("[data-face-target]").forEach((button) => button.addEventListener("click", () => activateFace(deps, button.dataset.id, button.dataset.faceTarget).catch(deps.showError)));
   root.querySelectorAll("[data-upload]").forEach((input) => input.addEventListener("change", () => handleUpload(deps, input).catch(deps.showError)));
   root.querySelectorAll("[data-overlay-file]").forEach((input) => input.addEventListener("change", () => uploadOverlay(deps, input.dataset.overlayFile, input.files[0]).catch(deps.showError)));
+}
+
+function bindAction(button, handler) {
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    handler(event);
+  });
 }
 
 function bindFormatTabs(root, deps) {
