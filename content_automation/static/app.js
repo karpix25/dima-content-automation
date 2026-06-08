@@ -21,7 +21,7 @@ const state = {
   thumbnailFaces: [],
   avatarInserts: [],
   fiveSecondSettings: null,
-  tab: localStorage.getItem("dima_active_tab") || "result",
+  tab: localStorage.getItem("dima_active_tab") || "formats",
   output: "",
   activeJob: null,
   creating: null,
@@ -29,6 +29,7 @@ const state = {
 };
 
 const tabTitles = {
+  formats: "Создать",
   result: "Результат",
   history: "История",
   settings: "Настройки",
@@ -114,7 +115,7 @@ function renderSettings() {
 }
 
 function renderTabs() {
-  if (!tabTitles[state.tab]) state.tab = "result";
+  if (!tabTitles[state.tab]) state.tab = "formats";
   localStorage.setItem("dima_active_tab", state.tab);
   $("page-title").textContent = tabTitles[state.tab] || "DIMA";
   document.querySelectorAll(".nav-item").forEach((button) => {
@@ -327,14 +328,23 @@ function renderResultBody(job) {
         <li class="active">${isStaleJob(job) ? "Давно без обновлений" : job.status === "queued" ? "Ожидает запуска" : "Генерация и отправка"}</li>
         <li>Готовый файл придёт в Telegram</li>
       </ol>
-      <p>${escapeHtml(job.output_text || jobStatusMessage(job))}</p>
+      <p>${escapeHtml(jobStatusMessage(job))}</p>
     `;
   }
   return `
     <div class="result-success">Готово. Видео отправлено в Telegram${job.output_url ? " и сохранено в файле." : "."}</div>
     ${job.output_url ? `<p class="file-path">${escapeHtml(job.output_url)}</p>` : ""}
-    ${job.output_text ? `<pre class="result-text">${escapeHtml(job.output_text)}</pre>` : ""}
+    ${safeResultText(job) ? `<pre class="result-text">${escapeHtml(safeResultText(job))}</pre>` : ""}
   `;
+}
+
+function safeResultText(job) {
+  const text = String(job.output_text || "").trim();
+  if (!text) return "";
+  if (text.includes("Turan format:") || text.includes("Turan text-source input JSON")) {
+    return "Техническое описание старой задачи скрыто. Готовый файл и статус доступны выше.";
+  }
+  return text;
 }
 
 function renderResultActions(job) {

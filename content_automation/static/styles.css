@@ -20,6 +20,7 @@
 
 body {
   margin: 0;
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -28,8 +29,10 @@ body {
 
 .app {
   position: relative;
-  width: min(100%, 672px);
+  width: 100%;
+  max-width: 430px;
   margin: 0 auto;
+  overflow-x: hidden;
   min-height: 100vh;
   box-shadow: 0 25px 50px rgba(15, 23, 42, 0.16);
 }
@@ -122,11 +125,14 @@ label {
 main {
   display: grid;
   gap: 12px;
+  min-width: 0;
   padding: 16px 16px calc(104px + env(safe-area-inset-bottom));
 }
 
 .panel,
 .screen-panel {
+  min-width: 0;
+  overflow: hidden;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -368,7 +374,8 @@ button:disabled {
   left: 0;
   z-index: 40;
   display: flex;
-  width: min(100%, 672px);
+  width: 100%;
+  max-width: 430px;
   margin: 0 auto;
   justify-content: space-around;
   padding: 8px 16px calc(10px + env(safe-area-inset-bottom));
