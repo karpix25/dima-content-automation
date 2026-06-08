@@ -14,6 +14,9 @@ def test_turan_infographic_prompt_uses_original_design_with_dima_text():
     assert "off-white/milky rounded rectangle block" in prompt
     assert "Montserrat" in prompt
     assert "realistic cutout sticker of the author" in prompt
+    assert "bottom 22% of the 9:16 frame" in prompt
+    assert "right 16% of the frame" in prompt
+    assert "CTA window above the bottom safe zone" in prompt
     assert "Fix SQP bottlenecks" in prompt
     assert "Book a Dima audit" in prompt
     assert "тендеры" not in prompt.lower()

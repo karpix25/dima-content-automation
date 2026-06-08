@@ -27,6 +27,12 @@ def build_turan_infographic_prompt(
         "Target 52-68 visible words total so the viewer needs longer than the 5-second video to read it. "
         "Text fit rules: no cropped words, no broken words, no ellipses, no text outside safe margins; "
         "if needed reduce copy density before reducing hierarchy. "
+        "Social platform safe-zone rules: design for Instagram Reels, YouTube Shorts, and TikTok overlays. "
+        "Treat the bottom 22% of the 9:16 frame as covered by captions, profile controls, and navigation; keep it mostly clean golden background. "
+        "Treat the right 16% of the frame as covered by like/comment/share UI; never put CTA text, bullets, headline, or the author's face there. "
+        "All readable text must stay inside a central-left safe content area: x 6%-78%, y 5%-78%. "
+        "Place the CTA window above the bottom safe zone, around y 72%-78%, not at the bottom edge. "
+        "The author cutout may point toward the CTA, but must sit above the bottom safe zone and left of the right-side UI column. "
         f'H1/top headline exact text: "{copy.headline}". '
         f'H2/subtitle exact text: "{copy.subtitle}". '
         f"Main block items: {'; '.join(copy.items)}. "
@@ -35,12 +41,12 @@ def build_turan_infographic_prompt(
         "Minimal premium business infographic, no logos, no watermarks, no fake UI, no extra colors, no decorative clutter. "
         "At the top, place a large black headline directly on the gold background. "
         "Below it, place one large off-white/milky rounded rectangle block with only the 5 useful expert points. "
-        "At the bottom, place a separate off-white CTA window. "
+        "Near the lower safe area, place a separate off-white CTA window, but keep it clearly above the bottom 22% social UI zone. "
         "Use strictly Montserrat or Montserrat-like geometric sans-serif: headline ExtraBold/Black, body SemiBold, CTA ExtraBold. "
         "Do not use serif, handwritten, condensed, decorative, Arial-like, or Instagram UI fonts. "
         "Add a realistic cutout sticker of the author: man with dark hair, thick dark beard, expressive eyebrows, "
         "confident or engaged expression, pointing at the main block or CTA, 18-22% of frame height. "
-        "The author must not cover important text. "
+        "The author must not cover important text and must not overlap the right-side or bottom social safe zones. "
         "Text must be large, clean, readable, aligned, useful, and dense enough to reward reading without looking cluttered. "
         "The final image must look like a polished Turan five-second infographic card, ready for video."
     )
