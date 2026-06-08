@@ -120,6 +120,7 @@ def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     assert opened.json()["status"] == "delivered"
     assert "Генерация всех форматов завершена" in opened.json()["output_text"]
     assert "gold.mp4" in opened.json()["output_text"]
+    assert storage.get_script(record.user_id, record.id).status == "used_for_video"
 
 
 def test_existing_heygen_job_reuses_video_id(tmp_path, monkeypatch):
@@ -428,6 +429,7 @@ def test_turan_style_media_settings_flow(tmp_path, monkeypatch):
     opened_vertical_job = client.get(f"/api/format-jobs/{created_vertical_job.json()['id']}", params={"user_id": "42"})
     assert opened_job.json()["status"] == "delivered"
     assert opened_vertical_job.json()["status"] == "delivered"
+    assert storage.get_script("42", record.id).status == "approved"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["thumbnail"]["style_references"][0]["file_name"] == "ref.png"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["id"] == "avatar-horizontal"
     assert created_job.json()["raw"]["turan_task_input"]["visual_reference"]["heygen_avatar"]["engine"] == "avatar_iv"

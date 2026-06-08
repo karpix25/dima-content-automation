@@ -15,6 +15,7 @@ from .turan_service import create_format_job
 
 
 logger = logging.getLogger(__name__)
+REQUIRED_OUTPUT_FORMAT_KEYS = frozenset(item.key for item in list_turan_formats())
 
 
 class ScriptNotFoundError(RuntimeError):
@@ -265,7 +266,9 @@ def _deliver_existing_all_formats(
     output = ["Генерация всех форматов завершена.", "", "Готово:", *delivered]
     if failed:
         output.extend(["", "Ошибки:", *failed])
-    return storage.update_format_job_delivery(user_id, bundle.id, status=status, output_text="\n".join(output))
+    updated = storage.update_format_job_delivery(user_id, bundle.id, status=status, output_text="\n".join(output))
+    mark_script_used_if_all_outputs_delivered(storage, user_id, script_id)
+    return updated
 
 
 def _deliver_all_formats(
@@ -296,7 +299,19 @@ def _deliver_all_formats(
     output = ["Генерация всех форматов завершена.", "", "Готово:", *delivered]
     if failed:
         output.extend(["", "Ошибки:", *failed])
-    return storage.update_format_job_delivery(user_id, bundle.id, status=status, output_text="\n".join(output))
+    updated = storage.update_format_job_delivery(user_id, bundle.id, status=status, output_text="\n".join(output))
+    mark_script_used_if_all_outputs_delivered(storage, user_id, script_id)
+    return updated
+
+
+def mark_script_used_if_all_outputs_delivered(storage: Storage, user_id: str, script_id: int) -> None:
+    record = storage.get_script(user_id, script_id)
+    if not record or record.status != "approved":
+        return
+    jobs = [job for job in storage.list_format_jobs(user_id, limit=500) if job.script_id == script_id and job.status == "delivered"]
+    delivered_keys = {job.format_key for job in jobs}
+    if "all" in delivered_keys or REQUIRED_OUTPUT_FORMAT_KEYS.issubset(delivered_keys):
+        storage.update_script_status(user_id, script_id, "used_for_video")
 
 
 def _queued_output(job: FormatJob) -> str:
@@ -352,7 +367,7 @@ def _deliver_avatar_job(
                 kie_client=build_kie_client(settings),
             )
         heygen_line = f"HeyGen video id: {existing_heygen_video_id}\n" if existing_heygen_video_id else ""
-        return storage.update_format_job_delivery(
+        job = storage.update_format_job_delivery(
             user_id,
             job.id,
             status="delivered",
@@ -364,6 +379,8 @@ def _deliver_avatar_job(
                 f"Файл: {result.video_path}"
             ),
         )
+        mark_script_used_if_all_outputs_delivered(storage, user_id, script_id)
+        return job
     except Exception as exc:
         logger.exception("Avatar format job failed: job_id=%s", job.id)
         return storage.update_format_job_delivery(
@@ -421,6 +438,7 @@ def _deliver_infographic_job(
             result.telegram_message_id,
             result.video_path,
         )
+        mark_script_used_if_all_outputs_delivered(storage, user_id, script_id)
     except Exception as exc:
         logger.exception("Infographic format job failed: job_id=%s", job.id)
         job = storage.update_format_job_delivery(
