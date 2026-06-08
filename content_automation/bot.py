@@ -36,6 +36,7 @@ from .bot_menu_actions import (
     run_vizard_hint_action,
     run_youtube_action,
 )
+from .bot_callback_data import parse_script_callback_data
 from .bot_format_actions import BotFormatDeps, run_format_output_job
 from .bot_keyboards import build_format_output_keyboard, build_main_keyboard
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
@@ -2462,18 +2463,14 @@ async def idea_callback(callback: CallbackQuery) -> None:
 
 @dp.callback_query(F.data.startswith("script:"))
 async def script_review(callback: CallbackQuery) -> None:
-    parts = (callback.data or "").split(":")
-    if len(parts) not in {3, 4}:
+    parsed = parse_script_callback_data(callback.data)
+    if not parsed:
         await callback.answer("Некорректная команда", show_alert=True)
         return
 
-    _, action, script_id_raw = parts
-    flow = parts[3] if len(parts) == 4 else "review"
-    try:
-        script_id = int(script_id_raw)
-    except ValueError:
-        await callback.answer("Некорректный ID", show_alert=True)
-        return
+    action = parsed.action
+    flow = parsed.flow
+    script_id = parsed.script_id
 
     user_id = activate_from_callback(callback)
     record = storage.get_script(user_id, script_id)
