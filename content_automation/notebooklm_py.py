@@ -44,22 +44,31 @@ class NotebookLMPyClient:
             raise NotebookLMPyError("notebooklm-py is not installed") from exc
 
         storage_path = self._resolve_storage_path()
-        logger.info(
-            "Calling NotebookLM Python API, timeout=%ss, storage=%s",
-            self.timeout_seconds,
-            storage_path or "default",
-        )
-        try:
-            context = NotebookLMClient.from_storage(str(storage_path)) if storage_path else NotebookLMClient.from_storage()
-            async with context as client:
-                result = await asyncio.wait_for(client.chat.ask(notebook_id, question), timeout=self.timeout_seconds)
-        except Exception as exc:
-            raise NotebookLMPyError(str(exc)) from exc
-
-        answer = str(getattr(result, "answer", "") or "").strip()
-        if not answer:
-            raise NotebookLMPyError(f"NotebookLM Python API returned an empty answer: {result!r}")
-        return NotebookLMPyAskResult(answer=answer, raw=result)
+        last_error: NotebookLMPyError | None = None
+        for attempt in range(1, 4):
+            logger.info(
+                "Calling NotebookLM Python API, timeout=%ss, storage=%s, attempt=%s/3",
+                self.timeout_seconds,
+                storage_path or "default",
+                attempt,
+            )
+            try:
+                context = NotebookLMClient.from_storage(str(storage_path)) if storage_path else NotebookLMClient.from_storage()
+                async with context as client:
+                    result = await asyncio.wait_for(client.chat.ask(notebook_id, question), timeout=self.timeout_seconds)
+                answer = str(getattr(result, "answer", "") or "").strip()
+                if answer:
+                    return NotebookLMPyAskResult(answer=answer, raw=result)
+                raise NotebookLMPyError(f"NotebookLM Python API returned an empty answer: {result!r}")
+            except Exception as exc:
+                last_error = NotebookLMPyError(str(exc))
+                if attempt >= 3 or not is_retriable_notebooklm_py_error(str(exc)):
+                    raise last_error from exc
+                wait_seconds = 5 * attempt
+                logger.warning("NotebookLM Python API transient error, retrying in %ss: %s", wait_seconds, exc)
+                await asyncio.sleep(wait_seconds)
+        else:
+            raise last_error or NotebookLMPyError("NotebookLM Python API failed")
 
     def _resolve_storage_path(self) -> Path | None:
         if self.storage_path:
@@ -79,3 +88,18 @@ def extract_notebook_id(value: str | None) -> str | None:
     if UUID_RE.match(raw):
         return raw
     return raw
+
+
+def is_retriable_notebooklm_py_error(message: str) -> bool:
+    text = message.lower()
+    markers = (
+        "no parseable chunks in streaming chat response",
+        "streaming chat response",
+        "response was empty",
+        "wire format may have changed",
+        "empty answer",
+        "remote end closed connection",
+        "connection aborted",
+        "timeout",
+    )
+    return any(marker in text for marker in markers)
