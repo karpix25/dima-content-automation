@@ -36,6 +36,8 @@ from .bot_menu_actions import (
     run_vizard_hint_action,
     run_youtube_action,
 )
+from .bot_format_actions import BotFormatDeps, run_format_output_job
+from .bot_keyboards import build_format_output_keyboard, build_main_keyboard
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .scrapecreators import ScrapeCreatorsClient, ScrapeCreatorsError
@@ -1417,24 +1419,7 @@ def settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def main_keyboard() -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = [
-        [button("✅ Проверить сценарии", callback_data="main:review", style="primary")],
-        [
-            button("📝 Пополнить банк", callback_data="main:refill"),
-            button("⚡ Сгенерировать 10", callback_data="main:daily"),
-        ],
-        [
-            button("📊 Статус банка", callback_data="main:bank"),
-            button("🔎 Reddit-темы", callback_data="main:reddit"),
-        ],
-        [button("📺 YouTube-сценарий", callback_data="main:youtube")],
-        [button("✂️ Нарезать YouTube через Vizard", callback_data="main:vizard")],
-    ]
-    if settings.miniapp_url:
-        rows.append([InlineKeyboardButton(text="⚙️ Открыть Mini App", web_app=WebAppInfo(url=settings.miniapp_url))])
-    else:
-        rows.append([button("⚙️ Настройки", callback_data="main:settings")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    return build_main_keyboard(settings.miniapp_url)
 
 
 def menu_action_deps() -> BotMenuDeps:
@@ -1452,6 +1437,17 @@ def menu_action_deps() -> BotMenuDeps:
         edit_or_send_text=edit_or_send_text,
         main_keyboard=main_keyboard,
         message_thread_id=message_thread_id,
+    )
+
+
+def format_action_deps() -> BotFormatDeps:
+    return BotFormatDeps(
+        storage=storage,
+        asset_store=asset_store,
+        settings=settings,
+        logger=logger,
+        send_to_chat_thread=send_to_chat_thread,
+        format_output_keyboard=build_format_output_keyboard,
     )
 
 
@@ -2173,6 +2169,48 @@ async def vizard_callback(callback: CallbackQuery) -> None:
     )
 
 
+@dp.callback_query(F.data.startswith("format:create:"))
+async def format_create_callback(callback: CallbackQuery) -> None:
+    parts = (callback.data or "").split(":")
+    if len(parts) != 4:
+        await callback.answer("Некорректная команда", show_alert=True)
+        return
+    _, _, script_id_raw, format_key = parts
+    if format_key not in {"avatar_reels", "infographic_reels", "avatar_horizontal", "all"}:
+        await callback.answer("Неизвестный формат", show_alert=True)
+        return
+    try:
+        script_id = int(script_id_raw)
+    except ValueError:
+        await callback.answer("Некорректный ID", show_alert=True)
+        return
+
+    user_id = activate_from_callback(callback)
+    record = storage.get_script(user_id, script_id)
+    if not record:
+        await callback.answer("Сценарий не найден", show_alert=True)
+        return
+    await callback.answer("Запустил")
+    await edit_or_send_text(
+        callback.message.chat.id,
+        f"Запустил формат для сценария #{script_id}. Готовый файл придет сюда.",
+        thread_id=message_thread_id(callback.message),
+        message=callback.message,
+        edit=True,
+        reply_markup=build_format_output_keyboard(script_id),
+    )
+    asyncio.create_task(
+        run_format_output_job(
+            chat_id=callback.message.chat.id,
+            thread_id=message_thread_id(callback.message),
+            user_id=user_id,
+            script_id=script_id,
+            format_key=format_key,
+            deps=format_action_deps(),
+        )
+    )
+
+
 @dp.message(Command("status"))
 async def status(message: Message) -> None:
     user_id = activate_from_message(message)
@@ -2446,6 +2484,13 @@ async def script_review(callback: CallbackQuery) -> None:
     if action == "approve":
         updated = storage.update_script_status(user_id, script_id, "approved")
         await callback.answer("Принято")
+        if updated and updated.format == "short":
+            await send_to_chat_thread(
+                callback.message.chat.id,
+                f"Сценарий #{updated.id} одобрен. Что сделать на выходе?",
+                thread_id=message_thread_id(callback.message),
+                reply_markup=build_format_output_keyboard(updated.id),
+            )
         if flow == "review" and updated and updated.format == "short":
             advance_review_progress(user_id)
             await edit_to_next_review_card(callback, user_id)
