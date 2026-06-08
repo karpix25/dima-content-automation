@@ -31,6 +31,13 @@ def create_queued_format_job(
     format_key: str,
 ) -> FormatJob:
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
+    logger.info(
+        "Queued format job created: user_id=%s script_id=%s job_id=%s format_key=%s",
+        user_id,
+        script_id,
+        job.id,
+        format_key,
+    )
     return storage.update_format_job_delivery(
         user_id,
         job.id,
@@ -77,6 +84,7 @@ def deliver_existing_format_job(
     user_id: str,
     job_id: int,
 ) -> None:
+    logger.info("Starting queued format job delivery: user_id=%s job_id=%s", user_id, job_id)
     existing = storage.get_format_job(user_id, job_id)
     if existing and existing.status != "queued":
         logger.info("Format job delivery skipped because status is %s: job_id=%s", existing.status, job_id)
@@ -85,6 +93,13 @@ def deliver_existing_format_job(
     if not job:
         logger.warning("Queued format job disappeared before delivery: user_id=%s job_id=%s", user_id, job_id)
         return
+    logger.info(
+        "Claimed queued format job: user_id=%s job_id=%s script_id=%s format_key=%s",
+        user_id,
+        job.id,
+        job.script_id,
+        job.format_key,
+    )
     try:
         if job.format_key == "all":
             _deliver_existing_all_formats(
@@ -337,6 +352,13 @@ def _deliver_avatar_job(
     job: FormatJob,
     existing_heygen_video_id: str | None = None,
 ) -> FormatJob:
+    logger.info(
+        "Running avatar delivery for format job %s: script_id=%s format_key=%s existing_heygen=%s",
+        job.id,
+        script_id,
+        job.format_key,
+        bool(existing_heygen_video_id),
+    )
     record = storage.get_script(user_id, script_id)
     if not record:
         raise ScriptNotFoundError("Script not found")
@@ -376,6 +398,7 @@ def _deliver_avatar_job(
             ),
         )
         mark_script_used_after_output_delivery(storage, user_id, script_id)
+        logger.info("Avatar format job delivered: job_id=%s script_id=%s file=%s", job.id, script_id, result.video_path)
         return job
     except Exception as exc:
         logger.exception("Avatar format job failed: job_id=%s", job.id)
