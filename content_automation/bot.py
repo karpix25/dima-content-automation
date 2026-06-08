@@ -59,6 +59,7 @@ from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos,
 from .video_geometry import video_size_for_format
 from .vizard_bot import format_vizard_settings, run_vizard_youtube_job, vizard_settings_keyboard
 from .vizard_models import normalize_vizard_setting_value
+from .vizard_project import extract_vizard_project_id
 from .vizard_youtube import extract_youtube_url
 from .voice_speed_profile import calibrated_voice_wpm, calibrate_voice_wpm, clear_voice_wpm, has_voice_wpm_profile
 from .voiceover_timing import analyze_voiceover_timing, estimate_initial_voiceover_speed
@@ -2351,8 +2352,12 @@ async def vizard_clip_command(message: Message) -> None:
     )
 
 
-@dp.message(F.text, lambda message: not (message.text or "").startswith("/") and bool(extract_youtube_url(message.text)))
-async def youtube_link_for_vizard(message: Message) -> None:
+@dp.message(
+    F.text,
+    lambda message: not (message.text or "").startswith("/")
+    and bool(extract_youtube_url(message.text) or extract_vizard_project_id(message.text)),
+)
+async def video_link_for_vizard(message: Message) -> None:
     user_id = activate_from_message(message)
     clear_pending_edit(user_id)
     asyncio.create_task(
