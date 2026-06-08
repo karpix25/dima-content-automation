@@ -30,8 +30,8 @@ def create_format_job(
     record = storage.get_script(user_id, script_id)
     if not record:
         raise TuranServiceError("Script not found")
-    if record.status != "approved":
-        raise TuranServiceError("Only approved scripts can be formatted")
+    if record.status not in {"approved", "used_for_video"}:
+        raise TuranServiceError("Only approved or used scripts can be formatted")
 
     normalized_format_key = (format_key or "").strip()
     if normalized_format_key == "all":
