@@ -107,20 +107,7 @@ async def run_vizard_youtube_job(
             await status.edit_text("⚠️ Vizard вернул клипы, но без доступных download URL.")
             return
         asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
-        kie_client = KieImageClient(
-            KieImageConfig(
-                api_key=settings.kie_api_key,
-                base_url=settings.kie_base_url,
-                upload_base_url=settings.kie_upload_base_url,
-                model=settings.kie_image_model,
-                aspect_ratio=settings.kie_image_aspect_ratio,
-                resolution=settings.kie_image_resolution,
-                poll_timeout_seconds=settings.kie_poll_timeout_seconds,
-                poll_interval_seconds=settings.kie_poll_interval_seconds,
-                max_create_attempts=settings.kie_create_task_max_attempts,
-                create_retry_delay_seconds=settings.kie_create_task_retry_delay_seconds,
-            )
-        )
+        kie_client = build_vizard_kie_client(settings)
         for index, item in enumerate(downloaded, start=1):
             platforms = vizard_platforms_for_ratio(user_settings.ratio_of_clip)
             cover_format = "youtube" if platforms == ("youtube",) else "short"
@@ -175,3 +162,20 @@ def button(text: str, *, callback_data: str) -> InlineKeyboardButton:
 
 def on_off(value: bool) -> str:
     return "вкл" if value else "выкл"
+
+
+def build_vizard_kie_client(settings: Settings) -> KieImageClient:
+    return KieImageClient(
+        KieImageConfig(
+            api_key=settings.kie_api_key,
+            base_url=settings.kie_base_url,
+            upload_base_url=settings.kie_upload_base_url,
+            model=settings.kie_image_model,
+            aspect_ratio=settings.kie_image_aspect_ratio,
+            resolution=settings.kie_image_resolution,
+            poll_timeout_seconds=settings.kie_poll_timeout_seconds,
+            poll_interval_seconds=settings.kie_poll_interval_seconds,
+            create_task_max_attempts=settings.kie_create_task_max_attempts,
+            create_task_retry_delay_seconds=settings.kie_create_task_retry_delay_seconds,
+        )
+    )

@@ -1,3 +1,6 @@
+from types import SimpleNamespace
+
+from content_automation.vizard_bot import build_vizard_kie_client
 from content_automation.vizard_models import normalize_vizard_settings, vizard_settings_to_payload
 from content_automation.vizard_youtube import extract_youtube_url
 from content_automation.video_geometry import vizard_platforms_for_ratio
@@ -45,3 +48,23 @@ def test_vizard_toggles_default_to_off():
 def test_vizard_platforms_follow_ratio():
     assert vizard_platforms_for_ratio(4) == ("youtube",)
     assert vizard_platforms_for_ratio(1) == ("shorts", "reels")
+
+
+def test_build_vizard_kie_client_uses_current_config_field_names():
+    client = build_vizard_kie_client(
+        SimpleNamespace(
+            kie_api_key="key",
+            kie_base_url="https://api.example.test",
+            kie_upload_base_url="https://upload.example.test",
+            kie_image_model="gpt-image-2",
+            kie_image_aspect_ratio="9:16",
+            kie_image_resolution="1K",
+            kie_poll_timeout_seconds=30,
+            kie_poll_interval_seconds=2,
+            kie_create_task_max_attempts=4,
+            kie_create_task_retry_delay_seconds=3,
+        )
+    )
+
+    assert client.config.create_task_max_attempts == 4
+    assert client.config.create_task_retry_delay_seconds == 3
