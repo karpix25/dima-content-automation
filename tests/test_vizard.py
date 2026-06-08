@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from content_automation.vizard_bot import build_vizard_kie_client
 from content_automation.vizard_models import normalize_vizard_settings, vizard_settings_to_payload
+from content_automation.vizard_project import extract_vizard_project_id
 from content_automation.vizard_youtube import extract_youtube_url
 from content_automation.video_geometry import vizard_platforms_for_ratio
 
@@ -32,6 +33,18 @@ def test_vizard_payload_uses_youtube_format_ratio_and_length():
 
 def test_extract_youtube_url_from_text():
     assert extract_youtube_url("go https://youtu.be/abc123?si=x now") == "https://youtu.be/abc123?si=x"
+
+
+def test_extract_vizard_project_id_from_plain_id():
+    assert extract_vizard_project_id("/vizard 31375459") == "31375459"
+
+
+def test_extract_vizard_project_id_from_project_url():
+    assert extract_vizard_project_id("https://app.vizard.ai/project/31375459/editor") == "31375459"
+
+
+def test_extract_vizard_project_id_from_query_url():
+    assert extract_vizard_project_id("https://app.vizard.ai/editor?projectId=31375459") == "31375459"
 
 
 def test_vizard_toggles_default_to_off():

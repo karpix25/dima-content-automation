@@ -13,8 +13,9 @@ from .media_assets import MediaAssetStore
 from .settings_service import get_vizard_settings
 from .storage import Storage
 from .vizard_client import VizardApiError
-from .vizard_models import VIZARD_LENGTH_OPTIONS, VIZARD_RATIO_OPTIONS, VizardUserSettings
+from .vizard_models import VIZARD_LENGTH_OPTIONS, VIZARD_RATIO_OPTIONS, VizardProjectResult, VizardUserSettings
 from .vizard_postprocess import apply_vizard_cover_frame
+from .vizard_project import extract_vizard_project_id
 from .vizard_service import build_vizard_client, download_vizard_clips, submit_and_wait_for_vizard_clips
 from .vizard_youtube import extract_youtube_url
 from .video_geometry import vizard_platforms_for_ratio
@@ -73,76 +74,115 @@ async def run_vizard_youtube_job(
     thread_id: int | None,
     text: str,
 ) -> None:
+    project_id = extract_vizard_project_id(text)
     video_url = extract_youtube_url(text)
-    if not video_url:
-        await bot.send_message(chat_id, "Пришли YouTube-ссылку или команду /vizard <youtube_url>.", message_thread_id=thread_id)
+    if not project_id and not video_url:
+        await bot.send_message(
+            chat_id,
+            "Пришли YouTube-ссылку, Vizard project link или project id.",
+            message_thread_id=thread_id,
+        )
         return
     if not settings.vizard_api_key:
         await bot.send_message(chat_id, "Vizard API key не настроен. Добавь VIZARD_API_KEY в .env.", message_thread_id=thread_id)
         return
 
     user_settings = get_vizard_settings(storage, user_id)
+    status_text = (
+        f"⏳ Нашел Vizard project {project_id}. Забираю готовые клипы."
+        if project_id
+        else "⏳ Отправил YouTube-ссылку в Vizard. Это может занять от нескольких минут до десятков минут."
+    )
     status = await bot.send_message(
         chat_id,
-        "⏳ Отправил YouTube-ссылку в Vizard. Это может занять от нескольких минут до десятков минут.",
+        status_text,
         message_thread_id=thread_id,
     )
     try:
         client = build_vizard_client(settings)
-        project = await asyncio.to_thread(
-            submit_and_wait_for_vizard_clips,
-            client=client,
-            user_settings=user_settings,
-            video_url=video_url,
-            poll_seconds=settings.vizard_poll_seconds,
-            timeout_seconds=settings.vizard_timeout_seconds,
-            project_name="Telegram YouTube clipping",
-        )
+        if project_id:
+            project = await asyncio.to_thread(client.query_project, project_id)
+        else:
+            project = await asyncio.to_thread(
+                submit_and_wait_for_vizard_clips,
+                client=client,
+                user_settings=user_settings,
+                video_url=video_url or "",
+                poll_seconds=settings.vizard_poll_seconds,
+                timeout_seconds=settings.vizard_timeout_seconds,
+                project_name="Telegram YouTube clipping",
+            )
         if not project.clips:
             await status.edit_text(f"⚠️ Vizard завершил проект {project.project_id}, но клипы пока не вернул. Попробуй позже.")
             return
         await status.edit_text(f"✅ Vizard нашел {len(project.clips)} клипов. Скачиваю и отправляю в Telegram.")
-        downloaded = await download_vizard_clips(settings=settings, user_id=user_id, project=project)
-        if not downloaded:
+        delivered_count = await deliver_vizard_project_clips(
+            bot=bot,
+            storage=storage,
+            settings=settings,
+            user_id=user_id,
+            chat_id=chat_id,
+            thread_id=thread_id,
+            user_settings=user_settings,
+            project=project,
+        )
+        if not delivered_count:
             await status.edit_text("⚠️ Vizard вернул клипы, но без доступных download URL.")
             return
-        asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
-        kie_client = build_vizard_kie_client(settings)
-        for index, item in enumerate(downloaded, start=1):
-            platforms = vizard_platforms_for_ratio(user_settings.ratio_of_clip)
-            cover_format = "youtube" if platforms == ("youtube",) else "short"
-            clip_source_path = await asyncio.to_thread(
-                apply_vizard_cover_frame,
-                storage=storage,
-                settings=settings,
-                asset_store=asset_store,
-                kie_client=kie_client,
-                user_id=user_id,
-                clip=item.clip,
-                clip_path=item.path,
-                output_dir=item.path.parent,
-                index=index,
-                format=cover_format,
-            )
-            variants = build_final_video_variants(
-                storage=storage,
-                user_id=user_id,
-                source_path=clip_source_path,
-                output_dir=item.path.parent,
-                output_stem=clip_source_path.stem,
-                platforms=platforms,
-            )
-            for variant in variants:
-                await bot.send_video(
-                    chat_id,
-                    FSInputFile(variant.path),
-                    caption=clip_caption(index, variant.label, item.clip.title, item.clip.viral_score, item.clip.clip_editor_url),
-                    message_thread_id=thread_id,
-                )
-        await status.edit_text(f"✅ Vizard-нарезка готова: обработано {len(downloaded)} клипов.")
+        await status.edit_text(f"✅ Vizard-нарезка готова: обработано {delivered_count} клипов.")
     except (VizardApiError, Exception) as exc:
         logger.exception("Vizard YouTube job failed")
         await status.edit_text(f"❌ Vizard не смог нарезать видео: {exc}")
+
+
+async def deliver_vizard_project_clips(
+    *,
+    bot: Bot,
+    storage: Storage,
+    settings: Settings,
+    user_id: str,
+    chat_id: int,
+    thread_id: int | None,
+    user_settings: VizardUserSettings,
+    project: VizardProjectResult,
+) -> int:
+    downloaded = await download_vizard_clips(settings=settings, user_id=user_id, project=project)
+    if not downloaded:
+        return 0
+    asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
+    kie_client = build_vizard_kie_client(settings)
+    for index, item in enumerate(downloaded, start=1):
+        platforms = vizard_platforms_for_ratio(user_settings.ratio_of_clip)
+        cover_format = "youtube" if platforms == ("youtube",) else "short"
+        clip_source_path = await asyncio.to_thread(
+            apply_vizard_cover_frame,
+            storage=storage,
+            settings=settings,
+            asset_store=asset_store,
+            kie_client=kie_client,
+            user_id=user_id,
+            clip=item.clip,
+            clip_path=item.path,
+            output_dir=item.path.parent,
+            index=index,
+            format=cover_format,
+        )
+        variants = build_final_video_variants(
+            storage=storage,
+            user_id=user_id,
+            source_path=clip_source_path,
+            output_dir=item.path.parent,
+            output_stem=clip_source_path.stem,
+            platforms=platforms,
+        )
+        for variant in variants:
+            await bot.send_video(
+                chat_id,
+                FSInputFile(variant.path),
+                caption=clip_caption(index, variant.label, item.clip.title, item.clip.viral_score, item.clip.clip_editor_url),
+                message_thread_id=thread_id,
+            )
+    return len(downloaded)
 
 
 def clip_caption(index: int, platform_label: str, title: str, viral_score: str, editor_url: str) -> str:
