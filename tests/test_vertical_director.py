@@ -125,6 +125,31 @@ def test_prepare_vertical_montage_assets_retries_transient_kie_failure(tmp_path,
     assert RetryKieClient.instances[-1].attempts == 2
 
 
+def test_prepare_vertical_montage_assets_writes_fallback_without_kie_key(tmp_path):
+    montage_assets.prepare_vertical_montage_assets(
+        project_dir=tmp_path,
+        scenes=[{"title": "FBA fee leak", "imagePrompt": "Create visual-only evidence image."}],
+        kie_client=None,
+    )
+
+    image_path = tmp_path / "assets" / "generated" / "youtube-scene-01.png"
+    assert image_path.read_bytes().startswith(b"\x89PNG")
+
+
+def test_prepare_vertical_montage_assets_writes_fallback_after_kie_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(montage_assets, "KieImageClient", AlwaysFailKieClient)
+    monkeypatch.setattr(montage_assets.time, "sleep", lambda seconds: None)
+
+    montage_assets.prepare_vertical_montage_assets(
+        project_dir=tmp_path,
+        scenes=[{"title": "FBA fee leak", "imagePrompt": "Create visual-only evidence image."}],
+        kie_client=AlwaysFailKieClient(),
+    )
+
+    image_path = tmp_path / "assets" / "generated" / "youtube-scene-01.png"
+    assert image_path.read_bytes().startswith(b"\x89PNG")
+
+
 @dataclass
 class FakeConfig:
     api_key: str | None = "key"
@@ -171,6 +196,13 @@ class RetryKieClient(FakeKieClient):
             raise montage_assets.KieImageError("temporary KIE failure")
         output_path.write_bytes(b"png")
         return output_path
+
+
+class AlwaysFailKieClient(FakeKieClient):
+    instances = []
+
+    def generate_image(self, *, prompt: str, output_path: Path, reference_paths=None):
+        raise montage_assets.KieImageError("permanent KIE failure")
 
 
 def _words(*sentences: str) -> list[dict]:
