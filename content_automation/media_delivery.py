@@ -16,7 +16,7 @@ from .kie_image import KieImageClient
 from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
 from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
-from .reference_paths import target_from_record_format, thumbnail_face_reference_paths, thumbnail_style_reference_paths
+from .reference_paths import selected_thumbnail_style_reference_paths, target_from_record_format, thumbnail_face_reference_paths
 from .script_length import WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .settings_service import get_overlay_start_percent, get_random_overlay_path, get_user_settings
 from .storage import ScriptRecord, Storage
@@ -339,10 +339,11 @@ def _post_heygen_visuals(
                     user_id=user_id,
                     target=target_from_record_format(record.format),
                 ),
-                style_reference_paths=thumbnail_style_reference_paths(
+                style_reference_paths=selected_thumbnail_style_reference_paths(
                     asset_store=asset_store,
                     user_id=user_id,
                     target=target_from_record_format(record.format),
+                    seed=record.id,
                 ),
             )
             return apply_cover_frame(
@@ -376,10 +377,11 @@ def _post_heygen_visuals(
             user_id=user_id,
             target=target_from_record_format(record.format),
         ),
-        style_reference_paths=thumbnail_style_reference_paths(
+        style_reference_paths=selected_thumbnail_style_reference_paths(
             asset_store=asset_store,
             user_id=user_id,
             target=target_from_record_format(record.format),
+            seed=record.id,
         ),
     )
     result = apply_post_heygen_visuals(

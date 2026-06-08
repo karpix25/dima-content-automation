@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from pathlib import Path
 
 from .config import Settings
@@ -41,6 +42,22 @@ def thumbnail_style_reference_paths(
         if item.target in {normalized_target, "both"}
         if (path := _existing_path(item.file_path)) is not None
     ][:15]
+
+
+def selected_thumbnail_style_reference_paths(
+    *,
+    asset_store: MediaAssetStore,
+    user_id: str,
+    target: str,
+    seed: object,
+    limit: int = 1,
+) -> list[Path]:
+    paths = thumbnail_style_reference_paths(asset_store=asset_store, user_id=user_id, target=target)
+    if limit <= 0 or len(paths) <= limit:
+        return paths
+    shuffled = paths[:]
+    random.Random(f"{user_id}:{target}:{seed}").shuffle(shuffled)
+    return shuffled[:limit]
 
 
 def thumbnail_face_reference_paths(

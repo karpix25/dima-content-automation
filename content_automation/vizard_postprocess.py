@@ -6,7 +6,7 @@ from .config import Settings
 from .kie_image import KieImageClient
 from .media_assets import MediaAssetStore
 from .post_heygen_video import apply_cover_frame
-from .reference_paths import thumbnail_face_reference_paths, thumbnail_style_reference_paths
+from .reference_paths import selected_thumbnail_style_reference_paths, thumbnail_face_reference_paths
 from .storage import ScriptRecord, Storage
 from .video_geometry import video_size_for_format
 from .visual_assets import generate_post_heygen_assets
@@ -40,10 +40,11 @@ def apply_vizard_cover_frame(
             user_id=user_id,
             target=target,
         ),
-        style_reference_paths=thumbnail_style_reference_paths(
+        style_reference_paths=selected_thumbnail_style_reference_paths(
             asset_store=asset_store,
             user_id=user_id,
             target=target,
+            seed=record.id,
         ),
     )
     return apply_cover_frame(

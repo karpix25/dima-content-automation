@@ -53,7 +53,7 @@ from .topic_dedupe import (
 )
 from .trend_radar import collect_trend_radar, format_trend_radar
 from .post_heygen_video import apply_cover_frame, apply_post_heygen_visuals
-from .reference_paths import target_from_record_format, thumbnail_face_reference_paths, thumbnail_style_reference_paths
+from .reference_paths import selected_thumbnail_style_reference_paths, target_from_record_format, thumbnail_face_reference_paths
 from .reddit_radar import collect_reddit_ideas
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
 from .video_geometry import video_size_for_format
@@ -1167,10 +1167,11 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
             user_id=record.user_id,
             target=target_from_record_format(record.format),
         ),
-        style_reference_paths=thumbnail_style_reference_paths(
+        style_reference_paths=selected_thumbnail_style_reference_paths(
             asset_store=asset_store,
             user_id=record.user_id,
             target=target_from_record_format(record.format),
+            seed=record.id,
         ),
     )
     output_path = settings.video_output_directory / f"visual_{record.id}.mp4"
@@ -1205,10 +1206,11 @@ async def apply_cover_frame_to_video(record: ScriptRecord, video_path: Path, ass
             user_id=record.user_id,
             target=target_from_record_format(record.format),
         ),
-        style_reference_paths=thumbnail_style_reference_paths(
+        style_reference_paths=selected_thumbnail_style_reference_paths(
             asset_store=asset_store,
             user_id=record.user_id,
             target=target_from_record_format(record.format),
+            seed=record.id,
         ),
     )
     output_path = settings.video_output_directory / f"{video_path.stem}_cover.mp4"

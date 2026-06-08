@@ -51,7 +51,7 @@ def test_apply_vizard_cover_frame_generates_and_applies_cover(tmp_path: Path, mo
     monkeypatch.setattr(vizard_postprocess, "generate_post_heygen_assets", fake_generate_post_heygen_assets)
     monkeypatch.setattr(vizard_postprocess, "apply_cover_frame", fake_apply_cover_frame)
     monkeypatch.setattr(vizard_postprocess, "thumbnail_face_reference_paths", lambda **_: [])
-    monkeypatch.setattr(vizard_postprocess, "thumbnail_style_reference_paths", lambda **_: [])
+    monkeypatch.setattr(vizard_postprocess, "selected_thumbnail_style_reference_paths", lambda **_: [])
 
     result = apply_vizard_cover_frame(
         storage=storage,
@@ -104,7 +104,7 @@ def test_apply_vizard_cover_frame_uses_horizontal_size_for_youtube(tmp_path: Pat
 
     monkeypatch.setattr(vizard_postprocess, "apply_cover_frame", fake_apply_cover_frame)
     monkeypatch.setattr(vizard_postprocess, "thumbnail_face_reference_paths", lambda **_: [])
-    monkeypatch.setattr(vizard_postprocess, "thumbnail_style_reference_paths", lambda **_: [])
+    monkeypatch.setattr(vizard_postprocess, "selected_thumbnail_style_reference_paths", lambda **_: [])
 
     apply_vizard_cover_frame(
         storage=storage,
