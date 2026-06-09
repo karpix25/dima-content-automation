@@ -76,10 +76,11 @@ function smallTextSetting(key, label, value, maxLength, escapeHtml) {
 }
 
 function numberSetting(key, label, value, min, max) {
+  const safeValue = value === null || value === undefined ? "" : String(value);
   return `
     <div>
       <label>${label}</label>
-      <input type="number" min="${min}" max="${max}" value="${value}" data-setting="${key}" />
+      <input inputmode="numeric" min="${min}" max="${max}" value="${safeValue}" data-setting="${key}" />
     </div>
   `;
 }

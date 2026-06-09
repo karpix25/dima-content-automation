@@ -107,7 +107,7 @@ async function loadAll() {
 }
 
 function settingsDeps() {
-  return { state, api, setStatus, showError, escapeHtml };
+  return { state, api, setStatus, showError: showSettingsError, escapeHtml };
 }
 
 function renderSettings() {
@@ -434,7 +434,7 @@ $("save-user").addEventListener("click", () => {
 });
 
 $("refresh").addEventListener("click", () => loadAll().catch(showError));
-$("refresh-settings").addEventListener("click", () => loadSettingsData(settingsDeps()).catch(showError));
+$("refresh-settings").addEventListener("click", () => loadSettingsData(settingsDeps()).catch(showSettingsError));
 
 document.querySelectorAll(".nav-item").forEach((button) => {
   button.addEventListener("click", () => {
@@ -513,6 +513,12 @@ function showError(error) {
   $("copy").disabled = !state.output;
   renderTabs();
   renderScripts();
+}
+
+function showSettingsError(error) {
+  console.error(error);
+  state.creating = null;
+  setStatus(error.message || String(error));
 }
 
 loadAll().catch(showError);
