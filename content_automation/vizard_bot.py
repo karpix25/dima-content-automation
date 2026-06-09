@@ -10,11 +10,12 @@ from .config import Settings
 from .final_video_variants import build_final_video_variants
 from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
+from .post_heygen_video import normalize_video_canvas
 from .settings_service import get_vizard_settings
 from .storage import Storage
 from .vizard_client import VizardApiError
 from .vizard_models import VIZARD_LENGTH_OPTIONS, VIZARD_RATIO_OPTIONS, VizardProjectResult, VizardUserSettings
-from .vizard_postprocess import apply_vizard_cover_frame
+from .vizard_postprocess import apply_vizard_cover_frame, generate_vizard_cover_assets
 from .vizard_project import extract_vizard_project_id
 from .vizard_service import build_vizard_client, download_vizard_clips, submit_and_wait_for_vizard_clips
 from .vizard_youtube import extract_youtube_url
@@ -155,20 +156,47 @@ async def deliver_vizard_project_clips(
         target_size = vizard_target_size_for_clip(probe_video_size(item.path), user_settings.ratio_of_clip)
         platforms = vizard_platforms_for_size(target_size)
         cover_format = "youtube" if target_size[0] > target_size[1] else "short"
-        clip_source_path = await asyncio.to_thread(
-            apply_vizard_cover_frame,
-            storage=storage,
-            settings=settings,
-            asset_store=asset_store,
-            kie_client=kie_client,
-            user_id=user_id,
-            clip=item.clip,
-            clip_path=item.path,
-            output_dir=item.path.parent,
-            index=index,
-            format=cover_format,
-            target_size=target_size,
-        )
+        if cover_format == "youtube":
+            assets = await asyncio.to_thread(
+                generate_vizard_cover_assets,
+                storage=storage,
+                settings=settings,
+                asset_store=asset_store,
+                kie_client=kie_client,
+                user_id=user_id,
+                clip=item.clip,
+                output_dir=item.path.parent,
+                index=index,
+                format=cover_format,
+                target_size=target_size,
+            )
+            await bot.send_photo(
+                chat_id,
+                FSInputFile(assets.cover_path),
+                caption=cover_caption(index, item.clip.title, item.clip.viral_score, item.clip.clip_editor_url),
+                message_thread_id=thread_id,
+            )
+            clip_source_path = await asyncio.to_thread(
+                normalize_video_canvas,
+                video_path=item.path,
+                output_path=item.path.parent / f"{item.path.stem}_canvas.mp4",
+                target_size=target_size,
+            )
+        else:
+            clip_source_path = await asyncio.to_thread(
+                apply_vizard_cover_frame,
+                storage=storage,
+                settings=settings,
+                asset_store=asset_store,
+                kie_client=kie_client,
+                user_id=user_id,
+                clip=item.clip,
+                clip_path=item.path,
+                output_dir=item.path.parent,
+                index=index,
+                format=cover_format,
+                target_size=target_size,
+            )
         variants = build_final_video_variants(
             storage=storage,
             user_id=user_id,
@@ -189,6 +217,17 @@ async def deliver_vizard_project_clips(
 
 def clip_caption(index: int, platform_label: str, title: str, viral_score: str, editor_url: str) -> str:
     lines = [f"Vizard clip #{index} - {platform_label}"]
+    if title:
+        lines.append(title)
+    if viral_score:
+        lines.append(f"Viral score: {viral_score}")
+    if editor_url:
+        lines.append(editor_url)
+    return "\n".join(lines)[:1000]
+
+
+def cover_caption(index: int, title: str, viral_score: str, editor_url: str) -> str:
+    lines = [f"Vizard clip #{index} - обложка"]
     if title:
         lines.append(title)
     if viral_score:

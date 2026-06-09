@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from content_automation import post_heygen_video
-from content_automation.post_heygen_video import _broll_starts, apply_cover_frame
+from content_automation.post_heygen_video import _broll_starts, apply_cover_frame, normalize_video_canvas
 from content_automation.storage import ScriptRecord
 from content_automation.visual_assets import generate_post_heygen_assets
 
@@ -61,6 +61,25 @@ def test_apply_cover_frame_can_target_horizontal(tmp_path: Path, monkeypatch):
     apply_cover_frame(video_path=video, cover_path=cover, output_path=output, cover_seconds=0.10, target_size=(1920, 1080))
 
     assert "crop=1920:1080" in ";".join(seen["cmd"])
+
+
+def test_normalize_video_canvas_scales_source_video(tmp_path: Path, monkeypatch):
+    video = tmp_path / "video.mp4"
+    output = tmp_path / "out.mp4"
+    video.write_bytes(b"video")
+    seen = {}
+
+    def fake_run(cmd, check, capture_output, text):
+        seen["cmd"] = cmd
+        output.write_bytes(b"out")
+        return FakeProc()
+
+    monkeypatch.setattr(post_heygen_video.subprocess, "run", fake_run)
+
+    assert normalize_video_canvas(video_path=video, output_path=output, target_size=(1920, 1080)) == output
+    command = ";".join(seen["cmd"])
+    assert "[0:v]scale=iw*sar:ih,setsar=1" in command
+    assert "crop=1920:1080,format=yuv420p[v]" in command
 
 
 def test_generate_post_heygen_assets_prefers_kie_when_configured(tmp_path: Path):

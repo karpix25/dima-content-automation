@@ -23,7 +23,7 @@ export function renderVizardTab({ state, escapeHtml }) {
       ${settingsDisclosure("Основные", [chip(ratioLabel(settings.ratio_of_clip || 1)), chip(lengthLabel(settings.prefer_length || [0])), chip(`тишина: ${settings.remove_silence_switch ? "вкл" : "выкл"}`)], `
         <div class="settings-two">
           ${selectSetting("vizard_ratio_of_clip", "Формат финального ролика", String(settings.ratio_of_clip || 1), RATIO_OPTIONS, escapeHtml)}
-          ${multiSelectSetting("vizard_prefer_length", "Длина единицы ролика", settings.prefer_length || [0], LENGTH_OPTIONS, escapeHtml)}
+          ${selectSetting("vizard_prefer_length", "Длина единицы ролика", String((settings.prefer_length || [0])[0] || 0), LENGTH_OPTIONS, escapeHtml)}
         </div>
         <div class="soft-box">
           ${toggleSetting("vizard_remove_silence_switch", "Убрать паузы", settings.remove_silence_switch, escapeHtml)}
@@ -61,18 +61,6 @@ function selectSetting(key, label, value, options, escapeHtml) {
       <label>${escapeHtml(label)}</label>
       <select data-setting="${escapeHtml(key)}">
         ${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}" ${value === optionValue ? "selected" : ""}>${escapeHtml(optionLabel)}</option>`).join("")}
-      </select>
-    </div>
-  `;
-}
-
-function multiSelectSetting(key, label, values, options, escapeHtml) {
-  const selected = new Set((values || [0]).map((item) => String(item)));
-  return `
-    <div class="soft-box">
-      <label>${escapeHtml(label)}</label>
-      <select multiple data-setting="${escapeHtml(key)}" size="5">
-        ${options.map(([optionValue, optionLabel]) => `<option value="${optionValue}" ${selected.has(optionValue) ? "selected" : ""}>${escapeHtml(optionLabel)}</option>`).join("")}
       </select>
     </div>
   `;

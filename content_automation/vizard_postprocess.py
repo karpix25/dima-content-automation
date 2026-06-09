@@ -9,7 +9,7 @@ from .post_heygen_video import apply_cover_frame
 from .reference_paths import selected_thumbnail_style_reference_paths, thumbnail_face_reference_paths
 from .storage import ScriptRecord, Storage
 from .video_geometry import video_size_for_format
-from .visual_assets import generate_post_heygen_assets
+from .visual_assets import VisualAssetSet, generate_post_heygen_assets
 from .vizard_models import VizardClip
 
 
@@ -27,10 +27,44 @@ def apply_vizard_cover_frame(
     format: str = "short",
     target_size: tuple[int, int] | None = None,
 ) -> Path:
+    assets = generate_vizard_cover_assets(
+        storage=storage,
+        settings=settings,
+        asset_store=asset_store,
+        kie_client=kie_client,
+        user_id=user_id,
+        clip=clip,
+        output_dir=output_dir,
+        index=index,
+        format=format,
+        target_size=target_size,
+    )
+    return apply_cover_frame(
+        video_path=clip_path,
+        cover_path=assets.cover_path,
+        output_path=output_dir / f"{clip_path.stem}_cover.mp4",
+        cover_seconds=settings.post_heygen_cover_seconds,
+        target_size=target_size or video_size_for_format(format),
+    )
+
+
+def generate_vizard_cover_assets(
+    *,
+    storage: Storage,
+    settings: Settings,
+    asset_store: MediaAssetStore,
+    kie_client: KieImageClient | None,
+    user_id: str,
+    clip: VizardClip,
+    output_dir: Path,
+    index: int,
+    format: str = "short",
+    target_size: tuple[int, int] | None = None,
+) -> VisualAssetSet:
     record = vizard_clip_to_record(user_id=user_id, clip=clip, index=index, format=format)
     asset_dir = output_dir / "covers" / f"clip_{index:02d}"
     target = "horizontal" if format == "youtube" else "vertical"
-    assets = generate_post_heygen_assets(
+    return generate_post_heygen_assets(
         record=record,
         output_dir=asset_dir,
         broll_count=0,
@@ -48,13 +82,6 @@ def apply_vizard_cover_frame(
             target=target,
             seed=record.id,
         ),
-    )
-    return apply_cover_frame(
-        video_path=clip_path,
-        cover_path=assets.cover_path,
-        output_path=output_dir / f"{clip_path.stem}_cover.mp4",
-        cover_seconds=settings.post_heygen_cover_seconds,
-        target_size=target_size or video_size_for_format(format),
     )
 
 

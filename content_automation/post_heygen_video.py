@@ -134,6 +134,41 @@ def apply_cover_frame(
     return output_path
 
 
+def normalize_video_canvas(*, video_path: Path, output_path: Path, target_size: tuple[int, int]) -> Path:
+    if not video_path.exists():
+        raise VideoOverlayError(f"Видео не найдено: {video_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path),
+        "-filter_complex",
+        _scale_filter(0, "v", target_size, pixel_format="yuv420p"),
+        "-map",
+        "[v]",
+        "-map",
+        "0:a?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-c:a",
+        "copy",
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        str(output_path),
+    ]
+    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise VideoOverlayError(f"ffmpeg normalize canvas error: {proc.stderr[-2000:]}")
+    return output_path
+
+
 def _scale_filter(input_index: int, label: str, target_size: tuple[int, int], *, pixel_format: str = "rgba") -> str:
     width, height = target_size
     return (
