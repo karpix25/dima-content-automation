@@ -37,7 +37,11 @@ def apply_post_heygen_visuals(
         if path.exists():
             inputs.extend(["-loop", "1", "-i", str(path)])
 
-    filter_parts = [_scale_filter(1, "cover", target_size), f"[0:v][cover]overlay=0:0:enable='lt(t,{cover_seconds:.3f})'[v1]"]
+    filter_parts = [
+        _scale_filter(0, "base", target_size, pixel_format="yuv420p"),
+        _scale_filter(1, "cover", target_size),
+        f"[base][cover]overlay=0:0:enable='lt(t,{cover_seconds:.3f})'[v1]",
+    ]
     current = "v1"
     for index, start in enumerate(starts, start=2):
         label = f"b{index}"
@@ -100,7 +104,11 @@ def apply_cover_frame(
         "-i",
         str(cover_path),
         "-filter_complex",
-        f"{_scale_filter(1, 'cover', target_size)};[0:v][cover]overlay=0:0:enable='lt(t,{cover_seconds:.3f})'[v]",
+        (
+            f"{_scale_filter(0, 'base', target_size, pixel_format='yuv420p')};"
+            f"{_scale_filter(1, 'cover', target_size)};"
+            f"[base][cover]overlay=0:0:enable='lt(t,{cover_seconds:.3f})'[v]"
+        ),
         "-map",
         "[v]",
         "-map",
@@ -126,12 +134,12 @@ def apply_cover_frame(
     return output_path
 
 
-def _scale_filter(input_index: int, label: str, target_size: tuple[int, int]) -> str:
+def _scale_filter(input_index: int, label: str, target_size: tuple[int, int], *, pixel_format: str = "rgba") -> str:
     width, height = target_size
     return (
         f"[{input_index}:v]scale=iw*sar:ih,setsar=1,"
         f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-        f"crop={width}:{height},format=rgba[{label}]"
+        f"crop={width}:{height},format={pixel_format}[{label}]"
     )
 
 

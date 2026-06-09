@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from content_automation.vizard_bot import build_vizard_kie_client, vizard_platforms_for_size
+from content_automation.vizard_bot import build_vizard_kie_client, vizard_platforms_for_size, vizard_target_size_for_clip
 from content_automation.vizard_models import normalize_vizard_settings, vizard_settings_to_payload
 from content_automation.vizard_project import extract_vizard_project_id
 from content_automation.vizard_youtube import extract_youtube_url
@@ -67,6 +67,12 @@ def test_vizard_platforms_follow_downloaded_clip_size():
     assert vizard_platforms_for_size((1920, 1080)) == ("youtube",)
     assert vizard_platforms_for_size((1080, 1920)) == ("shorts", "reels")
     assert vizard_platforms_for_size((1080, 1080)) == ("shorts", "reels")
+
+
+def test_vizard_target_size_does_not_keep_ambiguous_square_clip():
+    assert vizard_target_size_for_clip((1080, 1080), 4) == (1920, 1080)
+    assert vizard_target_size_for_clip((1080, 1080), 1) == (1080, 1920)
+    assert vizard_target_size_for_clip((1920, 1080), 1) == (1920, 1080)
 
 
 def test_build_vizard_kie_client_uses_current_config_field_names():

@@ -17,6 +17,19 @@ def test_probe_video_size_reads_first_video_stream(tmp_path, monkeypatch):
     assert video_overlay.probe_video_size(video) == (1280, 720)
 
 
+def test_probe_video_size_uses_display_aspect_ratio(tmp_path, monkeypatch):
+    video = tmp_path / "video.mp4"
+    video.write_bytes(b"video")
+
+    def fake_run(command, **kwargs):
+        payload = '{"streams":[{"width":1080,"height":1080,"display_aspect_ratio":"16:9"}]}'
+        return SimpleNamespace(returncode=0, stdout=payload, stderr="")
+
+    monkeypatch.setattr(video_overlay.subprocess, "run", fake_run)
+
+    assert video_overlay.probe_video_size(video) == (1920, 1080)
+
+
 def test_apply_overlay_scales_overlay_inside_source_video(tmp_path, monkeypatch):
     video = tmp_path / "video.mp4"
     overlay = tmp_path / "overlay.png"

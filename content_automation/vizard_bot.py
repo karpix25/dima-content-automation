@@ -123,6 +123,7 @@ async def run_vizard_youtube_job(
             user_id=user_id,
             chat_id=chat_id,
             thread_id=thread_id,
+            user_settings=user_settings,
             project=project,
         )
         if not delivered_count:
@@ -142,6 +143,7 @@ async def deliver_vizard_project_clips(
     user_id: str,
     chat_id: int,
     thread_id: int | None,
+    user_settings: VizardUserSettings,
     project: VizardProjectResult,
 ) -> int:
     downloaded = await download_vizard_clips(settings=settings, user_id=user_id, project=project)
@@ -150,7 +152,7 @@ async def deliver_vizard_project_clips(
     asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
     kie_client = build_vizard_kie_client(settings)
     for index, item in enumerate(downloaded, start=1):
-        target_size = probe_video_size(item.path)
+        target_size = vizard_target_size_for_clip(probe_video_size(item.path), user_settings.ratio_of_clip)
         platforms = vizard_platforms_for_size(target_size)
         cover_format = "youtube" if target_size[0] > target_size[1] else "short"
         clip_source_path = await asyncio.to_thread(
@@ -199,6 +201,13 @@ def clip_caption(index: int, platform_label: str, title: str, viral_score: str, 
 def vizard_platforms_for_size(size: tuple[int, int]) -> tuple[str, ...]:
     width, height = size
     return ("youtube",) if width > height else ("shorts", "reels")
+
+
+def vizard_target_size_for_clip(size: tuple[int, int], ratio_of_clip: int) -> tuple[int, int]:
+    width, height = size
+    if width != height:
+        return size
+    return (1920, 1080) if ratio_of_clip == 4 else (1080, 1920)
 
 
 def button(text: str, *, callback_data: str) -> InlineKeyboardButton:

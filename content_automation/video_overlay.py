@@ -70,7 +70,7 @@ def probe_video_size(video_path: Path) -> tuple[int, int]:
             "-select_streams",
             "v:0",
             "-show_entries",
-            "stream=width,height",
+            "stream=width,height,sample_aspect_ratio,display_aspect_ratio",
             "-of",
             "json",
             str(video_path),
@@ -89,7 +89,36 @@ def probe_video_size(video_path: Path) -> tuple[int, int]:
         raise VideoOverlayError(f"Не удалось определить размер видео: {proc.stdout}") from exc
     if width <= 0 or height <= 0:
         raise VideoOverlayError(f"Некорректный размер видео: {width}x{height}")
+    return _display_size(width, height, stream)
+
+
+def _display_size(width: int, height: int, stream: dict) -> tuple[int, int]:
+    ratio = _ratio_value(stream.get("display_aspect_ratio"))
+    if ratio is None:
+        sar = _ratio_value(stream.get("sample_aspect_ratio"))
+        ratio = width / height * sar if sar else width / height
+    if ratio > 1:
+        return (round(height * ratio), height)
+    if ratio < 1:
+        return (width, round(width / ratio))
     return width, height
+
+
+def _ratio_value(value: object) -> float | None:
+    if not isinstance(value, str) or not value or value == "0:1":
+        return None
+    if ":" in value:
+        left, right = value.split(":", 1)
+        try:
+            numerator = float(left)
+            denominator = float(right)
+        except ValueError:
+            return None
+        return numerator / denominator if denominator else None
+    try:
+        return float(value)
+    except ValueError:
+        return None
 
 
 def apply_overlay(
