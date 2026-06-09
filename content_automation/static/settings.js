@@ -85,13 +85,12 @@ async function saveSettingsSection(deps, button) {
   const section = button.closest(".settings-section-body") || button.closest(".settings-section") || document;
   const fields = Array.from(section.querySelectorAll("[data-setting]"));
   if (!fields.length) return;
+  const values = Object.fromEntries(fields.map((field) => [field.dataset.setting, settingFieldValue(field)]));
   deps.setStatus("Сохраняю");
-  for (const field of fields) {
-    await deps.api("/api/settings/text", {
-      method: "PATCH",
-      body: JSON.stringify({ user_id: deps.state.userId, key: field.dataset.setting, value: settingFieldValue(field) }),
-    });
-  }
+  deps.state.settings = await deps.api("/api/settings/section", {
+    method: "PATCH",
+    body: JSON.stringify({ user_id: deps.state.userId, values }),
+  });
   await loadSettingsData(deps);
   deps.setStatus("Сохранено");
 }

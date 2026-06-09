@@ -43,6 +43,11 @@ class TextSettingIn(BaseModel):
     value: str
 
 
+class SettingsSectionIn(BaseModel):
+    user_id: str
+    values: dict[str, str]
+
+
 class SelectAssetIn(BaseModel):
     user_id: str
     id: str

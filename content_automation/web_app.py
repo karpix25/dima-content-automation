@@ -59,6 +59,7 @@ from .web_models import (
     OverlayPercentIn,
     ScriptOut,
     SelectAssetIn,
+    SettingsSectionIn,
     TextSettingIn,
     UserSettingsOut,
 )
@@ -128,6 +129,16 @@ def user_settings(user_id: str = Query(..., min_length=1)) -> UserSettingsOut:
 def update_text_setting(payload: TextSettingIn) -> UserSettingsOut:
     try:
         set_text_setting(storage, payload.user_id, payload.key, payload.value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return settings_to_out(payload.user_id)
+
+
+@app.patch("/api/settings/section", response_model=UserSettingsOut)
+def update_settings_section(payload: SettingsSectionIn) -> UserSettingsOut:
+    try:
+        for key, value in payload.values.items():
+            set_text_setting(storage, payload.user_id, key, value)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return settings_to_out(payload.user_id)
