@@ -56,21 +56,48 @@ class KieImageClient:
     def is_configured(self) -> bool:
         return bool(self.config.api_key)
 
-    def generate_image(self, *, prompt: str, output_path: Path, reference_paths: list[Path] | None = None) -> Path | None:
+    def generate_image(
+        self,
+        *,
+        prompt: str,
+        output_path: Path,
+        reference_paths: list[Path] | None = None,
+        aspect_ratio: str | None = None,
+    ) -> Path | None:
         clean_prompt = " ".join((prompt or "").split())
         if not clean_prompt or not self.config.api_key:
             return None
         input_urls = self.upload_references(reference_paths or [])
-        return self.generate_image_from_uploaded_refs(prompt=clean_prompt, output_path=output_path, input_urls=input_urls)
+        return self.generate_image_from_uploaded_refs(
+            prompt=clean_prompt,
+            output_path=output_path,
+            input_urls=input_urls,
+            aspect_ratio=aspect_ratio,
+        )
 
-    def generate_image_from_uploaded_refs(self, *, prompt: str, output_path: Path, input_urls: list[str]) -> Path | None:
+    def generate_image_from_uploaded_refs(
+        self,
+        *,
+        prompt: str,
+        output_path: Path,
+        input_urls: list[str],
+        aspect_ratio: str | None = None,
+    ) -> Path | None:
         clean_prompt = " ".join((prompt or "").split())
         if not clean_prompt or not self.config.api_key:
             return None
         last_error = ""
         for model in _model_candidates(self.config.model, has_references=bool(input_urls)):
             try:
-                task_id = self._create_task(_task_payload(model=model, prompt=clean_prompt, config=self.config, input_urls=input_urls))
+                task_id = self._create_task(
+                    _task_payload(
+                        model=model,
+                        prompt=clean_prompt,
+                        config=self.config,
+                        input_urls=input_urls,
+                        aspect_ratio=aspect_ratio,
+                    )
+                )
                 break
             except KieImageError as exc:
                 last_error = str(exc)
@@ -178,10 +205,17 @@ def _result_url(record: dict[str, Any]) -> str:
     raise KieImageError(f"KIE result has no image url: {record}")
 
 
-def _task_payload(*, model: str, prompt: str, config: KieImageConfig, input_urls: list[str]) -> dict[str, Any]:
+def _task_payload(
+    *,
+    model: str,
+    prompt: str,
+    config: KieImageConfig,
+    input_urls: list[str],
+    aspect_ratio: str | None = None,
+) -> dict[str, Any]:
     input_payload: dict[str, Any] = {
         "prompt": prompt,
-        "aspect_ratio": _normalize_aspect_ratio(config.aspect_ratio),
+        "aspect_ratio": _normalize_aspect_ratio(aspect_ratio or config.aspect_ratio),
         "resolution": _normalize_resolution(config.resolution),
     }
     if input_urls:

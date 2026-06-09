@@ -22,6 +22,7 @@ class VisualAssetRequest:
     path: Path
     prompt: str
     size: tuple[int, int]
+    aspect_ratio: str
     title: str
     subtitle: str
     footer: str
@@ -57,6 +58,7 @@ def generate_post_heygen_assets(
             orientation=_orientation_label(size),
         ),
         size=size,
+        aspect_ratio=_aspect_ratio_label(size),
         title=record.hook or record.title or "Key idea",
         subtitle=record.trigger or record.angle,
         footer=record.cta,
@@ -72,6 +74,7 @@ def generate_post_heygen_assets(
             path=path,
             prompt=_broll_prompt(record, text, has_references=has_references),
             size=size,
+            aspect_ratio=_aspect_ratio_label(size),
             title=text,
             subtitle=record.title,
             footer=record.cta,
@@ -108,6 +111,7 @@ def _generate_or_render(*, kie_client: KieImageClient | None, request: VisualAss
             prompt=request.prompt,
             output_path=request.path,
             input_urls=input_urls,
+            aspect_ratio=request.aspect_ratio,
         )
         if generated and generated.exists():
             return
@@ -204,6 +208,13 @@ def _orientation_label(size: tuple[int, int]) -> str:
     if width > height:
         return "horizontal 16:9"
     return "vertical 9:16"
+
+
+def _aspect_ratio_label(size: tuple[int, int]) -> str:
+    width, height = size
+    if width == height:
+        return "1:1"
+    return "16:9" if width > height else "9:16"
 
 
 def _render_card(

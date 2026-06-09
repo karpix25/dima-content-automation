@@ -93,6 +93,21 @@ def test_generate_post_heygen_assets_prefers_kie_when_configured(tmp_path: Path)
     assert len(client.prompts) == 2
 
 
+def test_generate_post_heygen_assets_sets_kie_aspect_ratio_from_target_size(tmp_path: Path):
+    record = _record(format="youtube")
+    client = FakeKieClient()
+
+    generate_post_heygen_assets(
+        record=record,
+        output_dir=tmp_path,
+        broll_count=0,
+        kie_client=client,
+        target_size=(1920, 1080),
+    )
+
+    assert client.aspect_ratios == ["16:9"]
+
+
 def test_generate_post_heygen_assets_passes_references_to_kie(tmp_path: Path):
     record = _record()
     client = FakeKieClient()
@@ -143,6 +158,7 @@ class FakeKieClient:
         self.reference_batches: list[list[Path]] = []
         self.upload_batches: list[list[Path]] = []
         self.uploaded_by_url: dict[str, Path] = {}
+        self.aspect_ratios: list[str | None] = []
 
     def is_configured(self) -> bool:
         return True
@@ -153,15 +169,31 @@ class FakeKieClient:
         self.uploaded_by_url.update(dict(zip(urls, paths)))
         return urls
 
-    def generate_image_from_uploaded_refs(self, *, prompt: str, output_path: Path, input_urls: list[str]) -> Path:
+    def generate_image_from_uploaded_refs(
+        self,
+        *,
+        prompt: str,
+        output_path: Path,
+        input_urls: list[str],
+        aspect_ratio: str | None = None,
+    ) -> Path:
         self.prompts.append(prompt)
+        self.aspect_ratios.append(aspect_ratio)
         self.reference_batches.append([self.uploaded_by_url[url] for url in input_urls])
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text("kie")
         return output_path
 
-    def generate_image(self, *, prompt: str, output_path: Path, reference_paths: list[Path] | None = None) -> Path:
+    def generate_image(
+        self,
+        *,
+        prompt: str,
+        output_path: Path,
+        reference_paths: list[Path] | None = None,
+        aspect_ratio: str | None = None,
+    ) -> Path:
         self.prompts.append(prompt)
+        self.aspect_ratios.append(aspect_ratio)
         self.reference_batches.append(reference_paths or [])
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text("kie")
@@ -173,11 +205,11 @@ class FakeProc:
     stderr = ""
 
 
-def _record() -> ScriptRecord:
+def _record(*, format: str = "short") -> ScriptRecord:
     return ScriptRecord(
         id=8,
         user_id="42",
-        format="short",
+        format=format,
         status="approved",
         title="Amazon PPC leak",
         angle="Cash flow angle",

@@ -44,6 +44,18 @@ def test_task_payload_accepts_image_to_image_references():
     assert payload["input"]["input_urls"] == ["https://example.com/ref.png"]
 
 
+def test_task_payload_allows_per_request_aspect_ratio():
+    payload = _task_payload(
+        model="gpt-image-2-text-to-image",
+        prompt="Prompt",
+        config=_config(aspect_ratio="9:16"),
+        input_urls=[],
+        aspect_ratio="16:9",
+    )
+
+    assert payload["input"]["aspect_ratio"] == "16:9"
+
+
 def _config(**overrides):
     values = {
         "api_key": "key",
