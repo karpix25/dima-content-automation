@@ -1,6 +1,20 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import content_automation.video_overlay as video_overlay
+
+
+def test_probe_video_size_reads_first_video_stream(tmp_path, monkeypatch):
+    video = tmp_path / "video.mp4"
+    video.write_bytes(b"video")
+
+    def fake_run(command, **kwargs):
+        assert "-select_streams" in command
+        return SimpleNamespace(returncode=0, stdout='{"streams":[{"width":1280,"height":720}]}', stderr="")
+
+    monkeypatch.setattr(video_overlay.subprocess, "run", fake_run)
+
+    assert video_overlay.probe_video_size(video) == (1280, 720)
 
 
 def test_apply_overlay_scales_overlay_inside_source_video(tmp_path, monkeypatch):

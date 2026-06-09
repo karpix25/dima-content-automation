@@ -61,6 +61,37 @@ def probe_duration_seconds(video_path: Path) -> float:
     return duration
 
 
+def probe_video_size(video_path: Path) -> tuple[int, int]:
+    proc = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height",
+            "-of",
+            "json",
+            str(video_path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise VideoOverlayError(f"ffprobe size error: {proc.stderr[-1000:]}")
+    try:
+        stream = json.loads(proc.stdout)["streams"][0]
+        width = int(stream["width"])
+        height = int(stream["height"])
+    except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise VideoOverlayError(f"Не удалось определить размер видео: {proc.stdout}") from exc
+    if width <= 0 or height <= 0:
+        raise VideoOverlayError(f"Некорректный размер видео: {width}x{height}")
+    return width, height
+
+
 def apply_overlay(
     *,
     video_path: Path,

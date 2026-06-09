@@ -18,7 +18,7 @@ from .vizard_postprocess import apply_vizard_cover_frame
 from .vizard_project import extract_vizard_project_id
 from .vizard_service import build_vizard_client, download_vizard_clips, submit_and_wait_for_vizard_clips
 from .vizard_youtube import extract_youtube_url
-from .video_geometry import vizard_platforms_for_ratio
+from .video_overlay import probe_video_size
 
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,6 @@ async def run_vizard_youtube_job(
             user_id=user_id,
             chat_id=chat_id,
             thread_id=thread_id,
-            user_settings=user_settings,
             project=project,
         )
         if not delivered_count:
@@ -143,7 +142,6 @@ async def deliver_vizard_project_clips(
     user_id: str,
     chat_id: int,
     thread_id: int | None,
-    user_settings: VizardUserSettings,
     project: VizardProjectResult,
 ) -> int:
     downloaded = await download_vizard_clips(settings=settings, user_id=user_id, project=project)
@@ -152,8 +150,9 @@ async def deliver_vizard_project_clips(
     asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
     kie_client = build_vizard_kie_client(settings)
     for index, item in enumerate(downloaded, start=1):
-        platforms = vizard_platforms_for_ratio(user_settings.ratio_of_clip)
-        cover_format = "youtube" if platforms == ("youtube",) else "short"
+        target_size = probe_video_size(item.path)
+        platforms = vizard_platforms_for_size(target_size)
+        cover_format = "youtube" if target_size[0] > target_size[1] else "short"
         clip_source_path = await asyncio.to_thread(
             apply_vizard_cover_frame,
             storage=storage,
@@ -166,6 +165,7 @@ async def deliver_vizard_project_clips(
             output_dir=item.path.parent,
             index=index,
             format=cover_format,
+            target_size=target_size,
         )
         variants = build_final_video_variants(
             storage=storage,
@@ -194,6 +194,11 @@ def clip_caption(index: int, platform_label: str, title: str, viral_score: str, 
     if editor_url:
         lines.append(editor_url)
     return "\n".join(lines)[:1000]
+
+
+def vizard_platforms_for_size(size: tuple[int, int]) -> tuple[str, ...]:
+    width, height = size
+    return ("youtube",) if width > height else ("shorts", "reels")
 
 
 def button(text: str, *, callback_data: str) -> InlineKeyboardButton:

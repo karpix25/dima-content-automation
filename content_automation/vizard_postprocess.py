@@ -25,6 +25,7 @@ def apply_vizard_cover_frame(
     output_dir: Path,
     index: int,
     format: str = "short",
+    target_size: tuple[int, int] | None = None,
 ) -> Path:
     record = vizard_clip_to_record(user_id=user_id, clip=clip, index=index, format=format)
     asset_dir = output_dir / "covers" / f"clip_{index:02d}"
@@ -34,6 +35,7 @@ def apply_vizard_cover_frame(
         output_dir=asset_dir,
         broll_count=0,
         kie_client=kie_client,
+        target_size=target_size,
         face_reference_paths=thumbnail_face_reference_paths(
             storage=storage,
             settings=settings,
@@ -52,7 +54,7 @@ def apply_vizard_cover_frame(
         cover_path=assets.cover_path,
         output_path=output_dir / f"{clip_path.stem}_cover.mp4",
         cover_seconds=settings.post_heygen_cover_seconds,
-        target_size=video_size_for_format(format),
+        target_size=target_size or video_size_for_format(format),
     )
 
 

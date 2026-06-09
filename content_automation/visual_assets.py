@@ -26,9 +26,10 @@ def generate_post_heygen_assets(
     reference_paths: list[Path] | None = None,
     face_reference_paths: list[Path] | None = None,
     style_reference_paths: list[Path] | None = None,
+    target_size: tuple[int, int] | None = None,
 ) -> VisualAssetSet:
     output_dir.mkdir(parents=True, exist_ok=True)
-    size = video_size_for_format(record.format)
+    size = target_size or video_size_for_format(record.format)
     cover_path = output_dir / f"cover_{record.id}.png"
     face_paths = face_reference_paths or []
     style_paths = style_reference_paths or []
@@ -43,7 +44,7 @@ def generate_post_heygen_assets(
             has_references=has_references,
             has_face_reference=bool(face_paths),
             has_style_references=bool(style_paths or legacy_paths),
-            horizontal=is_horizontal_format(record.format),
+            orientation=_orientation_label(size),
         ),
         reference_paths=all_references,
         size=size,
@@ -108,7 +109,7 @@ def _cover_prompt(
     has_references: bool = False,
     has_face_reference: bool = False,
     has_style_references: bool = False,
-    horizontal: bool = False,
+    orientation: str = "vertical 9:16",
 ) -> str:
     if not has_references:
         reference_rule = ""
@@ -132,7 +133,6 @@ def _cover_prompt(
         "The result must feel like the same thumbnail system as the references, adapted to the new topic. "
         "Do not copy old text, logos, exact numbers, old faces, or identities from style references. "
         )
-    orientation = "horizontal 16:9" if horizontal else "vertical 9:16"
     return (
         f"Create a premium {orientation} cover frame for a business video. "
         f"{reference_rule}"
@@ -164,6 +164,15 @@ def _broll_prompt(record: ScriptRecord, text: str, *, has_references: bool = Fal
         f"Video topic: {_clean_text(record.title or record.hook)}. "
         f"Script context: {_clean_text(record.voiceover)[:900]}."
     )
+
+
+def _orientation_label(size: tuple[int, int]) -> str:
+    width, height = size
+    if width == height:
+        return "square 1:1"
+    if width > height:
+        return "horizontal 16:9"
+    return "vertical 9:16"
 
 
 def _render_card(
