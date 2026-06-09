@@ -60,7 +60,13 @@ class KieImageClient:
         clean_prompt = " ".join((prompt or "").split())
         if not clean_prompt or not self.config.api_key:
             return None
-        input_urls = self._upload_references(reference_paths or [])
+        input_urls = self.upload_references(reference_paths or [])
+        return self.generate_image_from_uploaded_refs(prompt=clean_prompt, output_path=output_path, input_urls=input_urls)
+
+    def generate_image_from_uploaded_refs(self, *, prompt: str, output_path: Path, input_urls: list[str]) -> Path | None:
+        clean_prompt = " ".join((prompt or "").split())
+        if not clean_prompt or not self.config.api_key:
+            return None
         last_error = ""
         for model in _model_candidates(self.config.model, has_references=bool(input_urls)):
             try:
@@ -75,7 +81,7 @@ class KieImageClient:
         result_url = self._poll_result_url(task_id)
         return self._download(result_url, output_path)
 
-    def _upload_references(self, paths: list[Path]) -> list[str]:
+    def upload_references(self, paths: list[Path]) -> list[str]:
         valid_paths = [path for path in paths[:16] if path.exists()]
         if not valid_paths:
             return []
@@ -84,6 +90,9 @@ class KieImageClient:
             for path in valid_paths:
                 urls.append(self._upload_reference(client, path))
         return urls
+
+    def _upload_references(self, paths: list[Path]) -> list[str]:
+        return self.upload_references(paths)
 
     def _upload_reference(self, client: httpx.Client, path: Path) -> str:
         headers = {"Authorization": f"Bearer {self.config.api_key}"}

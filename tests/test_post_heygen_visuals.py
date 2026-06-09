@@ -108,6 +108,7 @@ def test_generate_post_heygen_assets_passes_references_to_kie(tmp_path: Path):
     )
 
     assert client.reference_batches == [[reference], [reference]]
+    assert client.upload_batches == [[reference]]
     assert "mandatory references" in client.prompts[0]
     assert "AUTHOR FACE" in client.prompts[0]
     assert "must match that face identity" in client.prompts[0]
@@ -140,9 +141,24 @@ class FakeKieClient:
     def __init__(self) -> None:
         self.prompts: list[str] = []
         self.reference_batches: list[list[Path]] = []
+        self.upload_batches: list[list[Path]] = []
+        self.uploaded_by_url: dict[str, Path] = {}
 
     def is_configured(self) -> bool:
         return True
+
+    def upload_references(self, paths: list[Path]) -> list[str]:
+        self.upload_batches.append(paths)
+        urls = [f"https://example.test/{path.name}" for path in paths]
+        self.uploaded_by_url.update(dict(zip(urls, paths)))
+        return urls
+
+    def generate_image_from_uploaded_refs(self, *, prompt: str, output_path: Path, input_urls: list[str]) -> Path:
+        self.prompts.append(prompt)
+        self.reference_batches.append([self.uploaded_by_url[url] for url in input_urls])
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("kie")
+        return output_path
 
     def generate_image(self, *, prompt: str, output_path: Path, reference_paths: list[Path] | None = None) -> Path:
         self.prompts.append(prompt)

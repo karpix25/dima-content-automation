@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +16,16 @@ from .video_geometry import is_horizontal_format, video_size_for_format
 class VisualAssetSet:
     cover_path: Path
     broll_paths: list[Path]
+
+@dataclass(frozen=True)
+class VisualAssetRequest:
+    path: Path
+    prompt: str
+    size: tuple[int, int]
+    title: str
+    subtitle: str
+    footer: str
+    accent: tuple[int, int, int]
 
 
 def generate_post_heygen_assets(
@@ -36,8 +47,7 @@ def generate_post_heygen_assets(
     legacy_paths = reference_paths or []
     all_references = [*face_paths, *style_paths, *legacy_paths]
     has_references = bool(all_references)
-    _generate_or_render(
-        kie_client=kie_client,
+    cover_request = VisualAssetRequest(
         path=cover_path,
         prompt=_cover_prompt(
             record,
@@ -46,48 +56,69 @@ def generate_post_heygen_assets(
             has_style_references=bool(style_paths or legacy_paths),
             orientation=_orientation_label(size),
         ),
-        reference_paths=all_references,
         size=size,
         title=record.hook or record.title or "Key idea",
         subtitle=record.trigger or record.angle,
         footer=record.cta,
         accent=(235, 201, 124),
     )
+    broll_texts = _broll_texts(record)[:broll_count]
     broll_paths: list[Path] = []
-    for index, text in enumerate(_broll_texts(record)[:broll_count], start=1):
+    for index, text in enumerate(broll_texts, start=1):
         path = output_dir / f"broll_{record.id}_{index}.png"
-        _generate_or_render(
-            kie_client=kie_client,
+        broll_paths.append(path)
+    broll_requests = [
+        VisualAssetRequest(
             path=path,
             prompt=_broll_prompt(record, text, has_references=has_references),
-            reference_paths=all_references,
             size=size,
             title=text,
             subtitle=record.title,
             footer=record.cta,
             accent=(88, 168, 121) if index % 2 else (120, 150, 190),
         )
-        broll_paths.append(path)
+        for index, (path, text) in enumerate(zip(broll_paths, broll_texts), start=1)
+    ]
+    _generate_requests(kie_client=kie_client, requests=[cover_request, *broll_requests], reference_paths=all_references)
     return VisualAssetSet(cover_path=cover_path, broll_paths=broll_paths)
 
 
-def _generate_or_render(
-    *,
-    kie_client: KieImageClient | None,
-    path: Path,
-    prompt: str,
-    reference_paths: list[Path],
-    size: tuple[int, int],
-    title: str,
-    subtitle: str,
-    footer: str,
-    accent: tuple[int, int, int],
-) -> None:
+def _generate_requests(*, kie_client: KieImageClient | None, requests: list[VisualAssetRequest], reference_paths: list[Path]) -> None:
+    input_urls = kie_client.upload_references(reference_paths) if kie_client and kie_client.is_configured() else []
+    if not requests:
+        return
+    _generate_or_render(kie_client=kie_client, request=requests[0], input_urls=input_urls)
+    broll_requests = requests[1:]
+    if len(broll_requests) <= 1 or not (kie_client and kie_client.is_configured()):
+        for request in broll_requests:
+            _generate_or_render(kie_client=kie_client, request=request, input_urls=input_urls)
+        return
+    with ThreadPoolExecutor(max_workers=min(3, len(broll_requests))) as executor:
+        list(
+            executor.map(
+                lambda request: _generate_or_render(kie_client=kie_client, request=request, input_urls=input_urls),
+                broll_requests,
+            )
+        )
+
+
+def _generate_or_render(*, kie_client: KieImageClient | None, request: VisualAssetRequest, input_urls: list[str]) -> None:
     if kie_client and kie_client.is_configured():
-        generated = kie_client.generate_image(prompt=prompt, output_path=path, reference_paths=reference_paths)
+        generated = kie_client.generate_image_from_uploaded_refs(
+            prompt=request.prompt,
+            output_path=request.path,
+            input_urls=input_urls,
+        )
         if generated and generated.exists():
             return
-    _render_card(path, size=size, title=title, subtitle=subtitle, footer=footer, accent=accent)
+    _render_card(
+        request.path,
+        size=request.size,
+        title=request.title,
+        subtitle=request.subtitle,
+        footer=request.footer,
+        accent=request.accent,
+    )
 
 
 def _broll_texts(record: ScriptRecord) -> list[str]:
