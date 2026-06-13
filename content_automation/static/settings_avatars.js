@@ -11,8 +11,8 @@ export function renderAvatarSelectors(state, escapeHtml, options = {}) {
     return `
       <div class="heygen-model-grid">
         ${modelButton("avatar_iii", "Avatar III", "$1/min 1080p", explicitModel, escapeHtml)}
-        ${modelButton("avatar_iv", "Avatar IV", "TURAN ~$4/min", explicitModel, escapeHtml)}
-        ${modelButton("avatar_v", "Avatar V", "TURAN ~$4/min", explicitModel, escapeHtml)}
+        ${modelButton("avatar_iv", "Avatar IV", "~$4/min", explicitModel, escapeHtml)}
+        ${modelButton("avatar_v", "Avatar V", "~$4/min", explicitModel, escapeHtml)}
       </div>
       <p>Модель общая для горизонтального и вертикального HeyGen avatar.</p>
     `;
@@ -20,8 +20,8 @@ export function renderAvatarSelectors(state, escapeHtml, options = {}) {
   return `
     <div class="heygen-model-grid">
       ${modelButton("avatar_iii", "Avatar III", "$1/min 1080p", explicitModel, escapeHtml)}
-      ${modelButton("avatar_iv", "Avatar IV", "TURAN ~$4/min", explicitModel, escapeHtml)}
-      ${modelButton("avatar_v", "Avatar V", "TURAN ~$4/min", explicitModel, escapeHtml)}
+      ${modelButton("avatar_iv", "Avatar IV", "~$4/min", explicitModel, escapeHtml)}
+      ${modelButton("avatar_v", "Avatar V", "~$4/min", explicitModel, escapeHtml)}
     </div>
     ${hasMismatch ? `
       <div class="model-warning amber">
