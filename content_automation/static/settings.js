@@ -6,14 +6,22 @@ export async function loadSettingsData(deps, render = true) {
   const { state, api } = deps;
   if (!state.userId) return;
   const userQuery = encodeURIComponent(state.userId);
-  const [settings, refs, faces, inserts, fiveSecond] = await Promise.all([
-    api(`/api/settings?user_id=${userQuery}`),
-    api(`/api/settings/thumbnail-references?user_id=${userQuery}`),
-    api(`/api/settings/thumbnail-face-references?user_id=${userQuery}`),
-    api(`/api/settings/avatar-inserts?user_id=${userQuery}`),
-    api(`/api/settings/instagram-post-5s?user_id=${userQuery}`),
+  state.settingsLoadError = "";
+  state.settingsLoadWarnings = [];
+  try {
+    state.settings = await api(`/api/settings?user_id=${userQuery}`);
+  } catch (error) {
+    state.settings = null;
+    state.settingsLoadError = settingsErrorMessage("settings", error);
+    if (render) renderSettingsPanel(deps);
+    return;
+  }
+  const [refs, faces, inserts, fiveSecond] = await Promise.all([
+    optionalSettingsApi(deps, "thumbnail references", `/api/settings/thumbnail-references?user_id=${userQuery}`, []),
+    optionalSettingsApi(deps, "thumbnail face references", `/api/settings/thumbnail-face-references?user_id=${userQuery}`, []),
+    optionalSettingsApi(deps, "avatar inserts", `/api/settings/avatar-inserts?user_id=${userQuery}`, []),
+    optionalSettingsApi(deps, "5-second settings", `/api/settings/instagram-post-5s?user_id=${userQuery}`, null),
   ]);
-  state.settings = settings;
   state.thumbnailReferences = refs;
   state.thumbnailFaces = faces;
   state.avatarInserts = inserts;
@@ -25,11 +33,32 @@ export async function loadSettingsData(deps, render = true) {
 export function renderSettingsPanel(deps) {
   const root = document.getElementById("settings");
   if (!deps.state.settings) {
-    root.innerHTML = `<p>Настройки загружаются.</p>`;
+    root.innerHTML = deps.state.settingsLoadError
+      ? `<article class="empty-state"><h3>Настройки не загрузились</h3><p>${deps.escapeHtml(deps.state.settingsLoadError)}</p></article>`
+      : `<p>Настройки загружаются.</p>`;
     return;
   }
-  root.innerHTML = renderSettingsContent(deps);
+  root.innerHTML = `${settingsWarnings(deps)}${renderSettingsContent(deps)}`;
   bindSettingsEvents(root, deps);
+}
+
+async function optionalSettingsApi(deps, label, path, fallback) {
+  try {
+    return await deps.api(path);
+  } catch (error) {
+    deps.state.settingsLoadWarnings.push(settingsErrorMessage(label, error));
+    return fallback;
+  }
+}
+
+function settingsErrorMessage(label, error) {
+  return `${label}: ${error?.message || String(error)}`;
+}
+
+function settingsWarnings(deps) {
+  const warnings = deps.state.settingsLoadWarnings || [];
+  if (!warnings.length) return "";
+  return `<article class="empty-state"><h3>Часть настроек не загрузилась</h3><p>${deps.escapeHtml(warnings.join("; "))}</p></article>`;
 }
 
 function bindSettingsEvents(root, deps) {
