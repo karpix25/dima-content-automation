@@ -16,6 +16,9 @@ class Settings:
     notebooklm_mcp_timeout_seconds: int
     notebooklm_py_storage_path: Path | None
     notebooklm_short_batch_size: int
+    notebooklm_keepalive_enabled: bool
+    notebooklm_keepalive_interval_seconds: int
+    notebooklm_keepalive_startup_delay_seconds: int
     default_notebook_id: str | None
     elevenlabs_api_key: str | None
     elevenlabs_mcp_command: str | None
@@ -112,9 +115,11 @@ def get_bool_env(name: str, default: bool) -> bool:
 
 
 def normalize_notebooklm_mcp_command(value: str | None) -> str:
-    command = (value or "").strip() or "npx --yes notebooklm-mcp@latest"
+    command = (value or "").strip() or "npx --yes notebooklm-mcp@2.0.0"
     if command == "npx notebooklm-mcp@latest":
-        return "npx --yes notebooklm-mcp@latest"
+        return "npx --yes notebooklm-mcp@2.0.0"
+    if command == "npx --yes notebooklm-mcp@latest":
+        return "npx --yes notebooklm-mcp@2.0.0"
     return command
 
 
@@ -154,6 +159,9 @@ def load_settings() -> Settings:
         notebooklm_mcp_timeout_seconds=get_int_env("NOTEBOOKLM_MCP_TIMEOUT_SECONDS", 900),
         notebooklm_py_storage_path=get_optional_path_env("NOTEBOOKLM_PY_STORAGE_PATH"),
         notebooklm_short_batch_size=max(1, get_int_env("NOTEBOOKLM_SHORT_BATCH_SIZE", 1)),
+        notebooklm_keepalive_enabled=get_bool_env("NOTEBOOKLM_KEEPALIVE_ENABLED", True),
+        notebooklm_keepalive_interval_seconds=max(900, get_int_env("NOTEBOOKLM_KEEPALIVE_INTERVAL_SECONDS", 21600)),
+        notebooklm_keepalive_startup_delay_seconds=max(0, get_int_env("NOTEBOOKLM_KEEPALIVE_STARTUP_DELAY_SECONDS", 180)),
         default_notebook_id=(os.getenv("DEFAULT_NOTEBOOK_ID") or "").strip() or None,
         elevenlabs_api_key=(os.getenv("ELEVENLABS_API_KEY") or "").strip() or None,
         elevenlabs_mcp_command=(os.getenv("ELEVENLABS_MCP_SERVER_COMMAND") or "").strip() or None,

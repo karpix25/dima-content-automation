@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 
@@ -37,6 +38,7 @@ from .storage import Storage
 from .turan_formats import list_turan_formats
 from .turan_service import TuranServiceError, list_approved_scripts
 from .notebooklm_runtime import build_notebooklm_client
+from .notebooklm_health import NotebookLMKeepAlive
 from .web_format_jobs import (
     ScriptNotFoundError,
     create_queued_existing_heygen_job,
@@ -66,6 +68,7 @@ from .web_models import (
     TextSettingIn,
     UserSettingsOut,
 )
+from .web_notebooklm import build_notebooklm_router
 from .web_auth import install_miniapp_auth
 from .web_serializers import format_to_out, job_to_out, script_to_out
 
@@ -74,6 +77,13 @@ storage = Storage(settings.data_dir / "content_automation.sqlite3")
 idea_bank = IdeaBank(settings.data_dir / "content_automation.sqlite3")
 asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
 notebooklm = build_notebooklm_client(settings)
+notebooklm_keepalive = NotebookLMKeepAlive(
+    notebooklm,
+    notebook_ref=settings.default_notebook_id,
+    enabled=settings.notebooklm_keepalive_enabled,
+    interval_seconds=settings.notebooklm_keepalive_interval_seconds,
+    startup_delay_seconds=settings.notebooklm_keepalive_startup_delay_seconds,
+)
 heygen = HeyGenClient(
     api_key=settings.heygen_api_key,
     api_base_url=settings.heygen_api_base_url,
@@ -88,10 +98,21 @@ heygen = HeyGenClient(
 elevenlabs = ElevenLabsAPIClient(api_key=settings.elevenlabs_api_key)
 static_dir = Path(__file__).with_name("static")
 
-app = FastAPI(title="DIMA Content Mini App")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    notebooklm_keepalive.start()
+    try:
+        yield
+    finally:
+        await notebooklm_keepalive.stop()
+
+
+app = FastAPI(title="DIMA Content Mini App", lifespan=lifespan)
 install_miniapp_auth(app, bot_token=settings.telegram_bot_token, required=settings.miniapp_require_telegram_auth)
 app.include_router(build_job_actions_router(storage=storage, asset_store=asset_store, settings=settings))
 app.include_router(build_ideas_router(storage=storage, idea_bank=idea_bank, settings=settings, notebooklm=notebooklm))
+app.include_router(build_notebooklm_router(notebooklm_keepalive))
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
