@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 from content_automation.config import normalize_scrapecreators_timeframe
@@ -86,6 +87,29 @@ def test_idea_to_topic_hint_keeps_source_context(tmp_path: Path):
 
     assert "Reddit title: Amazon returns badge hurt conversion" in hint
     assert "Do not quote Reddit directly" in hint
+
+
+def test_idea_to_topic_hint_keeps_producer_plan_context():
+    idea = replace(
+        make_idea(1, "Fee Leak"),
+        source="notebooklm_plan",
+        pain="Margins vanish",
+        angle="Audit FBA tiers",
+        summary="Start the month with money leaks.",
+        source_meta={
+            "day": 2,
+            "pillar": "Margin",
+            "format": "vertical_short",
+            "visual_note": "Box-size fee table",
+            "source_basis": "Notebook note",
+        },
+    )
+
+    hint = idea_to_topic_hint(idea)
+
+    assert "producer-plan episode seed" in hint
+    assert "Box-size fee table" in hint
+    assert "Do not invent external claims" in hint
 
 
 def test_select_visible_idea_moves_to_next_card(tmp_path: Path):

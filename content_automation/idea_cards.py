@@ -12,7 +12,7 @@ def select_visible_idea(ideas: list[ContentIdea], *, after_id: int | None = None
 
 
 def format_idea_card(idea: ContentIdea, *, index: int | None = None, total: int | None = None) -> str:
-    source = "NotebookLM" if idea.source == "notebooklm" else "Reddit" if idea.source == "reddit" else idea.source
+    source = source_label(idea.source)
     prefix = f"{source}-тема {index}/{total}" if index and total else f"{source}-тема #{idea.id}"
     meta = idea.source_meta
     stats = []
@@ -35,6 +35,23 @@ def format_idea_card(idea: ContentIdea, *, index: int | None = None, total: int 
 
 
 def idea_to_topic_hint(idea: ContentIdea) -> str:
+    if idea.source == "notebooklm_plan":
+        meta = idea.source_meta
+        return "\n".join(
+            [
+                "Use this NotebookLM producer-plan episode seed.",
+                f"Episode day: {meta.get('day') or ''}",
+                f"Content pillar: {meta.get('pillar') or ''}",
+                f"Preferred format: {meta.get('format') or ''}",
+                f"Topic title: {idea.title}",
+                f"Observed pain: {idea.pain}",
+                f"Content angle: {idea.angle}",
+                f"Producer summary: {idea.summary}",
+                f"Visual direction: {meta.get('visual_note') or ''}",
+                f"Source basis: {meta.get('source_basis') or ''}",
+                "Develop the script through the author's NotebookLM knowledge base. Do not invent external claims.",
+            ]
+        )
     if idea.source == "notebooklm":
         return "\n".join(
             [
@@ -57,3 +74,13 @@ def idea_to_topic_hint(idea: ContentIdea) -> str:
             "Do not quote Reddit directly. Explain this market pain through the author's NotebookLM knowledge base.",
         ]
     )
+
+
+def source_label(source: str) -> str:
+    if source == "notebooklm_plan":
+        return "NotebookLM план"
+    if source == "notebooklm":
+        return "NotebookLM"
+    if source == "reddit":
+        return "Reddit"
+    return source

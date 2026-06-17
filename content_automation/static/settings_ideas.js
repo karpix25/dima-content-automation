@@ -1,4 +1,4 @@
-import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-idea-actions";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-producer-plan";
 
 const TIMEFRAME_OPTIONS = [
   ["day", "1 день"],
@@ -18,6 +18,7 @@ export function renderIdeasTab({ state, escapeHtml }) {
           <h3>Темы из базы знаний</h3>
           <p class="muted">NotebookLM найдет темы внутри твоей базы. Язык тем берется из общей настройки языка контента.</p>
           <div class="settings-actions">
+            <button data-action="generate-notebooklm-plan" ${state.settings.notebook_id ? "" : "disabled"}>План на месяц</button>
             <button data-action="generate-notebooklm-ideas" ${state.settings.notebook_id ? "" : "disabled"}>Собрать из NotebookLM</button>
           </div>
         </div>
@@ -81,6 +82,7 @@ function ideaCard(idea, escapeHtml) {
 }
 
 function sourceLabel(source) {
+  if (source === "notebooklm_plan") return "NotebookLM план";
   if (source === "notebooklm") return "NotebookLM";
   if (source === "reddit") return "Reddit";
   return source || "Источник";

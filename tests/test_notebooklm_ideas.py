@@ -3,6 +3,11 @@ from types import SimpleNamespace
 import pytest
 
 from content_automation.idea_bank import IdeaBank
+from content_automation.notebooklm_content_plan import (
+    build_producer_plan_prompt,
+    generate_notebooklm_content_plan,
+    normalize_producer_plan,
+)
 from content_automation.notebooklm_ideas import (
     build_notebooklm_ideas_prompt,
     generate_notebooklm_ideas,
@@ -52,3 +57,64 @@ async def test_generate_notebooklm_ideas_saves_to_idea_bank(tmp_path):
     assert len(inserted) == 1
     assert inserted[0].source == "notebooklm"
     assert bank.list_new("42")[0].title == "Buy Box risk"
+
+
+def test_producer_plan_prompt_uses_social_producer_role_and_language():
+    prompt = build_producer_plan_prompt(count=30, content_language="ru", offer_context="Amazon mentorship")
+
+    assert "senior social media producer" in prompt
+    assert "30-episode monthly content plan" in prompt
+    assert "natural Russian" in prompt
+    assert "Amazon mentorship" in prompt
+
+
+def test_normalize_producer_plan_marks_metadata():
+    ideas = normalize_producer_plan(
+        {
+            "plan": [
+                {
+                    "day": 3,
+                    "pillar": "Margin",
+                    "format": "vertical_short",
+                    "title": "Fee Leak",
+                    "pain": "Profit disappears",
+                    "angle": "Audit FBA tiers",
+                    "summary": "Catch box-size mistakes.",
+                    "visual_note": "Show carton and fee table",
+                    "source_basis": "Notebook note",
+                }
+            ]
+        },
+        notebook_ref="notebook-1",
+    )
+
+    assert ideas[0]["source"] == "notebooklm_plan"
+    assert ideas[0]["source_meta"]["day"] == 3
+    assert ideas[0]["source_meta"]["pillar"] == "Margin"
+    assert ideas[0]["source_meta"]["visual_note"] == "Show carton and fee table"
+
+
+@pytest.mark.asyncio
+async def test_generate_notebooklm_content_plan_saves_to_idea_bank(tmp_path):
+    class FakeNotebookLM:
+        def ask(self, question, *, notebook_url=None, notebook_id=None):
+            assert "monthly content plan" in question
+            assert notebook_url.endswith("/notebook-1")
+            return SimpleNamespace(
+                answer='{"plan":[{"day":1,"pillar":"PPC","format":"vertical_short","title":"ACOS Trap","pain":"Ad waste","angle":"Separate ranking from profit","summary":"Notebook note","visual_note":"PPC dashboard","source_basis":"Source"}]}'
+            )
+
+    bank = IdeaBank(tmp_path / "ideas.sqlite3")
+
+    inserted = await generate_notebooklm_content_plan(
+        user_id="42",
+        notebook_ref="notebook-1",
+        notebooklm=FakeNotebookLM(),
+        idea_bank=bank,
+        count=30,
+        content_language="en",
+    )
+
+    assert len(inserted) == 1
+    assert inserted[0].source == "notebooklm_plan"
+    assert bank.list_new("42")[0].title == "ACOS Trap"

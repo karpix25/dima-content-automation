@@ -43,6 +43,47 @@ def test_notebooklm_ideas_endpoint_uses_user_language(tmp_path: Path):
     assert "natural Russian" in calls[0]
 
 
+def test_notebooklm_plan_endpoint_creates_monthly_plan(tmp_path: Path):
+    storage = Storage(tmp_path / "app.sqlite3")
+    idea_bank = IdeaBank(tmp_path / "app.sqlite3")
+    storage.set_setting("42", "notebook_id", "notebook-1")
+    storage.set_setting("42", "content_language", "ru")
+    calls = []
+
+    class FakeNotebookLM:
+        def ask(self, question, *, notebook_url=None, notebook_id=None):
+            calls.append(question)
+            return SimpleNamespace(
+                answer=(
+                    '{"plan":[{"day":1,"pillar":"Маржа","format":"vertical_short",'
+                    '"title":"Утечка маржи","pain":"Прибыль исчезает","angle":"Проверь FBA tier",'
+                    '"summary":"Серия начинается с самой дорогой ошибки.",'
+                    '"visual_note":"Показать коробку и таблицу комиссий","source_basis":"Заметка"}]}'
+                )
+            )
+
+    app = FastAPI()
+    app.include_router(
+        build_ideas_router(
+            storage=storage,
+            idea_bank=idea_bank,
+            settings=_settings(tmp_path),
+            notebooklm=FakeNotebookLM(),
+        )
+    )
+    client = TestClient(app)
+
+    response = client.post("/api/ideas/notebooklm-plan", json={"user_id": "42", "count": 30})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["inserted"] == 1
+    assert payload["ideas"][0]["source"] == "notebooklm_plan"
+    assert payload["ideas"][0]["source_meta"]["visual_note"] == "Показать коробку и таблицу комиссий"
+    assert "senior social media producer" in calls[0]
+    assert "natural Russian" in calls[0]
+
+
 def test_idea_actions_reject_and_create_pending_script(tmp_path: Path):
     storage = Storage(tmp_path / "app.sqlite3")
     idea_bank = IdeaBank(tmp_path / "app.sqlite3")

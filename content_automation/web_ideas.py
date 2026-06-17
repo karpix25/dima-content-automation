@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from .config import Settings
 from .idea_bank import ContentIdea, IdeaBank
+from .notebooklm_content_plan import generate_notebooklm_content_plan
 from .notebooklm_ideas import generate_notebooklm_ideas
 from .notebooklm_idea_scripts import create_script_from_idea
 from .notebooklm_runtime import NotebookLMAskClient
@@ -36,6 +37,26 @@ def build_ideas_router(
             raise HTTPException(status_code=400, detail="Сначала задай NotebookLM ID в настройках.")
         try:
             inserted = await generate_notebooklm_ideas(
+                user_id=payload.user_id,
+                notebook_ref=notebook_ref,
+                notebooklm=notebooklm,
+                idea_bank=idea_bank,
+                count=payload.count,
+                content_language=state.content_language,
+                offer_context=state.offer_context,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted])
+
+    @router.post("/api/ideas/notebooklm-plan", response_model=GenerateIdeasOut)
+    async def notebooklm_content_plan(payload: GenerateIdeasIn) -> GenerateIdeasOut:
+        state = get_user_settings(storage, settings, payload.user_id)
+        notebook_ref = state.notebook_id or settings.default_notebook_id
+        if not notebook_ref:
+            raise HTTPException(status_code=400, detail="Сначала задай NotebookLM ID в настройках.")
+        try:
+            inserted = await generate_notebooklm_content_plan(
                 user_id=payload.user_id,
                 notebook_ref=notebook_ref,
                 notebooklm=notebooklm,

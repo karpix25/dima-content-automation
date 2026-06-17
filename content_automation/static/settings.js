@@ -1,7 +1,7 @@
-import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-idea-actions";
-import { bindVoiceEvents } from "/static/settings_voices.js?v=20260617-idea-actions";
-import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260617-idea-actions";
-import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260617-idea-actions";
+import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-producer-plan";
+import { bindVoiceEvents } from "/static/settings_voices.js?v=20260617-producer-plan";
+import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260617-producer-plan";
+import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260617-producer-plan";
 
 export async function loadSettingsData(deps, render = true) {
   const { state, api } = deps;
@@ -68,6 +68,7 @@ function bindSettingsEvents(root, deps) {
   bindVoiceEvents(root, deps, renderSettingsPanel);
   root.querySelectorAll("[data-action='save-text']").forEach((button) => bindAction(button, deps, () => saveTextSetting(deps, button.dataset.key)));
   root.querySelectorAll("[data-action='save-section']").forEach((button) => bindAction(button, deps, () => saveSettingsSection(deps, button)));
+  root.querySelectorAll("[data-action='generate-notebooklm-plan']").forEach((button) => bindAction(button, deps, () => generateNotebookLMPlan(deps)));
   root.querySelectorAll("[data-action='generate-notebooklm-ideas']").forEach((button) => bindAction(button, deps, () => generateNotebookLMIdeas(deps)));
   root.querySelectorAll("[data-action='idea-script']").forEach((button) => bindAction(button, deps, () => createScriptFromIdea(deps, button.dataset.ideaId)));
   root.querySelectorAll("[data-action='idea-reject']").forEach((button) => bindAction(button, deps, () => rejectIdea(deps, button.dataset.ideaId)));
@@ -133,6 +134,18 @@ async function generateNotebookLMIdeas(deps) {
   const result = await deps.api("/api/ideas/notebooklm", {
     method: "POST",
     body: JSON.stringify({ user_id: deps.state.userId, count: 8 }),
+  });
+  deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
+  await loadSettingsData(deps, false);
+  renderSettingsPanel(deps);
+  deps.setStatus("Готово");
+}
+
+async function generateNotebookLMPlan(deps) {
+  deps.setStatus("План");
+  const result = await deps.api("/api/ideas/notebooklm-plan", {
+    method: "POST",
+    body: JSON.stringify({ user_id: deps.state.userId, count: 30 }),
   });
   deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
   await loadSettingsData(deps, false);
