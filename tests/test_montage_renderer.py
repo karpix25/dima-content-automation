@@ -1,7 +1,8 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import content_automation.montage_renderer as montage_renderer
-from content_automation.montage_renderer import MontageRendererConfig, _command
+from content_automation.montage_renderer import MontageRendererConfig, _command, _render
 from content_automation.storage import ScriptRecord
 
 
@@ -50,7 +51,7 @@ def test_render_montage_if_configured_uses_hyperframes_for_short_with_package_js
 
 
 def test_hyperframes_command_uses_vertical_heygen_layout_for_short_avatar_reels():
-    for record_format in ("short", "avatar_reels"):
+    for record_format in ("short", "shorts", "reels", "avatar_reels"):
         command = _command(
             "hyperframes",
             record=_record(format=record_format),
@@ -61,6 +62,50 @@ def test_hyperframes_command_uses_vertical_heygen_layout_for_short_avatar_reels(
         )
 
         assert command[-2:] == ["--layout", "vertical_heygen"]
+
+
+def test_render_prepares_vertical_images_for_reels(tmp_path, monkeypatch):
+    project_dir = tmp_path / "hyperframes"
+    project_dir.mkdir()
+    video_path = tmp_path / "source.mp4"
+    video_path.write_bytes(b"video")
+    calls = []
+
+    monkeypatch.setattr(montage_renderer, "probe_duration_seconds", lambda _: 10.0)
+    monkeypatch.setattr(montage_renderer, "_transcribe_for_timing", lambda **_: None)
+    monkeypatch.setattr(
+        montage_renderer,
+        "build_montage_plan",
+        lambda *_, **__: SimpleNamespace(
+            scenes=[{"start": 0, "end": 2, "title": "Scene", "imagePrompt": "Amazon dashboard"}],
+            word_cues=[],
+        ),
+    )
+    monkeypatch.setattr(montage_renderer, "prepare_vertical_montage_assets", lambda **kwargs: calls.append(kwargs))
+
+    def fake_run(cmd, **kwargs):
+        out_path = Path(cmd[cmd.index("--out") + 1])
+        out_path.write_bytes(b"rendered")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(montage_renderer.subprocess, "run", fake_run)
+
+    rendered = _render(
+        name="hyperframes",
+        project_dir=project_dir,
+        record=_record(format="reels"),
+        video_path=video_path,
+        output_dir=tmp_path / "out",
+        timeout_seconds=30,
+        max_scenes=3,
+        deepgram=None,
+        kie_client=None,
+        content_language="en",
+    )
+
+    assert rendered and rendered.exists()
+    assert calls[0]["project_dir"] == project_dir
+    assert calls[0]["scenes"][0]["imagePrompt"] == "Amazon dashboard"
 
 
 def test_hyperframes_command_passes_transcript_when_available():

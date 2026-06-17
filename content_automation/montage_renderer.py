@@ -101,7 +101,7 @@ def _render(
     word_cues_path.write_text(json.dumps(plan.word_cues, ensure_ascii=False, indent=2), encoding="utf-8")
     if transcript:
         transcript_path.write_text(json.dumps(transcript.raw, ensure_ascii=False, indent=2), encoding="utf-8")
-    if record.format in {"short", "avatar_reels"}:
+    if _requires_vertical_generated_images(record.format):
         prepare_vertical_montage_assets(project_dir=project_dir, scenes=plan.scenes, kie_client=kie_client)
     output_path = output_dir / f"{name}_{record.id}.mp4"
     cmd = _command(
@@ -147,6 +147,10 @@ def _transcribe_for_timing(
     except Exception:
         logger.exception("Deepgram transcription failed; falling back to synthetic montage timing")
         return None
+
+
+def _requires_vertical_generated_images(record_format: str) -> bool:
+    return record_format in {"short", "shorts", "reels", "avatar_reels"}
 
 
 def _command(
