@@ -65,7 +65,8 @@ RUN python3 -m venv /opt/venv \
         if [ "$attempt" = "3" ]; then exit 1; fi; \
         echo "pip install failed, retrying in 10 seconds..."; \
         sleep 10; \
-    done
+    done \
+    && python -m playwright install chromium
 
 RUN cd hyperframes-auto \
     && npm config set fetch-retries 5 \
