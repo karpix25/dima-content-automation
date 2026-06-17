@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from .config import Settings
+from .notebooklm_fallback import NotebookLMFallbackClient
 from .notebooklm_mcp import NotebookLMMCPClient
 from .notebooklm_py import NotebookLMPyClient
 
@@ -14,9 +15,15 @@ class NotebookLMAskClient(Protocol):
 
 def build_notebooklm_client(settings: Settings) -> NotebookLMAskClient:
     if settings.notebooklm_backend == "py":
-        return NotebookLMPyClient(
-            storage_path=settings.notebooklm_py_storage_path,
-            timeout_seconds=settings.notebooklm_mcp_timeout_seconds,
+        return NotebookLMFallbackClient(
+            primary=NotebookLMPyClient(
+                storage_path=settings.notebooklm_py_storage_path,
+                timeout_seconds=settings.notebooklm_mcp_timeout_seconds,
+            ),
+            fallback=NotebookLMMCPClient(
+                command=settings.notebooklm_mcp_command,
+                timeout_seconds=settings.notebooklm_mcp_timeout_seconds,
+            ),
         )
     return NotebookLMMCPClient(
         command=settings.notebooklm_mcp_command,
