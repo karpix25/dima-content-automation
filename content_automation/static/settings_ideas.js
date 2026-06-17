@@ -1,4 +1,4 @@
-import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-ideas";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-idea-actions";
 
 const TIMEFRAME_OPTIONS = [
   ["day", "1 день"],
@@ -72,6 +72,10 @@ function ideaCard(idea, escapeHtml) {
       ${idea.pain ? `<p><strong>Боль:</strong> ${escapeHtml(idea.pain)}</p>` : ""}
       ${idea.angle ? `<p><strong>Угол:</strong> ${escapeHtml(idea.angle)}</p>` : ""}
       ${idea.summary ? `<p>${escapeHtml(idea.summary)}</p>` : ""}
+      <div class="settings-actions idea-actions">
+        <button data-action="idea-script" data-idea-id="${escapeHtml(idea.id)}">Написать сценарий</button>
+        <button class="secondary-button danger" data-action="idea-reject" data-idea-id="${escapeHtml(idea.id)}">Отклонить</button>
+      </div>
     </article>
   `;
 }

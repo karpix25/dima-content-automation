@@ -1,4 +1,4 @@
-import { withButtonPending } from "/static/action_feedback.js?v=20260617-ideas";
+import { withButtonPending } from "/static/action_feedback.js?v=20260617-idea-actions";
 
 export function renderAvatarSelectors(state, escapeHtml, options = {}) {
   const settings = state.settings;

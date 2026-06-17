@@ -1,7 +1,7 @@
-import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-ideas";
-import { bindVoiceEvents } from "/static/settings_voices.js?v=20260617-ideas";
-import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260617-ideas";
-import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260617-ideas";
+import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-idea-actions";
+import { bindVoiceEvents } from "/static/settings_voices.js?v=20260617-idea-actions";
+import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260617-idea-actions";
+import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260617-idea-actions";
 
 export async function loadSettingsData(deps, render = true) {
   const { state, api } = deps;
@@ -69,6 +69,8 @@ function bindSettingsEvents(root, deps) {
   root.querySelectorAll("[data-action='save-text']").forEach((button) => bindAction(button, deps, () => saveTextSetting(deps, button.dataset.key)));
   root.querySelectorAll("[data-action='save-section']").forEach((button) => bindAction(button, deps, () => saveSettingsSection(deps, button)));
   root.querySelectorAll("[data-action='generate-notebooklm-ideas']").forEach((button) => bindAction(button, deps, () => generateNotebookLMIdeas(deps)));
+  root.querySelectorAll("[data-action='idea-script']").forEach((button) => bindAction(button, deps, () => createScriptFromIdea(deps, button.dataset.ideaId)));
+  root.querySelectorAll("[data-action='idea-reject']").forEach((button) => bindAction(button, deps, () => rejectIdea(deps, button.dataset.ideaId)));
   root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => bindAction(button, deps, () => saveOverlayPercent(deps, button.dataset.format)));
   root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => bindAction(button, deps, () => deleteOverlay(deps, button.dataset.format)));
   root.querySelectorAll("[data-action='delete-overlay-file']").forEach((button) => bindAction(button, deps, () => deleteOverlayFile(deps, button.dataset.format, button.dataset.index)));
@@ -132,11 +134,35 @@ async function generateNotebookLMIdeas(deps) {
     method: "POST",
     body: JSON.stringify({ user_id: deps.state.userId, count: 8 }),
   });
-  deps.state.ideas = await deps.api(`/api/ideas?user_id=${encodeURIComponent(deps.state.userId)}&limit=30`)
-    .catch(() => result.ideas || []);
+  deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
   await loadSettingsData(deps, false);
   renderSettingsPanel(deps);
   deps.setStatus("Готово");
+}
+
+async function createScriptFromIdea(deps, ideaId) {
+  deps.setStatus("Идеи");
+  await deps.api(`/api/ideas/${ideaId}/script`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: deps.state.userId, count: 1 }),
+  });
+  deps.state.ideas = await loadIdeas(deps);
+  await loadSettingsData(deps, false);
+  renderSettingsPanel(deps);
+  deps.setStatus("Готово");
+}
+
+async function rejectIdea(deps, ideaId) {
+  await deps.api(`/api/ideas/${ideaId}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: deps.state.userId, count: 1 }),
+  });
+  deps.state.ideas = await loadIdeas(deps);
+  renderSettingsPanel(deps);
+}
+
+function loadIdeas(deps) {
+  return deps.api(`/api/ideas?user_id=${encodeURIComponent(deps.state.userId)}&limit=30`);
 }
 
 function settingFieldValue(field) {

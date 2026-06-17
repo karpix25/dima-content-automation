@@ -1,7 +1,7 @@
-import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260617-ideas";
-import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-ideas";
-import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-ideas";
-import { withButtonPending } from "/static/action_feedback.js?v=20260617-ideas";
+import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260617-idea-actions";
+import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-idea-actions";
+import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-idea-actions";
+import { withButtonPending } from "/static/action_feedback.js?v=20260617-idea-actions";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();

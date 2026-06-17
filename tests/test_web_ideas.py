@@ -43,6 +43,69 @@ def test_notebooklm_ideas_endpoint_uses_user_language(tmp_path: Path):
     assert "natural Russian" in calls[0]
 
 
+def test_idea_actions_reject_and_create_pending_script(tmp_path: Path):
+    storage = Storage(tmp_path / "app.sqlite3")
+    idea_bank = IdeaBank(tmp_path / "app.sqlite3")
+    storage.set_setting("42", "notebook_id", "notebook-1")
+    idea = idea_bank.add_if_new(
+        "42",
+        {
+            "source": "notebooklm",
+            "source_url": "notebooklm://notebook-1/topic",
+            "title": "Buy Box trust gap",
+            "pain": "Conversion is weak",
+            "angle": "Audit trust signals",
+            "summary": "Notebook source",
+        },
+    )
+
+    class FakeNotebookLM:
+        def ask(self, question, *, notebook_url=None, notebook_id=None):
+            assert "Buy Box trust gap" in question
+            return SimpleNamespace(
+                answer=(
+                    '[{"title":"Buy Box trust gap","angle":"Trust signals","hook":"Your product page can rank and still leak sales.",'
+                    '"trigger":"Weak trust signals","voiceover":"'
+                    + " ".join(["Amazon sellers often miss the small trust signals that decide whether a shopper clicks buy today."] * 7)
+                    + '","cta":"","why_it_works":"Specific seller pain.","source_basis":"Notebook source"}]'
+                )
+            )
+
+    app = FastAPI()
+    app.include_router(
+        build_ideas_router(
+            storage=storage,
+            idea_bank=idea_bank,
+            settings=_settings(tmp_path),
+            notebooklm=FakeNotebookLM(),
+        )
+    )
+    client = TestClient(app)
+
+    created = client.post(f"/api/ideas/{idea.id}/script", json={"user_id": "42", "count": 1})
+
+    assert created.status_code == 200
+    assert created.json()["title"] == "Buy Box trust gap"
+    assert idea_bank.get("42", idea.id).status == "used_for_script"
+    assert storage.list_scripts("42", status="pending")[0].title == "Buy Box trust gap"
+
+    second = idea_bank.add_if_new(
+        "42",
+        {
+            "source": "notebooklm",
+            "source_url": "notebooklm://notebook-1/other",
+            "title": "Other topic",
+            "pain": "Slow growth",
+            "angle": "Fix offer",
+            "summary": "Notebook source",
+        },
+    )
+    rejected = client.post(f"/api/ideas/{second.id}/reject", json={"user_id": "42", "count": 1})
+
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "rejected"
+
+
 def _settings(tmp_path: Path) -> Settings:
     return Settings(
         telegram_bot_token="token",
