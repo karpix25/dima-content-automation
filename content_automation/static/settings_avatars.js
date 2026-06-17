@@ -1,4 +1,4 @@
-import { withButtonPending } from "/static/action_feedback.js?v=20260617-producer-plan";
+import { withButtonPending } from "/static/action_feedback.js?v=20260617-plan-extend";
 
 export function renderAvatarSelectors(state, escapeHtml, options = {}) {
   const settings = state.settings;

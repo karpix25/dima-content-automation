@@ -84,6 +84,55 @@ def test_notebooklm_plan_endpoint_creates_monthly_plan(tmp_path: Path):
     assert "natural Russian" in calls[0]
 
 
+def test_notebooklm_plan_extend_endpoint_avoids_existing_topics(tmp_path: Path):
+    storage = Storage(tmp_path / "app.sqlite3")
+    idea_bank = IdeaBank(tmp_path / "app.sqlite3")
+    storage.set_setting("42", "notebook_id", "notebook-1")
+    idea_bank.add_if_new(
+        "42",
+        {
+            "source": "notebooklm_plan",
+            "source_url": "notebooklm://notebook-1/plan-day-1-fee-leak",
+            "title": "Fee Leak",
+            "pain": "Margins vanish",
+            "angle": "Audit FBA tiers",
+            "summary": "Start with money leaks.",
+            "source_meta": {"day": 1, "pillar": "Margin"},
+        },
+    )
+    calls = []
+
+    class FakeNotebookLM:
+        def ask(self, question, *, notebook_url=None, notebook_id=None):
+            calls.append(question)
+            return SimpleNamespace(
+                answer=(
+                    '{"plan":[{"day":31,"pillar":"PPC","format":"vertical_short",'
+                    '"title":"Bid Waste","pain":"Ads spend too fast","angle":"Cut zombie keywords",'
+                    '"summary":"Expand the plan with PPC waste.",'
+                    '"visual_note":"Show PPC dashboard","source_basis":"Notebook PPC note"}]}'
+                )
+            )
+
+    app = FastAPI()
+    app.include_router(
+        build_ideas_router(
+            storage=storage,
+            idea_bank=idea_bank,
+            settings=_settings(tmp_path),
+            notebooklm=FakeNotebookLM(),
+        )
+    )
+    client = TestClient(app)
+
+    response = client.post("/api/ideas/notebooklm-plan/extend", json={"user_id": "42", "count": 30})
+
+    assert response.status_code == 200
+    assert response.json()["ideas"][0]["title"] == "Bid Waste"
+    assert "Do not restart the plan" in calls[0]
+    assert "Fee Leak | Audit FBA tiers" in calls[0]
+
+
 def test_idea_actions_reject_and_create_pending_script(tmp_path: Path):
     storage = Storage(tmp_path / "app.sqlite3")
     idea_bank = IdeaBank(tmp_path / "app.sqlite3")

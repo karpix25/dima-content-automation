@@ -23,11 +23,15 @@ async def generate_notebooklm_content_plan(
     count: int = 30,
     content_language: str = "auto",
     offer_context: str | None = None,
+    existing_ideas: list[ContentIdea] | None = None,
+    extension: bool = False,
 ) -> list[ContentIdea]:
     prompt = build_producer_plan_prompt(
         count=count,
         content_language=content_language,
         offer_context=offer_context,
+        existing_ideas=existing_ideas,
+        extension=extension,
     )
     logger.info("Generating NotebookLM producer plan: count=%s user=%s", count, user_id)
     result = await asyncio.to_thread(notebooklm.ask, prompt, notebook_url=notebook_ref_to_url(notebook_ref))
@@ -44,15 +48,24 @@ def build_producer_plan_prompt(
     count: int,
     content_language: str,
     offer_context: str | None = None,
+    existing_ideas: list[ContentIdea] | None = None,
+    extension: bool = False,
 ) -> str:
     language = normalize_content_language(content_language)
     language_name = prompt_language_name(language)
     language_rule = viewer_text_language_instruction(language)
     offer = _short_prompt_value(offer_context or DEFAULT_OFFER_CONTEXT, 720)
+    mode_instruction = (
+        "Extend the current monthly plan with additional episodes. Do not restart the plan."
+        if extension
+        else "Build the first monthly plan from scratch."
+    )
+    existing_section = format_existing_plan_context(existing_ideas or [])
     return f"""
 Return ONLY valid JSON. Use the NotebookLM sources as your source of truth.
 Act as a senior social media producer for an expert creator.
 Build a {count}-episode monthly content plan in {language_name}.
+Mode: {mode_instruction}
 
 Producer objective:
 - Turn the knowledge base into a coherent month of content, not random ideas.
@@ -60,6 +73,7 @@ Producer objective:
 - Mix hidden mistakes, money leaks, contrarian takes, diagnostics, frameworks, and proof-driven stories.
 - Make every episode specific enough to become a short vertical video, infographic, or YouTube segment.
 - Avoid generic beginner topics and vague motivational advice.
+- Avoid repeating the existing plan. Expand with fresh mechanisms, new proof angles, new objections, and adjacent subtopics.
 
 Output language:
 - {language_rule}
@@ -67,6 +81,9 @@ Output language:
 
 Offer/context:
 {offer}
+
+Existing saved topics to avoid or expand beyond:
+{existing_section}
 
 For each episode, choose the strongest source-backed insight and return:
 [
@@ -83,6 +100,19 @@ For each episode, choose the strongest source-backed insight and return:
   }}
 ]
 """.strip()
+
+
+def format_existing_plan_context(ideas: list[ContentIdea], *, limit: int = 60) -> str:
+    if not ideas:
+        return "- No saved topics yet."
+    lines = []
+    for index, idea in enumerate(ideas[:limit], start=1):
+        meta = idea.source_meta or {}
+        pillar = _text(meta.get("pillar"))
+        day = _text(meta.get("day"))
+        label = f"day {day}, {pillar}" if day or pillar else idea.source
+        lines.append(f"- {index}. [{label}] {idea.title} | {idea.angle}")
+    return "\n".join(lines)
 
 
 def normalize_producer_plan(payload: Any, *, notebook_ref: str) -> list[dict[str, Any]]:

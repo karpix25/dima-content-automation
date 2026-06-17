@@ -5,6 +5,7 @@ import pytest
 from content_automation.idea_bank import IdeaBank
 from content_automation.notebooklm_content_plan import (
     build_producer_plan_prompt,
+    format_existing_plan_context,
     generate_notebooklm_content_plan,
     normalize_producer_plan,
 )
@@ -68,6 +69,29 @@ def test_producer_plan_prompt_uses_social_producer_role_and_language():
     assert "Amazon mentorship" in prompt
 
 
+def test_producer_plan_extension_prompt_includes_saved_topics():
+    existing = [
+        _idea_for_plan(title="Fee Leak", angle="Audit FBA tiers", day=1),
+        _idea_for_plan(title="ACOS Trap", angle="Separate ranking from profit", day=2),
+    ]
+
+    prompt = build_producer_plan_prompt(
+        count=30,
+        content_language="en",
+        offer_context="Amazon mentorship",
+        existing_ideas=existing,
+        extension=True,
+    )
+
+    assert "Do not restart the plan" in prompt
+    assert "Fee Leak | Audit FBA tiers" in prompt
+    assert "ACOS Trap | Separate ranking from profit" in prompt
+
+
+def test_format_existing_plan_context_has_empty_fallback():
+    assert format_existing_plan_context([]) == "- No saved topics yet."
+
+
 def test_normalize_producer_plan_marks_metadata():
     ideas = normalize_producer_plan(
         {
@@ -118,3 +142,23 @@ async def test_generate_notebooklm_content_plan_saves_to_idea_bank(tmp_path):
     assert len(inserted) == 1
     assert inserted[0].source == "notebooklm_plan"
     assert bank.list_new("42")[0].title == "ACOS Trap"
+
+
+def _idea_for_plan(*, title: str, angle: str, day: int):
+    from content_automation.idea_bank import ContentIdea
+
+    return ContentIdea(
+        id=day,
+        user_id="42",
+        source="notebooklm_plan",
+        source_url=f"notebooklm://notebook-1/plan-day-{day}",
+        status="new",
+        title=title,
+        pain="Pain",
+        angle=angle,
+        summary="Summary",
+        source_meta={"day": day, "pillar": "Margin"},
+        fingerprint=title.lower(),
+        created_at="",
+        updated_at="",
+    )

@@ -51,12 +51,22 @@ def build_ideas_router(
 
     @router.post("/api/ideas/notebooklm-plan", response_model=GenerateIdeasOut)
     async def notebooklm_content_plan(payload: GenerateIdeasIn) -> GenerateIdeasOut:
+        inserted = await generate_plan(payload, extension=False)
+        return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted])
+
+    @router.post("/api/ideas/notebooklm-plan/extend", response_model=GenerateIdeasOut)
+    async def extend_notebooklm_content_plan(payload: GenerateIdeasIn) -> GenerateIdeasOut:
+        inserted = await generate_plan(payload, extension=True)
+        return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted])
+
+    async def generate_plan(payload: GenerateIdeasIn, *, extension: bool) -> list[ContentIdea]:
         state = get_user_settings(storage, settings, payload.user_id)
         notebook_ref = state.notebook_id or settings.default_notebook_id
         if not notebook_ref:
             raise HTTPException(status_code=400, detail="Сначала задай NotebookLM ID в настройках.")
+        existing_ideas = idea_bank.list_new(payload.user_id, limit=100)
         try:
-            inserted = await generate_notebooklm_content_plan(
+            return await generate_notebooklm_content_plan(
                 user_id=payload.user_id,
                 notebook_ref=notebook_ref,
                 notebooklm=notebooklm,
@@ -64,10 +74,11 @@ def build_ideas_router(
                 count=payload.count,
                 content_language=state.content_language,
                 offer_context=state.offer_context,
+                existing_ideas=existing_ideas,
+                extension=extension,
             )
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted])
 
     @router.post("/api/ideas/{idea_id}/reject", response_model=ContentIdeaOut)
     def reject_idea(idea_id: int, payload: GenerateIdeasIn) -> ContentIdeaOut:

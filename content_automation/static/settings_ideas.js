@@ -1,4 +1,4 @@
-import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-producer-plan";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-plan-extend";
 
 const TIMEFRAME_OPTIONS = [
   ["day", "1 день"],
@@ -19,6 +19,7 @@ export function renderIdeasTab({ state, escapeHtml }) {
           <p class="muted">NotebookLM найдет темы внутри твоей базы. Язык тем берется из общей настройки языка контента.</p>
           <div class="settings-actions">
             <button data-action="generate-notebooklm-plan" ${state.settings.notebook_id ? "" : "disabled"}>План на месяц</button>
+            <button data-action="extend-notebooklm-plan" ${state.settings.notebook_id ? "" : "disabled"}>Добрать еще 30</button>
             <button data-action="generate-notebooklm-ideas" ${state.settings.notebook_id ? "" : "disabled"}>Собрать из NotebookLM</button>
           </div>
         </div>

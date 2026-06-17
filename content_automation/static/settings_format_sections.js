@@ -1,8 +1,8 @@
-import { renderAvatarSelectors } from "/static/settings_avatars.js?v=20260617-producer-plan";
-import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-producer-plan";
-import { renderVizardTab } from "/static/settings_vizard.js?v=20260617-producer-plan";
-import { renderVoiceSelector } from "/static/settings_voices.js?v=20260617-producer-plan";
-import { renderIdeasTab } from "/static/settings_ideas.js?v=20260617-producer-plan";
+import { renderAvatarSelectors } from "/static/settings_avatars.js?v=20260617-plan-extend";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-plan-extend";
+import { renderVizardTab } from "/static/settings_vizard.js?v=20260617-plan-extend";
+import { renderVoiceSelector } from "/static/settings_voices.js?v=20260617-plan-extend";
+import { renderIdeasTab } from "/static/settings_ideas.js?v=20260617-plan-extend";
 
 const FORMAT_TABS = [
   { key: "youtube", label: "YouTube", hint: "Горизонтальный" },

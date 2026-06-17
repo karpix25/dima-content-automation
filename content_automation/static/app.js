@@ -1,7 +1,7 @@
-import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260617-producer-plan";
-import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-producer-plan";
-import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-producer-plan";
-import { withButtonPending } from "/static/action_feedback.js?v=20260617-producer-plan";
+import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260617-plan-extend";
+import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-plan-extend";
+import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-plan-extend";
+import { withButtonPending } from "/static/action_feedback.js?v=20260617-plan-extend";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
