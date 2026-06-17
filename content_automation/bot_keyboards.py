@@ -18,6 +18,7 @@ def build_main_keyboard(miniapp_url: str | None = None) -> InlineKeyboardMarkup:
             callback_button("Статус банка", "main:bank"),
             callback_button("Reddit-темы", "main:reddit"),
         ],
+        [callback_button("Готовые сценарии → форматы", "approved:list")],
         [callback_button("YouTube-сценарий", "main:youtube")],
         [callback_button("Нарезать YouTube через Vizard", "main:vizard")],
     ]

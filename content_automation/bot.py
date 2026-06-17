@@ -38,6 +38,13 @@ from .bot_menu_actions import (
     run_youtube_action,
 )
 from .bot_callback_data import parse_script_callback_data
+from .bot_approved_formats import (
+    approved_script_details,
+    approved_scripts_keyboard,
+    approved_scripts_message,
+    list_format_ready_scripts,
+    parse_approved_format_callback,
+)
 from .bot_format_actions import BotFormatDeps, run_format_output_job
 from .bot_keyboards import build_format_output_keyboard, build_main_keyboard
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
@@ -1686,6 +1693,18 @@ async def settings_menu(message: Message) -> None:
     )
 
 
+@dp.message(Command("approved", "formats"))
+async def approved_formats_menu(message: Message) -> None:
+    user_id = activate_from_message(message)
+    clear_pending_edit(user_id)
+    records = list_format_ready_scripts(storage, user_id)
+    await answer_in_same_thread(
+        message,
+        approved_scripts_message(records),
+        reply_markup=approved_scripts_keyboard(records),
+    )
+
+
 @dp.message(Command("set_notebook"))
 async def set_notebook(message: Message) -> None:
     user_id = activate_from_message(message)
@@ -2368,6 +2387,44 @@ async def vizard_clip_command(message: Message) -> None:
             text=message.text or "",
         )
     )
+
+
+@dp.callback_query(F.data.startswith("approved:"))
+async def approved_formats_callback(callback: CallbackQuery) -> None:
+    parsed = parse_approved_format_callback(callback.data)
+    if not parsed:
+        await callback.answer("Некорректная команда", show_alert=True)
+        return
+    user_id = activate_from_callback(callback)
+    await callback.answer()
+
+    if parsed.action == "list":
+        records = list_format_ready_scripts(storage, user_id)
+        await edit_or_send_text(
+            callback.message.chat.id,
+            approved_scripts_message(records),
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+            reply_markup=approved_scripts_keyboard(records),
+        )
+        return
+
+    if parsed.action == "show" and parsed.script_id is not None:
+        record = storage.get_script(user_id, parsed.script_id)
+        if not record or record.format != "short" or record.status not in {"approved", "used_for_video"}:
+            await callback.answer("Сценарий не найден или еще не одобрен", show_alert=True)
+            return
+        await edit_or_send_text(
+            callback.message.chat.id,
+            approved_script_details(record),
+            thread_id=message_thread_id(callback.message),
+            message=callback.message,
+            edit=True,
+            reply_markup=build_format_output_keyboard(record.id),
+            disable_web_page_preview=True,
+        )
+        return
 
 
 @dp.message(
