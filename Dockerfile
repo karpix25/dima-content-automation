@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright:v1.60.0-noble
+FROM mcr.microsoft.com/playwright:v1.61.0-noble
 
 ARG INSTALL_AUTH_TOOLS=false
 ARG TARGETARCH
