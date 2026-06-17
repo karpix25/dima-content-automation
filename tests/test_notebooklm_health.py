@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from content_automation.config import normalize_notebooklm_mcp_command
-from content_automation.notebooklm_health import check_notebooklm_health, classify_notebooklm_error
+from content_automation.notebooklm_health import NotebookLMKeepAlive, check_notebooklm_health, classify_notebooklm_error
 
 
 def test_notebooklm_mcp_default_is_pinned():
@@ -46,3 +46,29 @@ async def test_notebooklm_health_check_auth_failure():
 
     assert not status.ok
     assert status.status == "auth_expired"
+
+
+@pytest.mark.asyncio
+async def test_keepalive_calls_status_handler():
+    calls = []
+
+    class FakeNotebookLM:
+        def ask(self, question, *, notebook_url=None, notebook_id=None):
+            raise RuntimeError("Redirected to https://accounts.google.com/")
+
+    async def handler(status):
+        calls.append(status.status)
+
+    keepalive = NotebookLMKeepAlive(
+        FakeNotebookLM(),
+        notebook_ref="notebook-1",
+        enabled=True,
+        interval_seconds=900,
+        startup_delay_seconds=0,
+        status_handler=handler,
+    )
+
+    status = await keepalive.run_once()
+
+    assert status.status == "auth_expired"
+    assert calls == ["auth_expired"]

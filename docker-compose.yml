@@ -12,3 +12,19 @@ services:
     volumes:
       - ./.data:/app/.data
       - ./outputs:/app/outputs
+  notebooklm-auth:
+    build:
+      context: .
+      args:
+        INSTALL_AUTH_TOOLS: "true"
+    env_file:
+      - .env
+    environment:
+      APP_MODE: notebooklm-py-auth
+      NOTEBOOKLM_PY_STORAGE_PATH: ${NOTEBOOKLM_PY_STORAGE_PATH:-/app/.data/notebooklm-py/storage_state.json}
+      NOVNC_PORT: ${NOTEBOOKLM_AUTH_PORT:-6080}
+    restart: unless-stopped
+    ports:
+      - "${NOTEBOOKLM_AUTH_PORT:-6080}:${NOTEBOOKLM_AUTH_PORT:-6080}"
+    volumes:
+      - ./.data:/app/.data

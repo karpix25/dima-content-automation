@@ -38,6 +38,7 @@ from .storage import Storage
 from .turan_formats import list_turan_formats
 from .turan_service import TuranServiceError, list_approved_scripts
 from .notebooklm_runtime import build_notebooklm_client
+from .notebooklm_auth_notifier import AuthNotificationConfig, NotebookLMAuthNotifier
 from .notebooklm_health import NotebookLMKeepAlive
 from .web_format_jobs import (
     ScriptNotFoundError,
@@ -77,12 +78,23 @@ storage = Storage(settings.data_dir / "content_automation.sqlite3")
 idea_bank = IdeaBank(settings.data_dir / "content_automation.sqlite3")
 asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
 notebooklm = build_notebooklm_client(settings)
+notebooklm_auth_notifier = NotebookLMAuthNotifier(
+    AuthNotificationConfig(
+        telegram_bot_token=settings.telegram_bot_token,
+        auth_url=settings.notebooklm_auth_url,
+        chat_ids=settings.notebooklm_auth_notify_chat_ids,
+        cooldown_seconds=settings.notebooklm_auth_notify_cooldown_seconds,
+        start_command=settings.notebooklm_auth_start_command,
+        start_timeout_seconds=settings.notebooklm_auth_start_timeout_seconds,
+    )
+)
 notebooklm_keepalive = NotebookLMKeepAlive(
     notebooklm,
     notebook_ref=settings.default_notebook_id,
     enabled=settings.notebooklm_keepalive_enabled,
     interval_seconds=settings.notebooklm_keepalive_interval_seconds,
     startup_delay_seconds=settings.notebooklm_keepalive_startup_delay_seconds,
+    status_handler=notebooklm_auth_notifier.notify_if_needed,
 )
 heygen = HeyGenClient(
     api_key=settings.heygen_api_key,

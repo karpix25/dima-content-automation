@@ -10,12 +10,8 @@ start_novnc_display
 
 cat <<EOF
 
-Open the noVNC URL in Coolify, then run this command from the Coolify container terminal:
-
-DISPLAY=$DISPLAY notebooklm --storage "$NOTEBOOKLM_PY_STORAGE_PATH" login
-
-Log in inside the noVNC browser window. When NotebookLM opens successfully,
-go back to the terminal and press Enter so notebooklm-py saves the session.
+Open the noVNC URL and log in inside the browser window.
+The visible NotebookLM login browser is started automatically.
 
 After login, set:
 APP_MODE=bot
@@ -25,5 +21,13 @@ NOTEBOOKLM_PY_STORAGE_PATH=$NOTEBOOKLM_PY_STORAGE_PATH
 Then redeploy.
 
 EOF
+
+(
+  while true; do
+    rm -f /tmp/notebooklm-login.log
+    env DISPLAY="$DISPLAY" notebooklm --storage "$NOTEBOOKLM_PY_STORAGE_PATH" login >/tmp/notebooklm-login.log 2>&1 || true
+    sleep "${NOTEBOOKLM_AUTH_LOGIN_RESTART_SECONDS:-300}"
+  done
+) &
 
 tail -f /dev/null

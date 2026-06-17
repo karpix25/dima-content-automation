@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from .notebooklm_mcp import notebook_ref_to_url
 from .notebooklm_runtime import NotebookLMAskClient
@@ -82,12 +82,14 @@ class NotebookLMKeepAlive:
         enabled: bool,
         interval_seconds: int,
         startup_delay_seconds: int,
+        status_handler: Callable[[NotebookLMHealthStatus], Awaitable[None]] | None = None,
     ) -> None:
         self.client = client
         self.notebook_ref = notebook_ref
         self.enabled = enabled and bool(notebook_ref)
         self.interval_seconds = interval_seconds
         self.startup_delay_seconds = startup_delay_seconds
+        self.status_handler = status_handler
         self.last_status: NotebookLMHealthStatus | None = None
         self._task: asyncio.Task[None] | None = None
 
@@ -108,6 +110,8 @@ class NotebookLMKeepAlive:
 
     async def run_once(self) -> NotebookLMHealthStatus:
         self.last_status = await check_notebooklm_health(self.client, notebook_ref=self.notebook_ref)
+        if self.status_handler:
+            await self.status_handler(self.last_status)
         return self.last_status
 
     async def _loop(self) -> None:
