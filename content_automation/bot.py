@@ -15,6 +15,7 @@ from .config import load_settings
 from .deepgram_transcription import DeepgramConfig
 from .editorial import EditorialBrief, apply_editorial_brief, script_editorial_summary
 from .editorial_planner import plan_editorial_briefs
+from .elevenlabs_errors import missing_audio_file_message
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .final_video_variants import build_final_video_variants
@@ -881,7 +882,9 @@ async def generate_voiceover_audio(record: ScriptRecord, user_id: str) -> str:
                 result = await _generate_elevenlabs_audio(record, user_id, speed=analysis.recommended_speed)
         except VideoOverlayError:
             logger.exception("Voiceover timing analysis failed; using first generated audio")
-    return result.file_path or result.message
+    if not result.file_path:
+        raise ElevenLabsMCPError(missing_audio_file_message(user_id, result.message))
+    return result.file_path
 
 
 async def _generate_elevenlabs_audio(record: ScriptRecord, user_id: str, *, speed: float):

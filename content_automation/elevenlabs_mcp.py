@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .elevenlabs_errors import explain_elevenlabs_error
+
 
 class ElevenLabsMCPError(RuntimeError):
     pass
@@ -117,7 +119,7 @@ class ElevenLabsMCPClient:
             )
             response = self._read_response(proc, 2, timeout=self.timeout_seconds)
             if "error" in response:
-                raise ElevenLabsMCPError(json.dumps(response["error"], ensure_ascii=False))
+                raise ElevenLabsMCPError(explain_elevenlabs_error(json.dumps(response["error"], ensure_ascii=False)))
             return response
         finally:
             proc.terminate()

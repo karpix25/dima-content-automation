@@ -10,6 +10,7 @@ import httpx
 
 from .config import Settings
 from .deepgram_transcription import DeepgramConfig
+from .elevenlabs_errors import missing_audio_file_message
 from .elevenlabs_mcp import ElevenLabsMCPClient
 from .heygen import HeyGenClient
 from .kie_image import KieImageClient
@@ -209,7 +210,7 @@ def _generate_audio(
         except VideoOverlayError:
             logger.exception("Voiceover timing analysis failed; using first generated audio")
     if not result.file_path:
-        raise RuntimeError(f"ElevenLabs не вернул audio file для пользователя {user_id}: {result.message}")
+        raise RuntimeError(missing_audio_file_message(user_id, result.message))
     return result.file_path
 
 
