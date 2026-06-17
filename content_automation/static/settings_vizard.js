@@ -1,4 +1,4 @@
-import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260616-content-language";
 
 const LENGTH_OPTIONS = [
   ["0", "auto"],

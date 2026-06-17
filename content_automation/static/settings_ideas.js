@@ -1,4 +1,4 @@
-import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260616-content-language";
 
 const TIMEFRAME_OPTIONS = [
   ["day", "1 день"],

@@ -1,6 +1,6 @@
-import { bindAvatarEvents } from "/static/settings_avatars.js";
-import { bindVoiceEvents } from "/static/settings_voices.js";
-import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js";
+import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260616-content-language";
+import { bindVoiceEvents } from "/static/settings_voices.js?v=20260616-content-language";
+import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260616-content-language";
 
 export async function loadSettingsData(deps, render = true) {
   const { state, api } = deps;

@@ -1,6 +1,6 @@
-import { loadSettingsData, renderSettingsPanel } from "/static/settings.js";
-import { formatButtonState, usageSummary } from "/static/format_usage.js";
-import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js";
+import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260616-content-language";
+import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260616-content-language";
+import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260616-content-language";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
