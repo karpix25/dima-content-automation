@@ -1,6 +1,7 @@
-import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260616-content-language";
-import { bindVoiceEvents } from "/static/settings_voices.js?v=20260616-content-language";
-import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260616-content-language";
+import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-feedback";
+import { bindVoiceEvents } from "/static/settings_voices.js?v=20260617-feedback";
+import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260617-feedback";
+import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260617-feedback";
 
 export async function loadSettingsData(deps, render = true) {
   const { state, api } = deps;
@@ -65,26 +66,26 @@ function bindSettingsEvents(root, deps) {
   bindFormatTabs(root, deps);
   bindAvatarEvents(root, deps, renderSettingsPanel);
   bindVoiceEvents(root, deps, renderSettingsPanel);
-  root.querySelectorAll("[data-action='save-text']").forEach((button) => bindAction(button, () => saveTextSetting(deps, button.dataset.key).catch(deps.showError)));
-  root.querySelectorAll("[data-action='save-section']").forEach((button) => bindAction(button, () => saveSettingsSection(deps, button).catch(deps.showError)));
-  root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => bindAction(button, () => saveOverlayPercent(deps, button.dataset.format).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => bindAction(button, () => deleteOverlay(deps, button.dataset.format).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-overlay-file']").forEach((button) => bindAction(button, () => deleteOverlayFile(deps, button.dataset.format, button.dataset.index).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-ref']").forEach((button) => bindAction(button, () => deleteMedia(deps, "thumbnail-references", button.dataset.id).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-face']").forEach((button) => bindAction(button, () => deleteMedia(deps, "thumbnail-face-references", button.dataset.id).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-avatar-insert']").forEach((button) => bindAction(button, () => deleteMedia(deps, "avatar-inserts", button.dataset.id).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-five-audio']").forEach((button) => bindAction(button, () => deleteFiveAudio(deps, button.dataset.id).catch(deps.showError)));
-  root.querySelectorAll("[data-action='delete-five-reference']").forEach((button) => bindAction(button, () => deleteFiveReference(deps, button.dataset.id).catch(deps.showError)));
-  root.querySelectorAll("[data-target-ref]").forEach((button) => button.addEventListener("click", () => toggleRefTarget(deps, button.dataset.id, button.dataset.targetRef).catch(deps.showError)));
-  root.querySelectorAll("[data-face-target]").forEach((button) => button.addEventListener("click", () => activateFace(deps, button.dataset.id, button.dataset.faceTarget).catch(deps.showError)));
+  root.querySelectorAll("[data-action='save-text']").forEach((button) => bindAction(button, deps, () => saveTextSetting(deps, button.dataset.key)));
+  root.querySelectorAll("[data-action='save-section']").forEach((button) => bindAction(button, deps, () => saveSettingsSection(deps, button)));
+  root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => bindAction(button, deps, () => saveOverlayPercent(deps, button.dataset.format)));
+  root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => bindAction(button, deps, () => deleteOverlay(deps, button.dataset.format)));
+  root.querySelectorAll("[data-action='delete-overlay-file']").forEach((button) => bindAction(button, deps, () => deleteOverlayFile(deps, button.dataset.format, button.dataset.index)));
+  root.querySelectorAll("[data-action='delete-ref']").forEach((button) => bindAction(button, deps, () => deleteMedia(deps, "thumbnail-references", button.dataset.id)));
+  root.querySelectorAll("[data-action='delete-face']").forEach((button) => bindAction(button, deps, () => deleteMedia(deps, "thumbnail-face-references", button.dataset.id)));
+  root.querySelectorAll("[data-action='delete-avatar-insert']").forEach((button) => bindAction(button, deps, () => deleteMedia(deps, "avatar-inserts", button.dataset.id)));
+  root.querySelectorAll("[data-action='delete-five-audio']").forEach((button) => bindAction(button, deps, () => deleteFiveAudio(deps, button.dataset.id)));
+  root.querySelectorAll("[data-action='delete-five-reference']").forEach((button) => bindAction(button, deps, () => deleteFiveReference(deps, button.dataset.id)));
+  root.querySelectorAll("[data-target-ref]").forEach((button) => bindAction(button, deps, () => toggleRefTarget(deps, button.dataset.id, button.dataset.targetRef)));
+  root.querySelectorAll("[data-face-target]").forEach((button) => bindAction(button, deps, () => activateFace(deps, button.dataset.id, button.dataset.faceTarget)));
   root.querySelectorAll("[data-upload]").forEach((input) => input.addEventListener("change", () => handleUpload(deps, input).catch(deps.showError)));
   root.querySelectorAll("[data-overlay-file]").forEach((input) => input.addEventListener("change", () => uploadOverlay(deps, input.dataset.overlayFile, input.files[0]).catch(deps.showError)));
 }
 
-function bindAction(button, handler) {
+function bindAction(button, deps, handler) {
   button.addEventListener("click", (event) => {
     event.preventDefault();
-    handler(event);
+    withButtonPending(button, handler, { pendingLabel: pendingLabelForAction(button.dataset.action) }).catch(deps.showError);
   });
 }
 
@@ -141,11 +142,15 @@ async function saveOverlayPercent(deps, format) {
 
 async function uploadOverlay(deps, format, file) {
   if (!file) return;
-  const form = formWithUser(deps.state.userId);
-  form.append("format", format);
-  form.append("file", file);
-  await postForm("/api/settings/overlay", form);
-  await loadSettingsData(deps);
+  await withUploadPending(document.querySelector(`[data-overlay-file="${format}"]`), async () => {
+    deps.setStatus("Загружаю");
+    const form = formWithUser(deps.state.userId);
+    form.append("format", format);
+    form.append("file", file);
+    await postForm("/api/settings/overlay", form);
+    await loadSettingsData(deps);
+    deps.setStatus("Сохранено");
+  });
 }
 
 async function deleteOverlay(deps, format) {
@@ -171,9 +176,13 @@ async function handleUpload(deps, input) {
     "five-second-audio": "/api/settings/instagram-post-5s/audio",
     "five-second-reference": "/api/settings/instagram-post-5s/references",
   };
-  await postForm(paths[input.dataset.upload], form);
-  input.value = "";
-  await loadSettingsData(deps);
+  await withUploadPending(input, async () => {
+    deps.setStatus("Загружаю");
+    await postForm(paths[input.dataset.upload], form);
+    input.value = "";
+    await loadSettingsData(deps);
+    deps.setStatus("Сохранено");
+  });
 }
 
 async function toggleRefTarget(deps, id, target) {

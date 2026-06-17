@@ -1,3 +1,5 @@
+import { withButtonPending } from "/static/action_feedback.js?v=20260617-feedback";
+
 export function renderAvatarSelectors(state, escapeHtml, options = {}) {
   const settings = state.settings;
   const model = selectedModel(settings);
@@ -44,10 +46,16 @@ export function bindAvatarEvents(root, deps, renderSettingsPanel) {
     }
   });
   root.querySelectorAll("[data-action='select-heygen-model']").forEach((button) => {
-    button.addEventListener("click", () => selectModel(deps, button.dataset.model, renderSettingsPanel).catch(deps.showError));
+    button.addEventListener("click", () => selectModel(deps, button, renderSettingsPanel));
   });
   root.querySelectorAll("[data-action='select-avatar']").forEach((button) => {
-    button.addEventListener("click", () => selectAvatar(deps, button.dataset, renderSettingsPanel).catch(deps.showError));
+    button.addEventListener("click", () => selectAvatar(deps, button, renderSettingsPanel));
+  });
+  root.querySelectorAll("[data-action='reload-avatars']").forEach((button) => {
+    button.addEventListener("click", () => reloadAvatars(deps, button, renderSettingsPanel));
+  });
+  root.querySelectorAll("[data-avatar-media]").forEach((media) => {
+    media.addEventListener("error", () => showMediaFallback(media));
   });
 }
 
@@ -64,6 +72,7 @@ function modelButton(id, label, hint, selected, escapeHtml) {
       class="${selected === id ? "active" : ""}"
       data-action="select-heygen-model"
       data-model="${escapeHtml(id)}"
+      aria-pressed="${selected === id ? "true" : "false"}"
     >
       <span>${escapeHtml(label)}</span>
       <small>${escapeHtml(hint)}</small>
@@ -75,28 +84,106 @@ function renderAvatarList(state, escapeHtml, target) {
   if (state.avatarsLoading) {
     return `<div class="empty-box">Загружаю аватары HeyGen...</div>`;
   }
+  if (state.avatarsError) {
+    const saved = renderSavedAvatarTiles(state, escapeHtml, target);
+    return `
+      <div class="empty-box avatar-load-error">
+        <strong>Не удалось загрузить список HeyGen avatars.</strong>
+        <span>${escapeHtml(state.avatarsError)}</span>
+        <button type="button" data-action="reload-avatars"><span>Повторить загрузку</span></button>
+      </div>
+      ${saved}
+    `;
+  }
   if (!state.avatars.length) {
-    return `<div class="empty-box">Список HeyGen avatars загрузится автоматически.</div>`;
+    const saved = renderSavedAvatarTiles(state, escapeHtml, target);
+    return saved || `<div class="empty-box">Список HeyGen avatars загрузится автоматически.</div>`;
   }
   const model = selectedModel(state.settings);
   const avatars = state.avatars.filter((avatar) => supportsModel(avatar, model));
   if (!avatars.length) {
-    return `<div class="empty-box">Для ${escapeHtml(modelLabel(model))} нет подходящих аватаров.</div>`;
+    const saved = renderSavedAvatarTiles(state, escapeHtml, target);
+    return `
+      <div class="empty-box avatar-load-error">
+        <strong>Для ${escapeHtml(modelLabel(model))} нет подходящих аватаров.</strong>
+        <span>Выбранные ранее аватары показаны ниже, если они сохранены.</span>
+      </div>
+      ${saved}
+    `;
   }
   return avatars.map((avatar) => {
     const isHorizontal = avatar.id === state.settings.heygen_avatar_id;
     const isVertical = avatar.id === state.settings.heygen_vertical_avatar_id;
     return `
-      <article class="avatar-tile ${isHorizontal || isVertical ? "active" : ""}">
-        ${renderTilePreview(avatar, escapeHtml)}
-        <div class="avatar-tile-info">
-          <strong>${escapeHtml(avatar.name)}</strong>
-          <small>${escapeHtml(avatarMeta(avatar))}</small>
+      <article class="avatar-tile ${isHorizontal || isVertical ? "active" : ""}" data-avatar-id="${escapeHtml(avatar.id)}">
+        <div class="avatar-tile-preview" data-fallback="${escapeHtml(initials(avatar.name || avatar.id))}">
+          ${renderTilePreview(avatar, escapeHtml)}
         </div>
-        <div class="avatar-tile-actions">${renderAvatarActions(avatar, { isHorizontal, isVertical, target, escapeHtml })}</div>
+        <div class="avatar-tile-body">
+          ${renderSelectedBadges({ isHorizontal, isVertical })}
+          <div class="avatar-tile-info">
+            <strong title="${escapeHtml(avatar.name)}">${escapeHtml(avatar.name)}</strong>
+            <small>${escapeHtml(avatarMeta(avatar))}</small>
+          </div>
+          <div class="avatar-tile-actions">${renderAvatarActions(avatar, { isHorizontal, isVertical, target, escapeHtml })}</div>
+        </div>
       </article>
     `;
   }).join("");
+}
+
+function renderSavedAvatarTiles(state, escapeHtml, target) {
+  const saved = [
+    savedAvatarFromSettings(state.settings, "horizontal"),
+    savedAvatarFromSettings(state.settings, "vertical"),
+  ].filter((avatar) => avatar && (target ? avatar.target === target : true));
+  if (!saved.length) return "";
+  return saved.map((avatar) => `
+    <article class="avatar-tile active saved">
+      <div class="avatar-tile-preview" data-fallback="${escapeHtml(initials(avatar.name || avatar.id))}">${renderTilePreview(avatar, escapeHtml)}</div>
+      <div class="avatar-tile-body">
+        ${renderSelectedBadges({ isHorizontal: avatar.target === "horizontal", isVertical: avatar.target === "vertical" })}
+        <div class="avatar-tile-info">
+          <strong title="${escapeHtml(avatar.name)}">${escapeHtml(avatar.name)}</strong>
+          <small>сохраненный выбор · live список не загружен</small>
+        </div>
+      </div>
+    </article>
+  `).join("");
+}
+
+function savedAvatarFromSettings(settings, target) {
+  if (target === "horizontal" && settings.heygen_avatar_id) {
+    return {
+      id: settings.heygen_avatar_id,
+      name: settings.heygen_avatar_name || settings.heygen_avatar_id,
+      preview_image_url: settings.heygen_avatar_preview_image_url,
+      preview_video_url: settings.heygen_avatar_preview_video_url,
+      avatar_type: "saved_avatar",
+      supported_engines: [],
+      target,
+    };
+  }
+  if (target === "vertical" && settings.heygen_vertical_avatar_id) {
+    return {
+      id: settings.heygen_vertical_avatar_id,
+      name: settings.heygen_vertical_avatar_name || settings.heygen_vertical_avatar_id,
+      preview_image_url: settings.heygen_vertical_avatar_preview_image_url,
+      preview_video_url: settings.heygen_vertical_avatar_preview_video_url,
+      avatar_type: "saved_avatar",
+      supported_engines: [],
+      target,
+    };
+  }
+  return null;
+}
+
+function renderSelectedBadges({ isHorizontal, isVertical }) {
+  const badges = [
+    isHorizontal ? `<span class="avatar-selected-badge youtube">YouTube</span>` : "",
+    isVertical ? `<span class="avatar-selected-badge shorts">Reels/Shorts</span>` : "",
+  ].filter(Boolean);
+  return badges.length ? `<div class="avatar-selected-badges"><span class="avatar-selected-label">Выбран</span>${badges.join("")}</div>` : "";
 }
 
 function renderAvatarActions(avatar, options) {
@@ -119,18 +206,27 @@ function avatarActionButton(avatar, target, label, active, activeClass, escapeHt
       data-name="${escapeHtml(avatar.name)}"
       data-preview-image-url="${escapeHtml(avatar.preview_image_url || "")}"
       data-preview-video-url="${escapeHtml(avatar.preview_video_url || "")}"
-    ><span>${label}</span></button>
+      aria-pressed="${active ? "true" : "false"}"
+    ><span>${active ? "Выбран" : label}</span></button>
   `;
 }
 
 function renderTilePreview(avatar, escapeHtml) {
-  if (avatar.preview_video_url) {
-    return `<video class="avatar-tile-media" src="${escapeHtml(avatar.preview_video_url)}" muted playsinline preload="metadata"></video>`;
-  }
+  const fallback = `<div class="avatar-tile-media avatar-placeholder"><span>${escapeHtml(initials(avatar.name || avatar.id))}</span></div>`;
   if (avatar.preview_image_url) {
-    return `<img class="avatar-tile-media" src="${escapeHtml(avatar.preview_image_url)}" alt="" />`;
+    return `<img class="avatar-tile-media" data-avatar-media src="${escapeHtml(avatar.preview_image_url)}" alt="${escapeHtml(avatar.name || "HeyGen avatar")}" loading="lazy" />`;
   }
-  return `<div class="avatar-tile-media avatar-placeholder"></div>`;
+  if (avatar.preview_video_url) {
+    return `<video class="avatar-tile-media" data-avatar-media src="${escapeHtml(avatar.preview_video_url)}" muted playsinline preload="metadata"></video>`;
+  }
+  return fallback;
+}
+
+function showMediaFallback(media) {
+  const preview = media.closest(".avatar-tile-preview");
+  if (!preview) return;
+  const fallback = preview.dataset.fallback || "AI";
+  preview.innerHTML = `<div class="avatar-tile-media avatar-placeholder"><span>${fallback}</span></div>`;
 }
 
 function findAvatar(state, id) {
@@ -180,36 +276,68 @@ async function loadAvatars(deps, renderSettingsPanel) {
   renderSettingsPanel(deps);
   try {
     state.avatars = await api("/api/settings/heygen-avatars");
+    state.avatarsError = "";
     setStatus("Готово");
+  } catch (error) {
+    state.avatarsError = error.message || String(error);
+    setStatus("Error");
+    throw error;
   } finally {
     state.avatarsLoading = false;
     renderSettingsPanel(deps);
   }
 }
 
-async function selectAvatar(deps, dataset, renderSettingsPanel) {
-  deps.setStatus("Сохраняю");
-  deps.state.settings = await deps.api("/api/settings/heygen-avatar", {
-    method: "POST",
-    body: JSON.stringify({
-      user_id: deps.state.userId,
-      id: dataset.id,
-      name: dataset.name,
-      target: dataset.target || "both",
-      preview_image_url: dataset.previewImageUrl || "",
-      preview_video_url: dataset.previewVideoUrl || "",
-    }),
-  });
-  renderSettingsPanel(deps);
-  deps.setStatus("Сохранено");
+async function reloadAvatars(deps, button, renderSettingsPanel) {
+  await withButtonPending(button, async () => {
+    deps.state.avatarsLoadAttempted = false;
+    deps.state.avatarsError = "";
+    await loadAvatars(deps, renderSettingsPanel);
+  }, { pendingLabel: "Загружаю..." }).catch(deps.showError);
 }
 
-async function selectModel(deps, model, renderSettingsPanel) {
-  deps.setStatus("Сохраняю");
-  deps.state.settings = await deps.api("/api/settings/heygen-model", {
-    method: "POST",
-    body: JSON.stringify({ user_id: deps.state.userId, model }),
-  });
-  renderSettingsPanel(deps);
-  deps.setStatus("Сохранено");
+async function selectAvatar(deps, button, renderSettingsPanel) {
+  await withButtonFeedback(button, "Сохраняю", async () => {
+    const dataset = button.dataset;
+    deps.setStatus("Сохраняю");
+    deps.state.settings = await deps.api("/api/settings/heygen-avatar", {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: deps.state.userId,
+        id: dataset.id,
+        name: dataset.name,
+        target: dataset.target || "both",
+        preview_image_url: dataset.previewImageUrl || "",
+        preview_video_url: dataset.previewVideoUrl || "",
+      }),
+    });
+    renderSettingsPanel(deps);
+    deps.setStatus("Сохранено");
+  }, deps.showError);
+}
+
+async function selectModel(deps, button, renderSettingsPanel) {
+  await withButtonFeedback(button, "Сохраняю", async () => {
+    deps.setStatus("Сохраняю");
+    deps.state.settings = await deps.api("/api/settings/heygen-model", {
+      method: "POST",
+      body: JSON.stringify({ user_id: deps.state.userId, model: button.dataset.model }),
+    });
+    renderSettingsPanel(deps);
+    deps.setStatus("Сохранено");
+  }, deps.showError);
+}
+
+async function withButtonFeedback(button, loadingText, task, showError) {
+  await withButtonPending(button, task, { pendingLabel: loadingText }).catch(showError);
+}
+
+function initials(value) {
+  return String(value || "AI")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 }

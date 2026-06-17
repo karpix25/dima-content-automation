@@ -1,6 +1,7 @@
-import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260616-content-language";
-import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260616-content-language";
-import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260616-content-language";
+import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260617-feedback";
+import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-feedback";
+import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-feedback";
+import { withButtonPending } from "/static/action_feedback.js?v=20260617-feedback";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
@@ -38,8 +39,32 @@ const tabTitles = {
 const $ = (id) => document.getElementById(id);
 
 function setStatus(text) {
-  const states = { Loading: "loading", Login: "idle", Ready: "ready", Working: "working", Opening: "loading", Copied: "ready", Error: "error", "Select text": "error" };
-  const labels = { Loading: "Загрузка", Login: "Вход", Ready: "Готово", Working: "Создаю", Opening: "Открываю", Copied: "Скопировано", Error: "Ошибка", "Select text": "Выделите текст" };
+  const states = {
+    Loading: "loading",
+    Login: "idle",
+    Ready: "ready",
+    Working: "working",
+    Opening: "loading",
+    Copied: "ready",
+    Error: "error",
+    "Select text": "error",
+    "Сохраняю": "working",
+    "Загружаю": "working",
+    "Сохранено": "ready",
+    "Готово": "ready",
+    "Аватары": "working",
+    "Голоса": "working",
+  };
+  const labels = {
+    Loading: "Загрузка",
+    Login: "Вход",
+    Ready: "Готово",
+    Working: "Создаю",
+    Opening: "Открываю",
+    Copied: "Скопировано",
+    Error: "Ошибка",
+    "Select text": "Выделите текст",
+  };
   const pill = $("status-pill");
   pill.className = `pill ${states[text] || "ready"}`;
   pill.textContent = labels[text] || text;
@@ -457,8 +482,7 @@ $("logout").addEventListener("click", () => {
 
 $("copy").addEventListener("click", async () => {
   try {
-    if (!navigator.clipboard?.writeText) throw new Error("Буфер обмена недоступен");
-    await navigator.clipboard.writeText(state.output);
+    await copyText(state.output);
     setStatus("Copied");
     setTimeout(() => setStatus("Ready"), 1200);
   } catch (error) {
@@ -473,14 +497,18 @@ $("copy").addEventListener("click", async () => {
 
 $("output").addEventListener("click", (event) => {
   const refresh = event.target.closest("[data-refresh-job]");
-  if (refresh) showJob(refresh.dataset.refreshJob).catch(showError);
+  if (refresh) withButtonPending(refresh, () => showJob(refresh.dataset.refreshJob), { pendingLabel: "Обновляю..." }).catch(showError);
   const retry = event.target.closest("[data-retry-job]");
-  if (retry) retryJob(retry.dataset.retryJob).catch(showError);
+  if (retry) withButtonPending(retry, () => retryJob(retry.dataset.retryJob), { pendingLabel: "Повторяю..." }).catch(showError);
   const stop = event.target.closest("[data-stop-job]");
-  if (stop) stopJob(stop.dataset.stopJob).catch(showError);
-  if (!event.target.closest("[data-copy-path]") || !state.activeJob?.output_url) return;
-  state.output = state.activeJob.output_url;
-  $("copy").click();
+  if (stop) withButtonPending(stop, () => stopJob(stop.dataset.stopJob), { pendingLabel: "Останавливаю..." }).catch(showError);
+  const copyPath = event.target.closest("[data-copy-path]");
+  if (!copyPath || !state.activeJob?.output_url) return;
+  withButtonPending(
+    copyPath,
+    () => copyText(state.activeJob.output_url),
+    { pendingLabel: "Копирую...", doneLabel: "Путь скопирован" },
+  ).catch(showError);
 });
 
 async function retryJob(jobId) {
@@ -518,7 +546,15 @@ function showError(error) {
 function showSettingsError(error) {
   console.error(error);
   state.creating = null;
-  setStatus(error.message || String(error));
+  const message = error.message || String(error);
+  state.settingsLoadWarnings = [message];
+  setStatus("Error");
+  renderSettingsPanel(settingsDeps());
+}
+
+async function copyText(text) {
+  if (!navigator.clipboard?.writeText) throw new Error("Буфер обмена недоступен");
+  await navigator.clipboard.writeText(text);
 }
 
 loadAll().catch(showError);
