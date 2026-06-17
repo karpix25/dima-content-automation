@@ -50,7 +50,27 @@ async def run_format_output_job(
         return
     await deps.send_to_chat_thread(
         chat_id,
-        f"Формат для сценария #{script_id} завершен со статусом: {job.status}.",
+        format_completion_message(script_id=script_id, job=job),
         thread_id=thread_id,
         reply_markup=deps.format_output_keyboard(script_id),
     )
+
+
+def format_completion_message(*, script_id: int, job: Any) -> str:
+    if job.status == "delivered":
+        details = _compact_job_text(job.output_text)
+        return f"✅ Формат для сценария #{script_id} готов." + (f"\n{details}" if details else "")
+    if job.status == "failed":
+        reason = _compact_job_text(job.error or job.output_text)
+        return f"⚠️ Формат для сценария #{script_id} не создан." + (f"\nПричина: {reason}" if reason else "")
+    details = _compact_job_text(job.output_text)
+    return f"Формат для сценария #{script_id} завершен со статусом: {job.status}." + (
+        f"\n{details}" if details else ""
+    )
+
+
+def _compact_job_text(value: str | None, *, limit: int = 900) -> str:
+    text = "\n".join(line.strip() for line in (value or "").splitlines() if line.strip())
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
