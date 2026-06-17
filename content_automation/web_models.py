@@ -99,6 +99,32 @@ class MediaTargetIn(BaseModel):
     target: str
 
 
+class ContentIdeaOut(BaseModel):
+    id: int
+    user_id: str
+    source: str
+    source_url: str
+    status: str
+    title: str
+    pain: str
+    angle: str
+    summary: str
+    source_meta: dict
+    fingerprint: str
+    created_at: str
+    updated_at: str
+
+
+class GenerateIdeasIn(BaseModel):
+    user_id: str
+    count: int = 8
+
+
+class GenerateIdeasOut(BaseModel):
+    inserted: int
+    ideas: list[ContentIdeaOut]
+
+
 class FaceActivateIn(BaseModel):
     user_id: str
     target: str = "both"

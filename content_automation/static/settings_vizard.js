@@ -1,4 +1,4 @@
-import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-feedback";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-ideas";
 
 const LENGTH_OPTIONS = [
   ["0", "auto"],

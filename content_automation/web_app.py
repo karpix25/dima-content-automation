@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import load_settings
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError
 from .heygen import HeyGenClient, HeyGenError
+from .idea_bank import IdeaBank
 from .media_assets import (
     AUDIO_EXTENSIONS,
     IMAGE_EXTENSIONS,
@@ -35,6 +36,7 @@ from .settings_service import (
 from .storage import Storage
 from .turan_formats import list_turan_formats
 from .turan_service import TuranServiceError, list_approved_scripts
+from .notebooklm_runtime import build_notebooklm_client
 from .web_format_jobs import (
     ScriptNotFoundError,
     create_queued_existing_heygen_job,
@@ -43,6 +45,7 @@ from .web_format_jobs import (
     deliver_existing_heygen_video_job,
 )
 from .web_job_actions import build_job_actions_router
+from .web_ideas import build_ideas_router
 from .web_models import (
     CreateFormatJobIn,
     CreateExistingHeyGenJobIn,
@@ -68,7 +71,9 @@ from .web_serializers import format_to_out, job_to_out, script_to_out
 
 settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
+idea_bank = IdeaBank(settings.data_dir / "content_automation.sqlite3")
 asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
+notebooklm = build_notebooklm_client(settings)
 heygen = HeyGenClient(
     api_key=settings.heygen_api_key,
     api_base_url=settings.heygen_api_base_url,
@@ -86,6 +91,7 @@ static_dir = Path(__file__).with_name("static")
 app = FastAPI(title="DIMA Content Mini App")
 install_miniapp_auth(app, bot_token=settings.telegram_bot_token, required=settings.miniapp_require_telegram_auth)
 app.include_router(build_job_actions_router(storage=storage, asset_store=asset_store, settings=settings))
+app.include_router(build_ideas_router(storage=storage, idea_bank=idea_bank, settings=settings, notebooklm=notebooklm))
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 

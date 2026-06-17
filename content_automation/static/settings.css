@@ -144,6 +144,36 @@
   justify-content: space-between;
 }
 
+.idea-list {
+  display: grid;
+  gap: 10px;
+}
+
+.idea-card {
+  border: 1px solid rgba(15, 23, 42, 0.10);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 14px;
+}
+
+.idea-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.idea-card h3 {
+  margin: 8px 0;
+}
+
+.idea-card p {
+  margin: 6px 0;
+}
+
 .settings-two,
 .settings-three {
   display: grid;

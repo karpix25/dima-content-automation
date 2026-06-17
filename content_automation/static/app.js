@@ -1,7 +1,7 @@
-import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260617-feedback";
-import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-feedback";
-import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-feedback";
-import { withButtonPending } from "/static/action_feedback.js?v=20260617-feedback";
+import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260617-ideas";
+import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-ideas";
+import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-ideas";
+import { withButtonPending } from "/static/action_feedback.js?v=20260617-ideas";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
@@ -22,6 +22,7 @@ const state = {
   thumbnailFaces: [],
   avatarInserts: [],
   fiveSecondSettings: null,
+  ideas: [],
   tab: localStorage.getItem("dima_active_tab") || "formats",
   output: "",
   activeJob: null,
@@ -54,6 +55,7 @@ function setStatus(text) {
     "Готово": "ready",
     "Аватары": "working",
     "Голоса": "working",
+    "Идеи": "working",
   };
   const labels = {
     Loading: "Загрузка",
@@ -122,6 +124,7 @@ async function loadAll() {
   state.scripts = scripts;
   state.jobs = jobs;
   await loadSettingsData(settingsDeps(), false);
+  state.ideas = await api(`/api/ideas?user_id=${userQuery}&limit=30`).catch(() => []);
   renderScripts();
   renderJobs();
   renderSettings();

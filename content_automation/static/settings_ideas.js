@@ -1,4 +1,4 @@
-import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-feedback";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-ideas";
 
 const TIMEFRAME_OPTIONS = [
   ["day", "1 день"],
@@ -9,9 +9,19 @@ const TIMEFRAME_OPTIONS = [
 export function renderIdeasTab({ state, escapeHtml }) {
   const timeframe = state.settings.reddit_timeframe || "week";
   const subreddits = state.settings.reddit_subreddits || "";
+  const ideas = state.ideas || [];
   return `
-    ${formatHeader("Идеи из Reddit", "Источники и период поиска для команды /reddit_radar.", [chip(timeframeLabel(timeframe)), chip(subredditCount(subreddits))], escapeHtml)}
+    ${formatHeader("Идеи", "Собирай темы из NotebookLM и внешних источников, потом бери их в сценарии.", [chip(timeframeLabel(timeframe)), chip(subredditCount(subreddits)), chip(`${ideas.length} тем`)], escapeHtml)}
     <section class="settings-stack">
+      ${settingsDisclosure("NotebookLM темы", [chip(state.settings.notebook_id ? "база задана" : "база не задана", !state.settings.notebook_id), chip(contentLanguageLabel(state.settings.content_language || "auto"))], `
+        <div class="soft-box">
+          <h3>Темы из базы знаний</h3>
+          <p class="muted">NotebookLM найдет темы внутри твоей базы. Язык тем берется из общей настройки языка контента.</p>
+          <div class="settings-actions">
+            <button data-action="generate-notebooklm-ideas" ${state.settings.notebook_id ? "" : "disabled"}>Собрать из NotebookLM</button>
+          </div>
+        </div>
+      `, escapeHtml)}
       ${settingsDisclosure("Reddit Radar", [chip(timeframeLabel(timeframe)), chip(subredditCount(subreddits))], `
         <div class="soft-box">
           <h3>Период поиска</h3>
@@ -27,6 +37,11 @@ export function renderIdeasTab({ state, escapeHtml }) {
           </div>
         </div>
       `, escapeHtml)}
+      ${settingsDisclosure("Банк тем", [chip(`${ideas.length} новых`)], `
+        <div class="idea-list">
+          ${ideas.length ? ideas.map((idea) => ideaCard(idea, escapeHtml)).join("") : `<p class="muted">Пока нет новых тем. Собери их из NotebookLM или через Reddit Radar.</p>`}
+        </div>
+      `, escapeHtml)}
     </section>
   `;
 }
@@ -38,4 +53,31 @@ function timeframeLabel(value) {
 function subredditCount(value) {
   const count = String(value || "").split(",").map((item) => item.trim()).filter(Boolean).length;
   return `${count || 0} сабреддитов`;
+}
+
+function contentLanguageLabel(value) {
+  if (value === "ru") return "русский";
+  if (value === "en") return "английский";
+  return "язык источника";
+}
+
+function ideaCard(idea, escapeHtml) {
+  return `
+    <article class="idea-card">
+      <div class="idea-card-head">
+        <span>${escapeHtml(sourceLabel(idea.source))}</span>
+        <span>#${escapeHtml(idea.id)}</span>
+      </div>
+      <h3>${escapeHtml(idea.title)}</h3>
+      ${idea.pain ? `<p><strong>Боль:</strong> ${escapeHtml(idea.pain)}</p>` : ""}
+      ${idea.angle ? `<p><strong>Угол:</strong> ${escapeHtml(idea.angle)}</p>` : ""}
+      ${idea.summary ? `<p>${escapeHtml(idea.summary)}</p>` : ""}
+    </article>
+  `;
+}
+
+function sourceLabel(source) {
+  if (source === "notebooklm") return "NotebookLM";
+  if (source === "reddit") return "Reddit";
+  return source || "Источник";
 }

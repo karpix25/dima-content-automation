@@ -12,7 +12,8 @@ def select_visible_idea(ideas: list[ContentIdea], *, after_id: int | None = None
 
 
 def format_idea_card(idea: ContentIdea, *, index: int | None = None, total: int | None = None) -> str:
-    prefix = f"Reddit-тема {index}/{total}" if index and total else f"Reddit-тема #{idea.id}"
+    source = "NotebookLM" if idea.source == "notebooklm" else "Reddit" if idea.source == "reddit" else idea.source
+    prefix = f"{source}-тема {index}/{total}" if index and total else f"{source}-тема #{idea.id}"
     meta = idea.source_meta
     stats = []
     if meta.get("comments") is not None:
@@ -34,6 +35,17 @@ def format_idea_card(idea: ContentIdea, *, index: int | None = None, total: int 
 
 
 def idea_to_topic_hint(idea: ContentIdea) -> str:
+    if idea.source == "notebooklm":
+        return "\n".join(
+            [
+                "Use this NotebookLM-derived topic seed.",
+                f"Topic title: {idea.title}",
+                f"Observed pain: {idea.pain}",
+                f"Content angle: {idea.angle}",
+                f"Source context: {idea.summary}",
+                "Develop the script through the author's NotebookLM knowledge base. Do not invent external claims.",
+            ]
+        )
     return "\n".join(
         [
             "Use this current Reddit market signal as the topic seed.",

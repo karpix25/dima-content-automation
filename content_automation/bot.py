@@ -12,6 +12,7 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Message, WebAppInfo
 
 from .config import load_settings
+from .content_language import normalize_content_language
 from .deepgram_transcription import DeepgramConfig
 from .editorial import EditorialBrief, apply_editorial_brief, script_editorial_summary
 from .editorial_planner import plan_editorial_briefs
@@ -27,8 +28,8 @@ from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
 from .notebooklm import as_script_list, extract_json
-from .notebooklm_mcp import NotebookLMMCPClient, notebook_ref_to_url
-from .notebooklm_py import NotebookLMPyClient
+from .notebooklm_mcp import notebook_ref_to_url
+from .notebooklm_runtime import build_notebooklm_client
 from .overlay_catalog import add_overlay_path, list_overlay_paths, select_overlay_path
 from .bot_menu_actions import (
     BotMenuDeps,
@@ -81,16 +82,7 @@ settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
 idea_bank = IdeaBank(settings.data_dir / "content_automation.sqlite3")
 asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
-if settings.notebooklm_backend == "py":
-    notebooklm = NotebookLMPyClient(
-        storage_path=settings.notebooklm_py_storage_path,
-        timeout_seconds=settings.notebooklm_mcp_timeout_seconds,
-    )
-else:
-    notebooklm = NotebookLMMCPClient(
-        command=settings.notebooklm_mcp_command,
-        timeout_seconds=settings.notebooklm_mcp_timeout_seconds,
-    )
+notebooklm = build_notebooklm_client(settings)
 elevenlabs = ElevenLabsMCPClient(
     api_key=settings.elevenlabs_api_key,
     command=settings.elevenlabs_mcp_command,
@@ -636,6 +628,7 @@ async def generate_scripts_for_user(
             exact_existing_records=all_existing_records,
             editorial_briefs=editorial_briefs,
             word_budget=word_budget,
+            content_language=user_settings.content_language,
         )
     else:
         items: list[dict[str, object]] = []
@@ -675,6 +668,7 @@ async def generate_scripts_for_user(
                 exact_existing_records=all_existing_records,
                 editorial_briefs=editorial_briefs,
                 word_budget=word_budget,
+                content_language=user_settings.content_language,
             )
             if not new_items:
                 break
@@ -707,8 +701,10 @@ async def ask_notebooklm_for_scripts(
     exact_existing_records: list[ScriptRecord] | None = None,
     editorial_briefs: list[EditorialBrief] | None = None,
     word_budget: WordBudget | None = None,
+    content_language: str = "auto",
 ) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
+    reject_cyrillic = normalize_content_language(content_language) == "en"
     for attempt in range(3):
         logger.info(
             "Generating %s %s script(s) with NotebookLM for user %s, attempt %s/3",
@@ -719,17 +715,25 @@ async def ask_notebooklm_for_scripts(
         )
         request_prompt = prompt
         if attempt:
+            correction = (
+                "CRITICAL CORRECTION: the previous response contained Russian/Cyrillic, repeated an old idea, "
+                "repeated another script in the same batch, or missed the required voiceover word count. "
+                "Regenerate with fresh English-only scripts. No Cyrillic characters anywhere in JSON values. "
+                "Do not reuse the excluded titles, hooks, metaphors, or problem frames."
+                if reject_cyrillic
+                else "CRITICAL CORRECTION: the previous response repeated an old idea, repeated another script in the same batch, or missed the required voiceover word count. Regenerate with fresh scripts in the requested output language. Do not reuse the excluded titles, hooks, metaphors, or problem frames."
+            )
             request_prompt = "\n\n".join(
                 [
                     prompt,
-                    "CRITICAL CORRECTION: the previous response contained Russian/Cyrillic, repeated an old idea, repeated another script in the same batch, or missed the required voiceover word count. Regenerate with fresh English-only scripts. No Cyrillic characters anywhere in JSON values. Do not reuse the excluded titles, hooks, metaphors, or problem frames.",
+                    correction,
                 ]
             )
         result = await asyncio.to_thread(notebooklm.ask, request_prompt, notebook_url=notebook_ref_to_url(notebook_ref))
         logger.info("NotebookLM returned %s characters for user %s", len(result.answer), user_id)
         payload = extract_json(result.answer)
         for item in as_script_list(payload):
-            if script_payload_has_cyrillic(item):
+            if reject_cyrillic and script_payload_has_cyrillic(item):
                 continue
             if word_budget and not script_payload_matches_word_budget(item, word_budget):
                 continue
