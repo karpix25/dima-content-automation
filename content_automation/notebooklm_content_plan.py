@@ -13,6 +13,8 @@ from .prompts import DEFAULT_OFFER_CONTEXT, _short_prompt_value
 
 logger = logging.getLogger(__name__)
 
+MAX_PRODUCER_PLAN_BATCH_SIZE = 10
+
 
 async def generate_notebooklm_content_plan(
     *,
@@ -26,6 +28,18 @@ async def generate_notebooklm_content_plan(
     existing_ideas: list[ContentIdea] | None = None,
     extension: bool = False,
 ) -> list[ContentIdea]:
+    if count > MAX_PRODUCER_PLAN_BATCH_SIZE:
+        return await generate_notebooklm_content_plan_batches(
+            user_id=user_id,
+            notebook_ref=notebook_ref,
+            notebooklm=notebooklm,
+            idea_bank=idea_bank,
+            count=count,
+            content_language=content_language,
+            offer_context=offer_context,
+            existing_ideas=existing_ideas,
+            extension=extension,
+        )
     prompt = build_producer_plan_prompt(
         count=count,
         content_language=content_language,
@@ -41,6 +55,52 @@ async def generate_notebooklm_content_plan(
     inserted = idea_bank.add_many(user_id, ideas[:count])
     logger.info("NotebookLM producer plan generated=%s inserted=%s user=%s", len(ideas), len(inserted), user_id)
     return inserted
+
+
+async def generate_notebooklm_content_plan_batches(
+    *,
+    user_id: str,
+    notebook_ref: str,
+    notebooklm: NotebookLMAskClient,
+    idea_bank: IdeaBank,
+    count: int,
+    content_language: str,
+    offer_context: str | None,
+    existing_ideas: list[ContentIdea] | None,
+    extension: bool,
+) -> list[ContentIdea]:
+    inserted: list[ContentIdea] = []
+    context = list(existing_ideas or [])
+    remaining = count
+    batch_index = 0
+    while remaining > 0:
+        batch_index += 1
+        batch_count = min(MAX_PRODUCER_PLAN_BATCH_SIZE, remaining)
+        logger.info(
+            "Generating NotebookLM producer plan batch %s: batch_count=%s remaining=%s user=%s",
+            batch_index,
+            batch_count,
+            remaining,
+            user_id,
+        )
+        batch = await generate_notebooklm_content_plan(
+            user_id=user_id,
+            notebook_ref=notebook_ref,
+            notebooklm=notebooklm,
+            idea_bank=idea_bank,
+            count=batch_count,
+            content_language=content_language,
+            offer_context=offer_context,
+            existing_ideas=context,
+            extension=extension or batch_index > 1,
+        )
+        if not batch:
+            logger.info("NotebookLM producer plan batch %s inserted no new ideas; stopping early", batch_index)
+            break
+        inserted.extend(batch)
+        context.extend(batch)
+        remaining = count - len(inserted)
+    return inserted[:count]
 
 
 def build_producer_plan_prompt(

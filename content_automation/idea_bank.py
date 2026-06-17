@@ -68,8 +68,9 @@ class IdeaBank:
         return inserted
 
     def add_if_new(self, user_id: str, idea: dict[str, Any]) -> ContentIdea | None:
+        source = str(idea.get("source") or "reddit")
         fingerprint = idea_fingerprint(idea)
-        if self._has_similar(user_id, fingerprint):
+        if source != "notebooklm_plan" and self._has_similar(user_id, fingerprint):
             return None
         with self._connect() as conn:
             cursor = conn.execute(
@@ -81,7 +82,7 @@ class IdeaBank:
                 """,
                 (
                     user_id,
-                    str(idea.get("source") or "reddit"),
+                    source,
                     str(idea.get("source_url") or ""),
                     str(idea.get("title") or ""),
                     str(idea.get("pain") or ""),
@@ -148,10 +149,13 @@ class IdeaBank:
 
 
 def idea_fingerprint(idea: dict[str, Any]) -> str:
+    source_meta = idea.get("source_meta") if isinstance(idea.get("source_meta"), dict) else {}
     return normalize_for_similarity(
         " ".join(
-            str(idea.get(field) or "")
-            for field in ("title", "pain", "angle", "summary")
+            [
+                *(str(idea.get(field) or "") for field in ("title", "pain", "angle", "summary")),
+                *(str(source_meta.get(field) or "") for field in ("pillar", "format", "visual_note", "source_basis")),
+            ]
         )
     )
 

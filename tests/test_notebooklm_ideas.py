@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -142,6 +143,85 @@ async def test_generate_notebooklm_content_plan_saves_to_idea_bank(tmp_path):
     assert len(inserted) == 1
     assert inserted[0].source == "notebooklm_plan"
     assert bank.list_new("42")[0].title == "ACOS Trap"
+
+
+@pytest.mark.asyncio
+async def test_generate_notebooklm_content_plan_splits_large_plan_into_batches(tmp_path):
+    class FakeNotebookLM:
+        def __init__(self):
+            self.questions = []
+            self.topic_words = [
+                ("Fees", "tier audit", "fee table"),
+                ("Inventory", "stockout forecast", "inventory calendar"),
+                ("PPC", "keyword pruning", "ads dashboard"),
+                ("Reviews", "trust repair", "review timeline"),
+                ("BuyBox", "offer health", "buy box panel"),
+                ("Logistics", "shipping delay", "freight map"),
+                ("Cashflow", "payout gap", "cash bridge"),
+                ("Listing", "image hierarchy", "listing mockup"),
+                ("Returns", "refund leak", "return report"),
+                ("Supplier", "moq negotiation", "factory quote"),
+                ("Compliance", "document check", "approval notice"),
+                ("Catalog", "variation cleanup", "catalog tree"),
+                ("Launch", "ranking sprint", "launch board"),
+                ("Forecast", "demand curve", "sales chart"),
+                ("Pricing", "elasticity test", "price matrix"),
+                ("Brand", "positioning gap", "brand shelf"),
+                ("Warehouse", "storage fee", "warehouse bins"),
+                ("Creative", "hook testing", "creative wall"),
+                ("Coupons", "discount trap", "coupon badge"),
+                ("Analytics", "metric blindspot", "analytics screen"),
+                ("Bundles", "kit margin", "bundle layout"),
+                ("Search", "query intent", "search results"),
+                ("Packaging", "box dimension", "packaging ruler"),
+                ("Team", "delegation map", "org chart"),
+                ("Exit", "valuation driver", "deal room"),
+                ("Defects", "quality control", "inspection sheet"),
+                ("Seasonality", "holiday demand", "season calendar"),
+                ("Keywords", "semantic cluster", "keyword map"),
+                ("Quality", "defect prevention", "qa checklist"),
+                ("Expansion", "market filter", "country scorecard"),
+            ]
+
+        def ask(self, question, *, notebook_url=None, notebook_id=None):
+            self.questions.append(question)
+            call = len(self.questions)
+            items = []
+            for index in range(1, 11):
+                day = ((call - 1) * 10) + index
+                word, angle, visual = self.topic_words[day - 1]
+                items.append(
+                    {
+                        "day": day,
+                        "pillar": "Operations",
+                        "format": "vertical_short",
+                        "title": f"{word} system",
+                        "pain": f"Problem around {angle}",
+                        "angle": f"Show {angle}",
+                        "summary": f"Teach {word.lower()} with a concrete operator example.",
+                        "visual_note": visual,
+                        "source_basis": f"{word} source note",
+                    }
+                )
+            return SimpleNamespace(answer=json.dumps({"plan": items}))
+
+    notebooklm = FakeNotebookLM()
+    bank = IdeaBank(tmp_path / "ideas.sqlite3")
+
+    inserted = await generate_notebooklm_content_plan(
+        user_id="42",
+        notebook_ref="notebook-1",
+        notebooklm=notebooklm,
+        idea_bank=bank,
+        count=25,
+        content_language="en",
+    )
+
+    assert len(inserted) == 25
+    assert len(notebooklm.questions) == 3
+    assert "Build a 10-episode monthly content plan" in notebooklm.questions[0]
+    assert "Fees system | Show tier audit" in notebooklm.questions[1]
+    assert "Analytics system | Show metric blindspot" in notebooklm.questions[2]
 
 
 def _idea_for_plan(*, title: str, angle: str, day: int):
