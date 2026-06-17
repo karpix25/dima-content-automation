@@ -16,34 +16,64 @@ INIT_DATA_HEADER = "x-telegram-init-data"
 
 
 def install_miniapp_auth(app: FastAPI, *, bot_token: str, required: bool, max_age_seconds: int = 86400) -> None:
-    @app.middleware("http")
-    async def miniapp_auth(request: Request, call_next):
+    app.add_middleware(
+        MiniAppAuthMiddleware,
+        bot_token=bot_token,
+        required=required,
+        max_age_seconds=max_age_seconds,
+    )
+
+
+class MiniAppAuthMiddleware:
+    def __init__(self, app, *, bot_token: str, required: bool, max_age_seconds: int = 86400) -> None:
+        self.app = app
+        self.bot_token = bot_token
+        self.required = required
+        self.max_age_seconds = max_age_seconds
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request = Request(scope, receive)
         if not _should_check(request):
-            return await call_next(request)
+            await self.app(scope, receive, send)
+            return
 
         init_data = request.headers.get(INIT_DATA_HEADER, "")
         if not init_data:
-            if required:
-                return JSONResponse({"detail": "Telegram Mini App auth is required"}, status_code=401)
-            return await call_next(request)
+            if self.required:
+                await JSONResponse({"detail": "Telegram Mini App auth is required"}, status_code=401)(scope, receive, send)
+                return
+            await self.app(scope, receive, send)
+            return
 
         try:
-            telegram_user_id = validate_init_data(init_data, bot_token=bot_token, max_age_seconds=max_age_seconds)
+            telegram_user_id = validate_init_data(
+                init_data,
+                bot_token=self.bot_token,
+                max_age_seconds=self.max_age_seconds,
+            )
         except ValueError as exc:
-            return JSONResponse({"detail": str(exc)}, status_code=401)
+            await JSONResponse({"detail": str(exc)}, status_code=401)(scope, receive, send)
+            return
 
         requested_user_id = _query_user_id(request)
         body: bytes | None = None
         if not requested_user_id and _may_contain_body_user_id(request):
-            body = await request.body()
+            body = await _read_body(receive)
             requested_user_id = _body_user_id(request, body)
         if requested_user_id and requested_user_id != telegram_user_id:
-            return JSONResponse({"detail": "Telegram user does not match request user_id"}, status_code=403)
+            await JSONResponse({"detail": "Telegram user does not match request user_id"}, status_code=403)(
+                scope,
+                _replay_body_receive(body) if body is not None else receive,
+                send,
+            )
+            return
 
-        if body is not None:
-            await _restore_body(request, body)
-        request.state.telegram_user_id = telegram_user_id
-        return await call_next(request)
+        scope.setdefault("state", {})["telegram_user_id"] = telegram_user_id
+        await self.app(scope, _replay_body_receive(body) if body is not None else receive, send)
 
 
 def validate_init_data(init_data: str, *, bot_token: str, max_age_seconds: int | None = 86400) -> str:
@@ -96,7 +126,19 @@ def _body_user_id(request: Request, body: bytes) -> str:
     return ""
 
 
-async def _restore_body(request: Request, body: bytes) -> None:
+async def _read_body(receive) -> bytes:
+    chunks: list[bytes] = []
+    while True:
+        message = await receive()
+        if message["type"] != "http.request":
+            break
+        chunks.append(message.get("body", b""))
+        if not message.get("more_body", False):
+            break
+    return b"".join(chunks)
+
+
+def _replay_body_receive(body: bytes | None):
     sent = False
 
     async def receive() -> dict:
@@ -104,9 +146,9 @@ async def _restore_body(request: Request, body: bytes) -> None:
         if sent:
             return {"type": "http.disconnect"}
         sent = True
-        return {"type": "http.request", "body": body, "more_body": False}
+        return {"type": "http.request", "body": body or b"", "more_body": False}
 
-    request._receive = receive  # noqa: SLF001 - Starlette requires this pattern after middleware body reads.
+    return receive
 
 
 def _int_or_none(value: str | None) -> int | None:

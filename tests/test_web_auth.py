@@ -7,6 +7,7 @@ import time
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Request
+from pydantic import BaseModel
 from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
@@ -14,6 +15,11 @@ from content_automation.web_auth import install_miniapp_auth, validate_init_data
 
 
 BOT_TOKEN = "123456:test-token"
+
+
+class JsonPayload(BaseModel):
+    user_id: str
+    value: str
 
 
 def signed_init_data(user_id: str = "42", *, auth_date: int | None = None) -> str:
@@ -78,6 +84,25 @@ def test_miniapp_auth_passes_matching_json_body():
 
     assert response.status_code == 200
     assert response.json()["value"] == "ok"
+
+
+def test_miniapp_auth_allows_pydantic_json_body_without_receive_replay_error():
+    app = FastAPI()
+    install_miniapp_auth(app, bot_token=BOT_TOKEN, required=True)
+
+    @app.post("/api/private")
+    def private(payload: JsonPayload):
+        return {"value": payload.value}
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/private",
+        json={"user_id": "42", "value": "ok"},
+        headers={"X-Telegram-Init-Data": signed_init_data("42")},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"value": "ok"}
 
 
 def test_miniapp_auth_does_not_replay_empty_get_body_to_streaming_response():
