@@ -14,6 +14,29 @@ def test_short_prompt_includes_vertical_word_budget():
     assert "60s vertical avatar" in prompt
 
 
+def test_short_prompt_can_follow_original_language():
+    prompt = build_short_scripts_prompt(
+        count=1,
+        author_style="Direct operator voice.",
+        content_language="auto",
+    )
+
+    assert "dominant language of the original source content" in prompt
+    assert "Do not translate the visuals into a different language" in prompt
+
+
+def test_short_prompt_can_force_russian():
+    prompt = build_short_scripts_prompt(
+        count=1,
+        author_style="Direct operator voice.",
+        content_language="ru",
+    )
+
+    assert "Russian short vertical-video" in prompt
+    assert "natural Russian" in prompt
+    assert "No Cyrillic" not in prompt
+
+
 def test_short_prompt_includes_editorial_briefs():
     prompt = build_short_scripts_prompt(
         count=2,
@@ -37,6 +60,17 @@ def test_youtube_prompt_includes_minutes_word_budget():
     assert "1656-1944 spoken words" in prompt
     assert "12 min horizontal YouTube" in prompt
     assert "Do not make it shorter" in prompt
+
+
+def test_youtube_prompt_can_force_russian():
+    prompt = build_youtube_script_prompt(
+        author_style="Direct operator voice.",
+        word_budget=youtube_word_budget(10),
+        content_language="ru",
+    )
+
+    assert "All viewer-facing text must be in natural Russian" in prompt
+    assert "full English script" not in prompt
 
 
 def test_youtube_prompt_includes_exclusion_context():

@@ -93,6 +93,21 @@ def test_generate_post_heygen_assets_prefers_kie_when_configured(tmp_path: Path)
     assert len(client.prompts) == 2
 
 
+def test_generate_post_heygen_assets_passes_language_to_kie_prompts(tmp_path: Path):
+    record = _record()
+    client = FakeKieClient()
+
+    generate_post_heygen_assets(
+        record=record,
+        output_dir=tmp_path,
+        broll_count=1,
+        kie_client=client,
+        content_language="ru",
+    )
+
+    assert all("natural Russian" in prompt for prompt in client.prompts)
+
+
 def test_generate_post_heygen_assets_sets_kie_aspect_ratio_from_target_size(tmp_path: Path):
     record = _record(format="youtube")
     client = FakeKieClient()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .content_language import resolve_content_language
 from .storage import ScriptRecord
 
 
@@ -43,11 +44,12 @@ def build_vertical_director_scenes(
     duration_seconds: float,
     max_scenes: int,
     transcript_words: list[dict],
+    content_language: str = "auto",
 ) -> DirectedScene | None:
     sentences = _sentences_from_words(transcript_words)
     if not sentences:
         return None
-    language = _detect_language(" ".join(sentence["text"] for sentence in sentences))
+    language = resolve_content_language(content_language, " ".join(sentence["text"] for sentence in sentences))
     selected = _select_beats(sentences, duration_seconds=duration_seconds, max_scenes=max_scenes)
     if not selected:
         return None
@@ -318,7 +320,7 @@ def _image_prompt(
     text_rule = (
         "Do not include Russian text. Use short English UI labels, SKU tags, values, arrows, and object annotations only when they clarify the evidence."
         if language == "en"
-        else "Use short source-language UI labels, SKU tags, values, arrows, and object annotations only when they clarify the evidence."
+        else "Use short Russian UI labels, SKU tags, values, arrows, and object annotations only when they clarify the evidence."
     )
     return (
         "Create a central square first-person Amazon interface teardown image for a vertical Amazon seller expert video. "

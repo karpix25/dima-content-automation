@@ -303,6 +303,7 @@ def _post_heygen_visuals(
     if not settings.post_heygen_visuals_enabled:
         logger.info("Post-HeyGen visuals disabled for script %s format=%s", record.id, record.format)
         return video_path
+    state = get_user_settings(storage, settings, user_id)
     montage_error: VideoOverlayError | None = None
     try:
         logger.info("Starting post-HeyGen montage for script %s format=%s", record.id, record.format)
@@ -324,6 +325,7 @@ def _post_heygen_visuals(
                     language=settings.deepgram_language,
                     timeout_seconds=settings.deepgram_timeout_seconds,
                 ),
+                content_language=state.content_language,
             ),
         )
         if montage_path:
@@ -345,6 +347,7 @@ def _post_heygen_visuals(
                     target=target_from_record_format(record.format),
                     seed=record.id,
                 ),
+                content_language=state.content_language,
             )
             return apply_cover_frame(
                 video_path=montage_path,
@@ -383,6 +386,7 @@ def _post_heygen_visuals(
             target=target_from_record_format(record.format),
             seed=record.id,
         ),
+        content_language=state.content_language,
     )
     result = apply_post_heygen_visuals(
         video_path=video_path,

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from .config import Settings
+from .content_language import CONTENT_LANGUAGE_AUTO, normalize_content_language
 from .kie_image import KieImageClient
 from .media_assets import MediaAssetStore
 from .post_heygen_video import apply_cover_frame
@@ -64,6 +65,7 @@ def generate_vizard_cover_assets(
     record = vizard_clip_to_record(user_id=user_id, clip=clip, index=index, format=format)
     asset_dir = output_dir / "covers" / f"clip_{index:02d}"
     target = "horizontal" if format == "youtube" else "vertical"
+    content_language = normalize_content_language(storage.get_setting(user_id, "content_language") or CONTENT_LANGUAGE_AUTO)
     return generate_post_heygen_assets(
         record=record,
         output_dir=asset_dir,
@@ -82,6 +84,7 @@ def generate_vizard_cover_assets(
             target=target,
             seed=record.id,
         ),
+        content_language=content_language,
     )
 
 

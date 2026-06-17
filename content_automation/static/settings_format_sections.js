@@ -161,6 +161,13 @@ function renderCommonTab({ state, escapeHtml }) {
         </div>
       `, escapeHtml)}
       ${settingsDisclosure("NotebookLM", [chip(settings.notebook_id ? "задан" : "пустой", !settings.notebook_id)], textAreaSetting("notebook_id", "NotebookLM ID", settings.notebook_id || "", 2, escapeHtml), escapeHtml)}
+      ${settingsDisclosure("Язык контента", [chip(contentLanguageLabel(settings.content_language || "auto"))], `
+        ${durationCard("content_language", "Язык для сценариев, обложек и Kie", settings.content_language || "auto", "", [
+          ["auto", "Auto: как в оригинале"],
+          ["en", "English"],
+          ["ru", "Русский"],
+        ], escapeHtml)}
+      `, escapeHtml)}
       ${settingsDisclosure("Стиль и оффер", [chip(settings.author_style ? "стиль" : "стиль пустой", !settings.author_style), chip(settings.offer_context ? "оффер" : "оффер пустой", !settings.offer_context)], `
         ${textAreaSetting("author_style", "Стиль автора", settings.author_style || "", 5, escapeHtml)}
         ${textAreaSetting("offer_context", "Контекст оффера", settings.offer_context || "", 5, escapeHtml)}
@@ -473,8 +480,15 @@ function fiveSecondSummaryChips(five, state) {
 function commonSummaryChips(state) {
   return [
     chip(state.settings.elevenlabs_voice_name || "голос не выбран", !state.settings.elevenlabs_voice_name),
+    chip(contentLanguageLabel(state.settings.content_language || "auto")),
     chip(state.settings.notebook_id ? "NotebookLM задан" : "NotebookLM пустой", !state.settings.notebook_id),
   ];
+}
+
+function contentLanguageLabel(value) {
+  if (value === "en") return "English";
+  if (value === "ru") return "Русский";
+  return "Auto язык";
 }
 
 function overlayState(state, format) {

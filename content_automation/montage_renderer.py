@@ -25,6 +25,7 @@ class MontageRendererConfig:
     max_scenes: int
     deepgram: DeepgramConfig | None = None
     kie_client: KieImageClient | None = None
+    content_language: str = "auto"
 
 
 def render_montage_if_configured(
@@ -60,6 +61,7 @@ def render_montage_if_configured(
                 max_scenes=config.max_scenes,
                 deepgram=config.deepgram,
                 kie_client=config.kie_client,
+                content_language=config.content_language,
             )
             if rendered:
                 logger.info("%s montage render completed for script %s: %s", name, record.id, rendered)
@@ -80,6 +82,7 @@ def _render(
     max_scenes: int,
     deepgram: DeepgramConfig | None,
     kie_client: KieImageClient | None,
+    content_language: str,
 ) -> Path | None:
     output_dir.mkdir(parents=True, exist_ok=True)
     duration = probe_duration_seconds(video_path)
@@ -89,6 +92,7 @@ def _render(
         duration_seconds=duration,
         max_scenes=max_scenes,
         transcript_words=transcript.words if transcript else None,
+        content_language=content_language,
     )
     scene_plan_path = output_dir / f"scene-plan_{record.id}.json"
     word_cues_path = output_dir / f"scene-word-cues_{record.id}.json"

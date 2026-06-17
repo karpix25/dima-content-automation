@@ -28,6 +28,24 @@ def test_vertical_director_uses_transcript_language_for_titles():
     assert all(scene["evidenceLabel"] for scene in plan.scenes)
 
 
+def test_vertical_director_can_force_russian_prompt_language():
+    plan = build_montage_plan(
+        _record(),
+        duration_seconds=12,
+        max_scenes=2,
+        content_language="ru",
+        transcript_words=_words(
+            "You are fighting your supplier over ten cents.",
+            "Amazon is charging a dollar extra per unit on FBA fees.",
+        ),
+    )
+
+    assert plan.scenes
+    assert all(scene["language"] == "ru" for scene in plan.scenes)
+    assert "short Russian UI labels" in plan.scenes[0]["imagePrompt"]
+    assert "Do not include Russian text" not in plan.scenes[0]["imagePrompt"]
+
+
 def test_vertical_director_image_prompt_is_visual_only_for_html_overlay():
     plan = build_montage_plan(
         _record(),

@@ -615,6 +615,7 @@ async def generate_scripts_for_user(
             exclusion_context=exclusion_context,
             editorial_briefs=editorial_briefs[:1],
             word_budget=word_budget,
+            content_language=user_settings.content_language,
         )
         items = await ask_notebooklm_for_scripts(
             user_id=user_id,
@@ -653,6 +654,7 @@ async def generate_scripts_for_user(
                 exclusion_context=exclusion_context,
                 editorial_briefs=editorial_briefs,
                 word_budget=word_budget,
+                content_language=user_settings.content_language,
             )
             new_items = await ask_notebooklm_for_scripts(
                 user_id=user_id,
@@ -671,7 +673,7 @@ async def generate_scripts_for_user(
             items.extend(new_items)
     items = items[:count]
     if not items:
-        raise ValueError("NotebookLM не вернул новые английские сценарии в JSON. Попробуй /refill еще раз.")
+        raise ValueError("NotebookLM не вернул новые сценарии в JSON. Попробуй /refill еще раз.")
 
     logger.info("Saving %s generated %s script(s) for user %s", len(items), format, user_id)
     records: list[ScriptRecord] = []
@@ -1140,6 +1142,7 @@ async def process_overlay_if_configured(user_id: str, record: ScriptRecord, vide
 async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_path: Path) -> Path:
     if not settings.post_heygen_visuals_enabled:
         return video_path
+    user_settings = get_user_settings(storage, settings, record.user_id)
     asset_dir = settings.video_output_directory / "visual_assets" / str(record.id)
     montage_dir = settings.video_output_directory / "montage" / str(record.id)
     try:
@@ -1148,7 +1151,16 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
             record=record,
             video_path=video_path,
             output_dir=montage_dir,
-            config=montage_renderer_config,
+            config=MontageRendererConfig(
+                hyperframes_project_dir=montage_renderer_config.hyperframes_project_dir,
+                remotion_project_dir=montage_renderer_config.remotion_project_dir,
+                renderer=montage_renderer_config.renderer,
+                timeout_seconds=montage_renderer_config.timeout_seconds,
+                max_scenes=montage_renderer_config.max_scenes,
+                deepgram=montage_renderer_config.deepgram,
+                kie_client=montage_renderer_config.kie_client,
+                content_language=user_settings.content_language,
+            ),
         )
         if montage_path:
             logger.info("Post-HeyGen montage rendered with external renderer: %s", montage_path)
@@ -1174,6 +1186,7 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
             target=target_from_record_format(record.format),
             seed=record.id,
         ),
+        content_language=user_settings.content_language,
     )
     output_path = settings.video_output_directory / f"visual_{record.id}.mp4"
     result = await asyncio.to_thread(
@@ -1195,6 +1208,7 @@ async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_pat
 
 
 async def apply_cover_frame_to_video(record: ScriptRecord, video_path: Path, asset_dir: Path) -> Path:
+    user_settings = get_user_settings(storage, settings, record.user_id)
     assets = await asyncio.to_thread(
         generate_post_heygen_assets,
         record=record,
@@ -1213,6 +1227,7 @@ async def apply_cover_frame_to_video(record: ScriptRecord, video_path: Path, ass
             target=target_from_record_format(record.format),
             seed=record.id,
         ),
+        content_language=user_settings.content_language,
     )
     output_path = settings.video_output_directory / f"{video_path.stem}_cover.mp4"
     return await asyncio.to_thread(

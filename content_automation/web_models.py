@@ -130,6 +130,7 @@ class UserSettingsOut(BaseModel):
     author_style: str
     offer_context: str
     cta_mix: str
+    content_language: str = "auto"
     heygen_avatar_id: str | None = None
     heygen_avatar_name: str | None = None
     heygen_avatar_preview_image_url: str | None = None

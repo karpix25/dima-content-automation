@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .content_language import normalize_content_language, prompt_language_name, viewer_text_language_instruction
 from .editorial import EditorialBrief, editorial_briefs_prompt
 from .script_length import WordBudget, length_instruction, vertical_word_budget, youtube_word_budget
 
@@ -37,6 +38,7 @@ def build_short_scripts_prompt(
     exclusion_context: str | None = None,
     editorial_briefs: list[EditorialBrief] | None = None,
     word_budget: WordBudget | None = None,
+    content_language: str = "en",
 ) -> str:
     style = _short_prompt_value(author_style or DEFAULT_AUTHOR_STYLE, 260)
     offer = _short_prompt_value(offer_context or DEFAULT_OFFER_CONTEXT, 420)
@@ -44,17 +46,21 @@ def build_short_scripts_prompt(
     hint = _short_prompt_value(topic_hint, 700)
     exclusions = _short_prompt_value(exclusion_context, 700)
     budget = word_budget or vertical_word_budget("original")
+    language = normalize_content_language(content_language)
+    language_name = prompt_language_name(language)
+    language_rule = viewer_text_language_instruction(language)
     editorial = editorial_briefs_prompt(editorial_briefs or [])
     hint_line = f"\nFocus: {hint}" if hint else ""
     exclusions_line = f"\nAvoid repeating: {exclusions}" if exclusions else ""
     editorial_line = f"\n{editorial}" if editorial else ""
     return f"""
 Return ONLY valid JSON. Use the NotebookLM sources.
-Write {count} English short vertical-video script(s) for the target audience defined by the offer and NotebookLM sources.
+Write {count} {language_name} short vertical-video script(s) for the target audience defined by the offer and NotebookLM sources.
 Voice: {style}
 Offer/context: {offer}
 CTA mix: {cta_distribution}
-Rules: no Cyrillic, no markdown, practical and specific. {length_instruction(budget)}{hint_line}{exclusions_line}
+Language rule: {language_rule}
+Rules: no markdown, practical and specific. {length_instruction(budget)}{hint_line}{exclusions_line}
 Social performance rules:
 - One sharp idea only: a pain, a mechanism, and a payoff.
 - The first sentence must create tension in 1-2 seconds: hidden mistake, contrarian warning, or specific money leak.
@@ -96,11 +102,14 @@ def build_youtube_script_prompt(
     exclusion_context: str | None = None,
     editorial_briefs: list[EditorialBrief] | None = None,
     word_budget: WordBudget | None = None,
+    content_language: str = "en",
 ) -> str:
     style = (author_style or DEFAULT_AUTHOR_STYLE).strip()
     offer = (offer_context or DEFAULT_OFFER_CONTEXT).strip()
     cta_distribution = (cta_mix or DEFAULT_CTA_MIX).strip()
     budget = word_budget or youtube_word_budget(10)
+    language = normalize_content_language(content_language)
+    language_rule = viewer_text_language_instruction(language)
     hint = f"\nAdditional user focus: {topic_hint.strip()}\n" if topic_hint else ""
     exclusions = _short_prompt_value(exclusion_context, 1200)
     exclusions_line = f"\nAvoid repeating these prior title/hook/fingerprint patterns:\n{exclusions}\n" if exclusions else ""
@@ -110,11 +119,9 @@ def build_youtube_script_prompt(
 You are a YouTube strategist and scriptwriter for a high-ticket education product in the niche defined by the offer and NotebookLM sources.
 
 OUTPUT LANGUAGE:
-- Write all content in English.
+- {language_rule}
 - Keep the language natural, spoken, and creator-like.
-- Do not use Russian, Cyrillic, or bilingual phrasing in any JSON value.
-- If the NotebookLM sources or author voice examples are in Russian, extract the meaning and rewrite it in natural spoken English.
-- The final viewer-facing hook, trigger, voiceover, CTA, title, and explanations must all be English.
+- The final viewer-facing hook, trigger, voiceover, CTA, title, and explanations must all follow that language rule.
 
 Product:
 - course / mentorship for Amazon sellers;
@@ -129,7 +136,7 @@ Audience:
 Author voice:
 {style}
 
-Important: preserve the author's cadence, directness, and conversational style, but do not preserve the language if the style notes are not in English. The output must still be English.
+Important: preserve the author's cadence, directness, and conversational style, but follow the output language rule above.
 
 Current offer context:
 {offer}
@@ -177,7 +184,7 @@ Schema:
     "retention_beats": ["hook", "open loop", "framework", "example", "payoff"],
     "hook": "first 15 seconds hook",
     "trigger": "main trigger",
-    "voiceover": "full English script with approximate timing and conversational delivery",
+    "voiceover": "full script with approximate timing and conversational delivery",
     "cta_type": "none | soft",
     "cta_reason": "why this CTA level fits this video",
     "cta": "organic CTA moments for the middle/end, or empty string for none",

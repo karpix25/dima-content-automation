@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .config import Settings, normalize_scrapecreators_timeframe
+from .content_language import CONTENT_LANGUAGE_AUTO, normalize_content_language
 from .overlay_catalog import add_overlay_path, clear_overlay_paths, list_overlay_paths, remove_overlay_path, select_overlay_path
 from .prompts import DEFAULT_AUTHOR_STYLE, DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT
 from .storage import Storage
@@ -15,6 +16,7 @@ TEXT_SETTING_KEYS = {
     "offer_context",
     "author_style",
     "cta_mix",
+    "content_language",
     "notebook_id",
     "youtube_description_template",
     "instagram_post_5s_cta_text",
@@ -64,6 +66,7 @@ class UserSettingsState:
     author_style: str
     offer_context: str
     cta_mix: str
+    content_language: str
     heygen_avatar_id: str | None
     heygen_avatar_name: str | None
     heygen_avatar_preview_image_url: str | None
@@ -98,6 +101,7 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         author_style=storage.get_setting(user_id, "author_style") or DEFAULT_AUTHOR_STYLE.strip(),
         offer_context=storage.get_setting(user_id, "offer_context") or DEFAULT_OFFER_CONTEXT.strip(),
         cta_mix=storage.get_setting(user_id, "cta_mix") or DEFAULT_CTA_MIX,
+        content_language=normalize_content_language(storage.get_setting(user_id, "content_language") or CONTENT_LANGUAGE_AUTO),
         heygen_avatar_id=storage.get_setting(user_id, "heygen_avatar_id"),
         heygen_avatar_name=storage.get_setting(user_id, "heygen_avatar_name"),
         heygen_avatar_preview_image_url=storage.get_setting(user_id, "heygen_avatar_preview_image_url"),
@@ -227,6 +231,8 @@ def normalize_text_setting(key: str, value: str) -> str:
         return str(max(3, min(30, parse_int(stripped, 10))))
     if key == "vertical_avatar_duration_mode":
         return normalize_duration_mode(stripped)
+    if key == "content_language":
+        return normalize_content_language(stripped)
     if key == "reddit_timeframe":
         return normalize_scrapecreators_timeframe(stripped)
     if key == "reddit_subreddits":

@@ -432,6 +432,7 @@ def _deliver_infographic_job(
             settings=settings,
             asset_store=asset_store,
             cta_text=state.instagram_post_5s_cta_text,
+            content_language=state.content_language,
             face_reference_paths=thumbnail_face_reference_paths(
                 storage=storage,
                 settings=settings,

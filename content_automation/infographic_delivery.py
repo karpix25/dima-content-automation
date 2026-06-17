@@ -43,6 +43,7 @@ def create_and_send_infographic_reels(
     face_reference_paths: list[Path] | None = None,
     design_reference_paths: list[Path] | None = None,
     cta_text: str | None = None,
+    content_language: str = "auto",
 ) -> InfographicDeliveryResult:
     output_dir = settings.video_output_directory / "infographic_reels"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -59,6 +60,7 @@ def create_and_send_infographic_reels(
         face_reference_paths=face_reference_paths or [],
         design_reference_paths=design_reference_paths or [],
         cta_text=cta_text,
+        content_language=content_language,
     )
     logger.info("Kie gold card generated: script_id=%s image=%s", record.id, image_path)
     audio_path = choose_audio_track(asset_store, user_id)
@@ -106,6 +108,7 @@ def generate_gold_card_with_kie(
     face_reference_paths: list[Path] | None = None,
     design_reference_paths: list[Path] | None = None,
     cta_text: str | None = None,
+    content_language: str = "auto",
 ) -> Path:
     if not kie_client.is_configured():
         raise RuntimeError("KIE_API_KEY не задан: формат 5 секунд должен генерировать карточку через Kie")
@@ -119,6 +122,7 @@ def generate_gold_card_with_kie(
             has_face_references=bool(face_paths or reference_paths),
             has_design_references=bool(design_paths),
             cta_text=cta_text,
+            content_language=content_language,
         ),
         output_path=path,
         reference_paths=all_references,
@@ -135,6 +139,7 @@ def gold_card_prompt(
     has_face_references: bool = False,
     has_design_references: bool = False,
     cta_text: str | None = None,
+    content_language: str = "auto",
 ) -> str:
     return build_turan_infographic_prompt(
         record=record,
@@ -143,6 +148,7 @@ def gold_card_prompt(
         has_references=has_references,
         has_face_references=has_face_references,
         has_design_references=has_design_references,
+        content_language=content_language,
     )
 
 

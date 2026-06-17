@@ -7,6 +7,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from .content_language import viewer_text_language_instruction
 from .kie_image import KieImageClient
 from .storage import ScriptRecord
 from .video_geometry import is_horizontal_format, video_size_for_format
@@ -39,6 +40,7 @@ def generate_post_heygen_assets(
     face_reference_paths: list[Path] | None = None,
     style_reference_paths: list[Path] | None = None,
     target_size: tuple[int, int] | None = None,
+    content_language: str = "auto",
 ) -> VisualAssetSet:
     output_dir.mkdir(parents=True, exist_ok=True)
     size = target_size or video_size_for_format(record.format)
@@ -56,6 +58,7 @@ def generate_post_heygen_assets(
             has_face_reference=bool(face_paths),
             has_style_references=bool(style_paths or legacy_paths),
             orientation=_orientation_label(size),
+            content_language=content_language,
         ),
         size=size,
         aspect_ratio=_aspect_ratio_label(size),
@@ -72,7 +75,7 @@ def generate_post_heygen_assets(
     broll_requests = [
         VisualAssetRequest(
             path=path,
-            prompt=_broll_prompt(record, text, has_references=has_references),
+            prompt=_broll_prompt(record, text, has_references=has_references, content_language=content_language),
             size=size,
             aspect_ratio=_aspect_ratio_label(size),
             title=text,
@@ -145,6 +148,7 @@ def _cover_prompt(
     has_face_reference: bool = False,
     has_style_references: bool = False,
     orientation: str = "vertical 9:16",
+    content_language: str = "auto",
 ) -> str:
     if not has_references:
         reference_rule = ""
@@ -171,6 +175,7 @@ def _cover_prompt(
     return (
         f"Create a premium {orientation} cover frame for a business video. "
         f"{reference_rule}"
+        f"{viewer_text_language_instruction(content_language)} "
         "Prioritize social-media thumbnail performance over cinematic poster style. "
         "Use a clear face + oversized readable headline/numbers composition when it fits the references. "
         "High contrast, sharp composition, simple visual story, instantly understandable at phone size. "
@@ -181,7 +186,7 @@ def _cover_prompt(
     )
 
 
-def _broll_prompt(record: ScriptRecord, text: str, *, has_references: bool = False) -> str:
+def _broll_prompt(record: ScriptRecord, text: str, *, has_references: bool = False, content_language: str = "auto") -> str:
     reference_rule = (
         "Use uploaded style references as a style board for color, contrast, hierarchy, spacing, and composition. "
         "Do not copy their old text, logos, numbers, faces, or identities. "
@@ -192,6 +197,7 @@ def _broll_prompt(record: ScriptRecord, text: str, *, has_references: bool = Fal
     return (
         f"Create a premium {orientation} cutaway image for a business explainer video. "
         f"{reference_rule}"
+        f"{viewer_text_language_instruction(content_language)} "
         "This is a visual interruption after an AI avatar segment: cinematic, realistic, clean, high contrast. "
         "No logos, no watermarks, no UI, no fake screenshots. "
         "If text is present, it must be large and readable, minimal, not crowded. "

@@ -22,6 +22,16 @@ def test_turan_infographic_prompt_uses_original_design_with_dima_text():
     assert "тендеры" not in prompt.lower()
 
 
+def test_turan_infographic_prompt_uses_configured_language():
+    prompt = build_turan_infographic_prompt(
+        record=_record(),
+        bullets=["Fix SQP bottlenecks"],
+        content_language="ru",
+    )
+
+    assert "All viewer-facing text must be in natural Russian" in prompt
+
+
 def _record() -> ScriptRecord:
     return ScriptRecord(
         id=1,

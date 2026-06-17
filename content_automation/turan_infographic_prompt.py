@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .content_language import viewer_text_language_instruction
 from .storage import ScriptRecord
 
 
@@ -11,12 +12,15 @@ def build_turan_infographic_prompt(
     has_references: bool = False,
     has_face_references: bool = False,
     has_design_references: bool = False,
+    content_language: str = "auto",
 ) -> str:
     copy = build_social_card_copy(record=record, bullets=bullets, cta_text=cta_text)
     reference_rule = reference_instruction(has_references, has_face_references, has_design_references)
+    language_rule = viewer_text_language_instruction(content_language)
     return (
         "Create a finished vertical Instagram/Reels business infographic card, 9:16. "
         f"{reference_rule}"
+        f"{language_rule} "
         "Use only the exact text below on the card. Do not invent new facts and do not rewrite it. "
         "Retention strategy: this is a 5-second video card designed to take 14-16 seconds to read, encouraging pause, rewatch, and longer average view duration. "
         "Social hook rules: the card must feel like a sharp expert social post, not a document. "

@@ -19,6 +19,7 @@ def build_montage_plan(
     duration_seconds: float,
     max_scenes: int = 8,
     transcript_words: list[dict] | None = None,
+    content_language: str = "auto",
 ) -> MontagePlan:
     timed_words = _transcript_word_cues(transcript_words)
     if record.format in {"short", "avatar_reels"} and timed_words:
@@ -27,6 +28,7 @@ def build_montage_plan(
             duration_seconds=duration_seconds,
             max_scenes=max_scenes,
             transcript_words=timed_words,
+            content_language=content_language,
         )
         if directed:
             return MontagePlan(scenes=directed.scenes, word_cues=directed.word_cues)
