@@ -1,4 +1,4 @@
-import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-plan-extend";
+import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-plan-buttons";
 
 const TIMEFRAME_OPTIONS = [
   ["day", "1 день"],
@@ -10,17 +10,18 @@ export function renderIdeasTab({ state, escapeHtml }) {
   const timeframe = state.settings.reddit_timeframe || "week";
   const subreddits = state.settings.reddit_subreddits || "";
   const ideas = state.ideas || [];
+  const notebookLabel = state.settings.notebook_id ? "база задана" : "проверю серверную базу";
   return `
     ${formatHeader("Идеи", "Собирай темы из NotebookLM и внешних источников, потом бери их в сценарии.", [chip(timeframeLabel(timeframe)), chip(subredditCount(subreddits)), chip(`${ideas.length} тем`)], escapeHtml)}
     <section class="settings-stack">
-      ${settingsDisclosure("NotebookLM темы", [chip(state.settings.notebook_id ? "база задана" : "база не задана", !state.settings.notebook_id), chip(contentLanguageLabel(state.settings.content_language || "auto"))], `
+      ${settingsDisclosure("NotebookLM темы", [chip(notebookLabel, !state.settings.notebook_id), chip(contentLanguageLabel(state.settings.content_language || "auto"))], `
         <div class="soft-box">
           <h3>Темы из базы знаний</h3>
-          <p class="muted">NotebookLM найдет темы внутри твоей базы. Язык тем берется из общей настройки языка контента.</p>
+          <p class="muted">NotebookLM найдет темы внутри твоей базы. Если личный NotebookLM ID пустой, попробую серверный ID из деплоя.</p>
           <div class="settings-actions">
-            <button data-action="generate-notebooklm-plan" ${state.settings.notebook_id ? "" : "disabled"}>План на месяц</button>
-            <button data-action="extend-notebooklm-plan" ${state.settings.notebook_id ? "" : "disabled"}>Добрать еще 30</button>
-            <button data-action="generate-notebooklm-ideas" ${state.settings.notebook_id ? "" : "disabled"}>Собрать из NotebookLM</button>
+            <button data-action="generate-notebooklm-plan">План на месяц</button>
+            <button data-action="extend-notebooklm-plan">Добрать еще 30</button>
+            <button data-action="generate-notebooklm-ideas">Собрать из NotebookLM</button>
           </div>
         </div>
       `, escapeHtml)}

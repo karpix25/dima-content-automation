@@ -1,7 +1,7 @@
-import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-plan-extend";
-import { bindVoiceEvents } from "/static/settings_voices.js?v=20260617-plan-extend";
-import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260617-plan-extend";
-import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260617-plan-extend";
+import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-plan-buttons";
+import { bindVoiceEvents } from "/static/settings_voices.js?v=20260617-plan-buttons";
+import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260617-plan-buttons";
+import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260617-plan-buttons";
 
 export async function loadSettingsData(deps, render = true) {
   const { state, api } = deps;
