@@ -1,7 +1,7 @@
 import { renderAvatarSelectors } from "/static/settings_avatars.js?v=20260617-plan-buttons";
 import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-plan-buttons";
 import { renderVizardTab } from "/static/settings_vizard.js?v=20260617-plan-buttons";
-import { renderVoiceSelector } from "/static/settings_voices.js?v=20260617-plan-buttons";
+import { renderVoiceSelector } from "/static/settings_voices.js?v=20260618-auto-voices";
 import { renderIdeasTab } from "/static/settings_ideas.js?v=20260618-auto-scripts";
 
 const FORMAT_TABS = [

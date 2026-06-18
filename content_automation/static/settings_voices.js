@@ -14,10 +14,10 @@ export function renderVoiceSelector(state, escapeHtml) {
             >${escapeHtml(voice.name)}</option>
           `).join("")}
         </select>
-        <button data-action="load-voices">Обновить</button>
+        <button data-action="load-voices">Обновить список</button>
       </div>
       <code>${escapeHtml(settings.elevenlabs_voice_id || "")}</code>
-      ${state.voices.length ? "" : `<p>Нажмите “Обновить”, чтобы загрузить список голосов.</p>`}
+      ${state.voices.length ? "" : `<p>Список голосов загрузится автоматически при открытии настроек.</p>`}
     </div>
   `;
 }

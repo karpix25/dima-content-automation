@@ -1,5 +1,5 @@
 import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-plan-buttons";
-import { bindVoiceEvents } from "/static/settings_voices.js?v=20260617-plan-buttons";
+import { bindVoiceEvents } from "/static/settings_voices.js?v=20260618-auto-voices";
 import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260618-auto-scripts";
 import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
 import { startAutoIdeaScripts } from "/static/idea_auto_scripts.js?v=20260618-auto-scripts";
@@ -18,16 +18,18 @@ export async function loadSettingsData(deps, render = true) {
     if (render) renderSettingsPanel(deps);
     return;
   }
-  const [refs, faces, inserts, fiveSecond] = await Promise.all([
+  const [refs, faces, inserts, fiveSecond, voices] = await Promise.all([
     optionalSettingsApi(deps, "thumbnail references", `/api/settings/thumbnail-references?user_id=${userQuery}`, []),
     optionalSettingsApi(deps, "thumbnail face references", `/api/settings/thumbnail-face-references?user_id=${userQuery}`, []),
     optionalSettingsApi(deps, "avatar inserts", `/api/settings/avatar-inserts?user_id=${userQuery}`, []),
     optionalSettingsApi(deps, "5-second settings", `/api/settings/instagram-post-5s?user_id=${userQuery}`, null),
+    optionalSettingsApi(deps, "ElevenLabs voices", "/api/settings/elevenlabs-voices", state.voices || []),
   ]);
   state.thumbnailReferences = refs;
   state.thumbnailFaces = faces;
   state.avatarInserts = inserts;
   state.fiveSecondSettings = fiveSecond;
+  state.voices = voices;
   state.settingsFormatTab = activeSettingsTab(state);
   if (render) renderSettingsPanel(deps);
 }
