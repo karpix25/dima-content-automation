@@ -2,6 +2,7 @@ import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=202
 import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-plan-buttons";
 import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-plan-buttons";
 import { withButtonPending } from "/static/action_feedback.js?v=20260617-plan-buttons";
+import { bindCreateIdeasPrompt, renderCreateIdeasPrompt } from "/static/create_ideas_prompt.js?v=20260618-create-ideas";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
@@ -158,7 +159,20 @@ function renderTabs() {
 function renderScripts() {
   const root = $("scripts");
   if (!state.scripts.length) {
-    root.innerHTML = emptyState("Нет одобренных сценариев", "Сначала одобрите сценарий в Telegram. После этого здесь появятся форматы для запуска.");
+    root.innerHTML = renderCreateIdeasPrompt({ ideas: state.ideas, escapeHtml });
+    bindCreateIdeasPrompt(root, {
+      state,
+      api,
+      setStatus,
+      showError,
+      refresh: loadAll,
+      openIdeas: () => {
+        state.tab = "settings";
+        state.settingsFormatTab = "ideas";
+        renderSettings();
+        renderTabs();
+      },
+    });
     return;
   }
   root.innerHTML = state.scripts.map((script) => `

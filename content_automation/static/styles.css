@@ -241,6 +241,58 @@ button:disabled {
   margin-top: 12px;
 }
 
+.create-ideas-prompt {
+  display: grid;
+  gap: 12px;
+}
+
+.create-ideas-prompt h3 {
+  margin: 4px 0 0;
+  font-size: 17px;
+}
+
+.create-ideas-prompt p {
+  line-height: 1.45;
+}
+
+.create-idea-list {
+  display: grid;
+  gap: 8px;
+}
+
+.create-idea-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.create-idea-row strong {
+  display: block;
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.create-idea-row p {
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.create-idea-row button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .card {
   border: 1px solid var(--line);
   border-radius: 12px;
