@@ -1,8 +1,8 @@
-import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260617-plan-buttons";
+import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260618-auto-scripts";
 import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-plan-buttons";
 import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-plan-buttons";
-import { withButtonPending } from "/static/action_feedback.js?v=20260617-plan-buttons";
-import { bindCreateIdeasPrompt, renderCreateIdeasPrompt } from "/static/create_ideas_prompt.js?v=20260618-create-ideas";
+import { withButtonPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
+import { bindCreateIdeasPrompt, renderCreateIdeasPrompt } from "/static/create_ideas_prompt.js?v=20260618-auto-scripts";
 import { bindScriptReviewDeck, renderScriptReviewDeck } from "/static/script_review_deck.js?v=20260618-review-deck";
 
 const tg = window.Telegram?.WebApp;
@@ -140,7 +140,7 @@ async function loadAll() {
 }
 
 function settingsDeps() {
-  return { state, api, setStatus, showError: showSettingsError, escapeHtml };
+  return { state, api, setStatus, showError: showSettingsError, escapeHtml, refresh: loadAll };
 }
 
 function renderSettings() {
@@ -168,13 +168,14 @@ function renderScripts() {
     return;
   }
   if (!state.scripts.length) {
-    root.innerHTML = renderCreateIdeasPrompt({ ideas: state.ideas, escapeHtml });
+    root.innerHTML = renderCreateIdeasPrompt({ ideas: state.ideas, escapeHtml, autoScriptMessage: state.autoScriptMessage });
     bindCreateIdeasPrompt(root, {
       state,
       api,
       setStatus,
       showError,
       refresh: loadAll,
+      autoScriptMessage: () => state.autoScriptMessage,
       openIdeas: () => {
         state.tab = "settings";
         state.settingsFormatTab = "ideas";

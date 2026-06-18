@@ -196,6 +196,65 @@ def test_idea_actions_reject_and_create_pending_script(tmp_path: Path):
     assert rejected.json()["status"] == "rejected"
 
 
+def test_auto_scripts_from_ideas_creates_pending_scripts(tmp_path: Path):
+    storage = Storage(tmp_path / "app.sqlite3")
+    idea_bank = IdeaBank(tmp_path / "app.sqlite3")
+    storage.set_setting("42", "notebook_id", "notebook-1")
+    for index in range(2):
+        idea_bank.add_if_new(
+            "42",
+            {
+                "source": "notebooklm_plan",
+                "source_url": f"notebooklm://notebook-1/topic-{index}",
+                "title": f"Topic {index}",
+                "pain": "Conversion is weak",
+                "angle": "Audit trust signals",
+                "summary": "Notebook source",
+            },
+        )
+
+    class FakeNotebookLM:
+        def __init__(self):
+            self.calls = 0
+
+        def ask(self, question, *, notebook_url=None, notebook_id=None):
+            self.calls += 1
+            if self.calls == 1:
+                title = "Inventory Stockout Risk"
+                hook = "Your launch dies when inventory runs out too early."
+                voiceover = " ".join(["Amazon operators lose ranking when stockouts interrupt launch momentum and reset organic traction."] * 7)
+            else:
+                title = "Packaging Fee Leak"
+                hook = "Your box size quietly turns margin into extra FBA fees."
+                voiceover = " ".join(["Amazon sellers protect profit by measuring packaging tiers before ordering a large production run."] * 7)
+            return SimpleNamespace(
+                answer=(
+                    f'[{{"title":"{title}","angle":"Trust signals","hook":"{hook}",'
+                    '"trigger":"Weak trust signals","voiceover":"'
+                    + voiceover
+                    + '","cta":"","why_it_works":"Specific seller pain.","source_basis":"Notebook source"}]'
+                )
+            )
+
+    app = FastAPI()
+    app.include_router(
+        build_ideas_router(
+            storage=storage,
+            idea_bank=idea_bank,
+            settings=_settings(tmp_path),
+            notebooklm=FakeNotebookLM(),
+        )
+    )
+    client = TestClient(app)
+
+    response = client.post("/api/ideas/scripts/auto", json={"user_id": "42", "count": 30})
+
+    assert response.status_code == 200
+    assert response.json()["accepted"] == 2
+    assert len(storage.list_scripts("42", status="pending")) == 2
+    assert idea_bank.list_new("42") == []
+
+
 def _settings(tmp_path: Path) -> Settings:
     return Settings(
         telegram_bot_token="token",

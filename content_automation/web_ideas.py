@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from .config import Settings
 from .idea_bank import ContentIdea, IdeaBank
@@ -12,8 +13,10 @@ from .notebooklm_idea_scripts import create_script_from_idea
 from .notebooklm_runtime import NotebookLMAskClient
 from .settings_service import get_user_settings
 from .storage import Storage
-from .web_models import ContentIdeaOut, GenerateIdeasIn, GenerateIdeasOut, ScriptOut
+from .web_models import AutoIdeaScriptsOut, ContentIdeaOut, GenerateIdeasIn, GenerateIdeasOut, ScriptOut
 from .web_serializers import script_to_out
+
+logger = logging.getLogger(__name__)
 
 
 def build_ideas_router(
@@ -114,8 +117,81 @@ def build_ideas_router(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return script_to_out(record)
 
+    @router.post("/api/ideas/scripts/auto", response_model=AutoIdeaScriptsOut)
+    def auto_scripts_from_ideas(payload: GenerateIdeasIn, background_tasks: BackgroundTasks) -> AutoIdeaScriptsOut:
+        state = get_user_settings(storage, settings, payload.user_id)
+        notebook_ref = state.notebook_id or settings.default_notebook_id
+        if not notebook_ref:
+            raise HTTPException(status_code=400, detail="Сначала задай NotebookLM ID в настройках.")
+        reserved = reserve_new_ideas(idea_bank, payload.user_id, limit=payload.count)
+        if reserved:
+            background_tasks.add_task(
+                create_scripts_for_reserved_ideas,
+                storage=storage,
+                idea_bank=idea_bank,
+                user_id=payload.user_id,
+                idea_ids=[idea.id for idea in reserved],
+                notebook_ref=notebook_ref,
+                notebooklm=notebooklm,
+                author_style=state.author_style,
+                offer_context=state.offer_context,
+                cta_mix=state.cta_mix,
+                content_language=state.content_language,
+                vertical_duration_mode=state.vertical_avatar_duration_mode,
+            )
+        return AutoIdeaScriptsOut(
+            accepted=len(reserved),
+            message=f"Запустил написание сценариев: {len(reserved)}",
+        )
+
     return router
 
 
 def idea_to_out(idea: ContentIdea) -> ContentIdeaOut:
     return ContentIdeaOut.model_validate(asdict(idea))
+
+
+def reserve_new_ideas(idea_bank: IdeaBank, user_id: str, *, limit: int) -> list[ContentIdea]:
+    reserved: list[ContentIdea] = []
+    for idea in idea_bank.list_new(user_id, limit=limit):
+        updated = idea_bank.update_status(user_id, idea.id, "selected")
+        if updated:
+            reserved.append(updated)
+    return reserved
+
+
+async def create_scripts_for_reserved_ideas(
+    *,
+    storage: Storage,
+    idea_bank: IdeaBank,
+    user_id: str,
+    idea_ids: list[int],
+    notebook_ref: str,
+    notebooklm: NotebookLMAskClient,
+    author_style: str,
+    offer_context: str,
+    cta_mix: str,
+    content_language: str,
+    vertical_duration_mode: str,
+) -> None:
+    for idea_id in idea_ids:
+        idea = idea_bank.get(user_id, idea_id)
+        if not idea or idea.status != "selected":
+            continue
+        try:
+            await create_script_from_idea(
+                storage=storage,
+                user_id=user_id,
+                idea=idea,
+                notebook_ref=notebook_ref,
+                notebooklm=notebooklm,
+                author_style=author_style,
+                offer_context=offer_context,
+                cta_mix=cta_mix,
+                content_language=content_language,
+                vertical_duration_mode=vertical_duration_mode,
+            )
+            idea_bank.update_status(user_id, idea_id, "used_for_script")
+        except Exception:
+            logger.exception("Failed to auto-create script from idea: user=%s idea_id=%s", user_id, idea_id)
+            idea_bank.update_status(user_id, idea_id, "new")

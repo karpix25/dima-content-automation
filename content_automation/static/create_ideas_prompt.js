@@ -1,6 +1,7 @@
-import { withButtonPending } from "/static/action_feedback.js?v=20260617-plan-buttons";
+import { withButtonPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
+import { startAutoIdeaScripts } from "/static/idea_auto_scripts.js?v=20260618-auto-scripts";
 
-export function renderCreateIdeasPrompt({ ideas, escapeHtml }) {
+export function renderCreateIdeasPrompt({ ideas, escapeHtml, autoScriptMessage = "" }) {
   if (!ideas?.length) {
     return emptyState("Нет одобренных сценариев", "Сначала одобрите сценарий в Telegram. После этого здесь появятся форматы для запуска.");
   }
@@ -11,10 +12,11 @@ export function renderCreateIdeasPrompt({ ideas, escapeHtml }) {
         <span>${escapeHtml(ideas.length)} новых</span>
       </div>
       <h3>Темы подтянулись</h3>
-      <p>Теперь выберите тему и напишите по ней сценарий. После одобрения сценария здесь появятся форматы для запуска.</p>
+      <p>${escapeHtml(autoScriptMessage || "Можно сразу написать сценарии по всем темам, а потом принимать их карточками.")}</p>
       <div class="create-idea-list">
         ${ideas.slice(0, 5).map((idea) => createIdeaRow(idea, escapeHtml)).join("")}
       </div>
+      <button type="button" data-auto-script-ideas>Написать все темы</button>
       <button class="secondary-button" type="button" data-open-ideas>Открыть весь банк тем</button>
     </article>
   `;
@@ -32,6 +34,14 @@ export function bindCreateIdeasPrompt(root, deps) {
   });
   root.querySelector("[data-open-ideas]")?.addEventListener("click", () => {
     deps.openIdeas();
+  });
+  root.querySelector("[data-auto-script-ideas]")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    withButtonPending(
+      event.currentTarget,
+      () => startAutoIdeaScripts(deps, { count: 30 }),
+      { pendingLabel: "Запускаю...", doneLabel: "Пишу сценарии" },
+    ).catch(deps.showError);
   });
 }
 

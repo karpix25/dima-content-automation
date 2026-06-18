@@ -1,4 +1,4 @@
-import { withButtonPending } from "/static/action_feedback.js?v=20260617-plan-buttons";
+import { withButtonPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
 
 export function renderScriptReviewDeck({ pendingScripts, escapeHtml }) {
   if (!pendingScripts?.length) return "";

@@ -53,6 +53,7 @@ export function pendingLabelForAction(action) {
   if (action === "generate-notebooklm-plan") return "Собираю план...";
   if (action === "extend-notebooklm-plan") return "Добираю темы...";
   if (action === "generate-notebooklm-ideas") return "Собираю темы...";
+  if (action === "auto-script-ideas") return "Пишу сценарии...";
   if (action === "idea-script") return "Пишу сценарий...";
   if (action === "idea-reject") return "Отклоняю...";
   return "Ждите...";

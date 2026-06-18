@@ -130,6 +130,11 @@ class GenerateIdeasOut(BaseModel):
     ideas: list[ContentIdeaOut]
 
 
+class AutoIdeaScriptsOut(BaseModel):
+    accepted: int
+    message: str
+
+
 class FaceActivateIn(BaseModel):
     user_id: str
     target: str = "both"

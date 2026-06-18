@@ -22,6 +22,7 @@ export function renderIdeasTab({ state, escapeHtml }) {
             <button data-action="generate-notebooklm-plan">План на месяц</button>
             <button data-action="extend-notebooklm-plan">Добрать еще 30</button>
             <button data-action="generate-notebooklm-ideas">Собрать из NotebookLM</button>
+            <button data-action="auto-script-ideas">Написать все темы</button>
           </div>
         </div>
       `, escapeHtml)}
