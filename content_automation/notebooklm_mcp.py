@@ -72,6 +72,7 @@ class NotebookLMMCPClient:
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         started = time.monotonic()
+        env = _mcp_env(self.timeout_seconds)
         proc = subprocess.Popen(
             shlex.split(self.command),
             stdin=subprocess.PIPE,
@@ -80,6 +81,7 @@ class NotebookLMMCPClient:
             text=True,
             bufsize=1,
             start_new_session=True,
+            env=env,
         )
         try:
             logger.info("Started NotebookLM MCP command: %s", self.command)
@@ -163,6 +165,17 @@ def _read_available_stderr(proc: subprocess.Popen[str]) -> str:
             break
         chunks.append(line)
     return "".join(chunks)
+
+
+def _mcp_env(timeout_seconds: int) -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("ANSWER_TIMEOUT_MS", str(max(30_000, timeout_seconds * 1000)))
+    env.setdefault("BROWSER_TIMEOUT", "60000")
+    env.setdefault("BROWSER_CHANNEL", "chromium")
+    env.setdefault("STEALTH_HUMAN_TYPING", "false")
+    env.setdefault("STEALTH_RANDOM_DELAYS", "false")
+    env.setdefault("STEALTH_MOUSE_MOVEMENTS", "false")
+    return env
 
 
 def _terminate_process_tree(proc: subprocess.Popen[str]) -> None:
