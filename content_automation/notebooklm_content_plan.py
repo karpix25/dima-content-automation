@@ -13,7 +13,7 @@ from .prompts import DEFAULT_OFFER_CONTEXT, _short_prompt_value
 
 logger = logging.getLogger(__name__)
 
-MAX_PRODUCER_PLAN_BATCH_SIZE = 10
+MAX_PRODUCER_PLAN_BATCH_SIZE = 1
 
 
 async def generate_notebooklm_content_plan(

@@ -186,23 +186,20 @@ async def test_generate_notebooklm_content_plan_splits_large_plan_into_batches(t
         def ask(self, question, *, notebook_url=None, notebook_id=None):
             self.questions.append(question)
             call = len(self.questions)
-            items = []
-            for index in range(1, 11):
-                day = ((call - 1) * 10) + index
-                word, angle, visual = self.topic_words[day - 1]
-                items.append(
-                    {
-                        "day": day,
-                        "pillar": "Operations",
-                        "format": "vertical_short",
-                        "title": f"{word} system",
-                        "pain": f"Problem around {angle}",
-                        "angle": f"Show {angle}",
-                        "summary": f"Teach {word.lower()} with a concrete operator example.",
-                        "visual_note": visual,
-                        "source_basis": f"{word} source note",
-                    }
-                )
+            word, angle, visual = self.topic_words[call - 1]
+            items = [
+                {
+                    "day": call,
+                    "pillar": "Operations",
+                    "format": "vertical_short",
+                    "title": f"{word} system",
+                    "pain": f"Problem around {angle}",
+                    "angle": f"Show {angle}",
+                    "summary": f"Teach {word.lower()} with a concrete operator example.",
+                    "visual_note": visual,
+                    "source_basis": f"{word} source note",
+                }
+            ]
             return SimpleNamespace(answer=json.dumps({"plan": items}))
 
     notebooklm = FakeNotebookLM()
@@ -218,10 +215,10 @@ async def test_generate_notebooklm_content_plan_splits_large_plan_into_batches(t
     )
 
     assert len(inserted) == 25
-    assert len(notebooklm.questions) == 3
-    assert "Build a 10-episode monthly content plan" in notebooklm.questions[0]
+    assert len(notebooklm.questions) == 25
+    assert "Build a 1-episode monthly content plan" in notebooklm.questions[0]
     assert "Fees system | Show tier audit" in notebooklm.questions[1]
-    assert "Analytics system | Show metric blindspot" in notebooklm.questions[2]
+    assert "Analytics system | Show metric blindspot" in notebooklm.questions[20]
 
 
 def _idea_for_plan(*, title: str, angle: str, day: int):
