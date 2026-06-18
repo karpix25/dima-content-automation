@@ -135,6 +135,11 @@ def index() -> FileResponse:
     return FileResponse(static_dir / "index.html")
 
 
+@app.head("/")
+def index_head() -> dict[str, str]:
+    return {}
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}

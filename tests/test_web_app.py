@@ -44,6 +44,14 @@ def test_formats_endpoint_lists_catalog():
     assert {item["key"] for item in response.json()} >= {"avatar_reels", "infographic_reels"}
 
 
+def test_index_allows_head_probe():
+    client = TestClient(web_app.app)
+
+    response = client.head("/")
+
+    assert response.status_code == 200
+
+
 def test_approved_scripts_include_editorial_metadata(tmp_path, monkeypatch):
     storage = make_storage(tmp_path)
     record = storage.add_script(
