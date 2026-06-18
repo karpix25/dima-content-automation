@@ -29,7 +29,12 @@ RUN apt-get update \
         python3 \
         python3-pip \
         python3-venv \
-        $(if [ "$INSTALL_AUTH_TOOLS" = "true" ]; then echo "fluxbox novnc websockify x11vnc xvfb x11-utils"; fi) \
+        fluxbox \
+        novnc \
+        websockify \
+        x11-utils \
+        x11vnc \
+        xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 RUN printf '%s\n' \
