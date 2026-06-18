@@ -114,7 +114,7 @@ def build_producer_plan_prompt(
     language = normalize_content_language(content_language)
     language_name = prompt_language_name(language)
     language_rule = viewer_text_language_instruction(language)
-    offer = _short_prompt_value(offer_context or DEFAULT_OFFER_CONTEXT, 720)
+    offer = _short_prompt_value(offer_context or DEFAULT_OFFER_CONTEXT, 360)
     mode_instruction = (
         "Extend the current monthly plan with additional episodes. Do not restart the plan."
         if extension
@@ -122,51 +122,32 @@ def build_producer_plan_prompt(
     )
     existing_section = format_existing_plan_context(existing_ideas or [])
     return f"""
-Return ONLY valid JSON. Use the NotebookLM sources as your source of truth.
-Act as a senior social media producer for an expert creator.
-Build a {count}-episode monthly content plan in {language_name}.
-Mode: {mode_instruction}
+Return ONLY valid JSON, no markdown.
+Act as a senior social media producer. Use NotebookLM sources as truth.
+Create {count} fresh content episode(s) in {language_name}. {mode_instruction}
 
-Producer objective:
-- Turn the knowledge base into a coherent month of content, not random ideas.
-- Sequence episodes so the audience moves from painful awareness to practical trust.
-- Mix hidden mistakes, money leaks, contrarian takes, diagnostics, frameworks, and proof-driven stories.
-- Make every episode specific enough to become a short vertical video, infographic, or YouTube segment.
-- Avoid generic beginner topics and vague motivational advice.
-- Avoid repeating the existing plan. Expand with fresh mechanisms, new proof angles, new objections, and adjacent subtopics.
-
-Output language:
-- {language_rule}
-- Viewer-facing titles, pains, angles, summaries, and visual notes must follow that language rule.
-
-Offer/context:
-{offer}
-
-Existing saved topics to avoid or expand beyond:
+Language rule: {language_rule}
+Offer: {offer}
+Avoid repeating these saved topics:
 {existing_section}
 
-For each episode, choose the strongest source-backed insight and return:
-[
-  {{
-    "day": 1,
-    "pillar": "Margin / Operations / PPC / Listing / Scaling / Mindset / Case Study",
-    "format": "vertical_short | infographic | youtube_segment",
-    "title": "short thesis headline, 3-8 words when possible",
-    "pain": "specific audience pain or costly blind spot",
-    "angle": "the exact producer angle for the episode",
-    "summary": "what the viewer will learn and why it matters now",
-    "visual_note": "what the montage or generated visual should show",
-    "source_basis": "which NotebookLM material, note, transcript, or concept supports this"
-  }}
-]
+Return an array of objects with exactly these keys:
+day, pillar, format, title, pain, angle, summary, visual_note, source_basis.
+
+Rules:
+- title: 3-8 words, thesis-style
+- format: vertical_short, infographic, or youtube_segment
+- angle and visual_note must be specific enough for a video editor
+- choose a source-backed hidden mistake, money leak, diagnostic, framework, or proof story
 """.strip()
 
 
-def format_existing_plan_context(ideas: list[ContentIdea], *, limit: int = 60) -> str:
+def format_existing_plan_context(ideas: list[ContentIdea], *, limit: int = 12) -> str:
     if not ideas:
         return "- No saved topics yet."
     lines = []
-    for index, idea in enumerate(ideas[:limit], start=1):
+    recent_ideas = ideas[-limit:]
+    for index, idea in enumerate(recent_ideas, start=1):
         meta = idea.source_meta or {}
         pillar = _text(meta.get("pillar"))
         day = _text(meta.get("day"))
