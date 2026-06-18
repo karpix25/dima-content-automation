@@ -221,6 +221,52 @@ async def test_generate_notebooklm_content_plan_splits_large_plan_into_batches(t
     assert "Analytics system | Show metric blindspot" in notebooklm.questions[20]
 
 
+@pytest.mark.asyncio
+async def test_generate_notebooklm_content_plan_retries_after_duplicate_batch(tmp_path):
+    class FakeNotebookLM:
+        def __init__(self):
+            self.questions = []
+            self.items = [
+                ("Fees", "tier audit", "fee table"),
+                ("Fees", "tier audit", "fee table"),
+                ("Inventory", "stockout forecast", "inventory calendar"),
+                ("PPC", "keyword pruning", "ads dashboard"),
+            ]
+
+        def ask(self, question, *, notebook_url=None, notebook_id=None):
+            self.questions.append(question)
+            call = len(self.questions)
+            word, angle, visual = self.items[call - 1]
+            item = {
+                "day": 1 if call == 2 else call,
+                "pillar": "Operations",
+                "format": "vertical_short",
+                "title": f"{word} system",
+                "pain": f"Problem around {angle}",
+                "angle": f"Show {angle}",
+                "summary": f"Teach {word.lower()} with a concrete operator example.",
+                "visual_note": visual,
+                "source_basis": f"{word} source note",
+            }
+            return SimpleNamespace(answer=json.dumps({"plan": [item]}))
+
+    notebooklm = FakeNotebookLM()
+    bank = IdeaBank(tmp_path / "ideas.sqlite3")
+
+    inserted = await generate_notebooklm_content_plan(
+        user_id="42",
+        notebook_ref="notebook-1",
+        notebooklm=notebooklm,
+        idea_bank=bank,
+        count=3,
+        content_language="en",
+    )
+
+    assert len(inserted) == 3
+    assert len(notebooklm.questions) == 4
+    assert [idea.title for idea in inserted] == ["Fees system", "Inventory system", "PPC system"]
+
+
 def _idea_for_plan(*, title: str, angle: str, day: int):
     from content_automation.idea_bank import ContentIdea
 

@@ -14,6 +14,8 @@ from .prompts import DEFAULT_OFFER_CONTEXT, _short_prompt_value
 logger = logging.getLogger(__name__)
 
 MAX_PRODUCER_PLAN_BATCH_SIZE = 1
+MAX_PRODUCER_PLAN_ATTEMPT_MULTIPLIER = 3
+MAX_EMPTY_PRODUCER_PLAN_ATTEMPTS = 5
 
 
 async def generate_notebooklm_content_plan(
@@ -73,12 +75,15 @@ async def generate_notebooklm_content_plan_batches(
     context = list(existing_ideas or [])
     remaining = count
     batch_index = 0
-    while remaining > 0:
+    empty_attempts = 0
+    max_attempts = max(count * MAX_PRODUCER_PLAN_ATTEMPT_MULTIPLIER, count + MAX_EMPTY_PRODUCER_PLAN_ATTEMPTS)
+    while remaining > 0 and batch_index < max_attempts:
         batch_index += 1
         batch_count = min(MAX_PRODUCER_PLAN_BATCH_SIZE, remaining)
         logger.info(
-            "Generating NotebookLM producer plan batch %s: batch_count=%s remaining=%s user=%s",
+            "Generating NotebookLM producer plan batch %s/%s: batch_count=%s remaining=%s user=%s",
             batch_index,
+            max_attempts,
             batch_count,
             remaining,
             user_id,
@@ -95,8 +100,24 @@ async def generate_notebooklm_content_plan_batches(
             extension=extension or batch_index > 1,
         )
         if not batch:
-            logger.info("NotebookLM producer plan batch %s inserted no new ideas; stopping early", batch_index)
-            break
+            empty_attempts += 1
+            logger.info(
+                "NotebookLM producer plan batch %s inserted no new ideas; retrying (%s/%s empty attempts)",
+                batch_index,
+                empty_attempts,
+                MAX_EMPTY_PRODUCER_PLAN_ATTEMPTS,
+            )
+            if empty_attempts >= MAX_EMPTY_PRODUCER_PLAN_ATTEMPTS:
+                logger.info(
+                    "NotebookLM producer plan stopped after %s empty attempts; inserted=%s requested=%s user=%s",
+                    empty_attempts,
+                    len(inserted),
+                    count,
+                    user_id,
+                )
+                break
+            continue
+        empty_attempts = 0
         inserted.extend(batch)
         context.extend(batch)
         remaining = count - len(inserted)
