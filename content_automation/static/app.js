@@ -31,6 +31,7 @@ const state = {
   activeJob: null,
   creating: null,
   pollTimer: null,
+  pollFailures: 0,
 };
 
 const tabTitles = {
@@ -456,18 +457,36 @@ function upsertJob(job) {
   state.jobs = [job, ...state.jobs.filter((item) => item.id !== job.id)];
 }
 
+function liveJob() {
+  return state.jobs.find((job) => isLiveStatus(job.status));
+}
+
+function statusForJob(job) {
+  if (!job) return "Ready";
+  if (isErrorStatus(job.status)) return "Error";
+  return isLiveStatus(job.status) ? "Working" : "Ready";
+}
+
 function pollJob(jobId) {
   stopPolling();
+  state.pollFailures = 0;
   state.pollTimer = window.setInterval(async () => {
     try {
       const userQuery = encodeURIComponent(state.userId);
       const job = await api(`/api/format-jobs/${jobId}?user_id=${userQuery}`);
+      state.pollFailures = 0;
       upsertJob(job);
       renderJobs();
       if (state.tab === "result") renderResultJob(job);
-      setStatus(isErrorStatus(job.status) ? "Error" : isLiveStatus(job.status) ? "Working" : "Ready");
+      setStatus(statusForJob(job));
       if (!isLiveStatus(job.status)) stopPolling();
     } catch (error) {
+      state.pollFailures += 1;
+      console.warn("Job polling failed", error);
+      if (state.pollFailures < 3) {
+        setStatus(liveJob() ? "Working" : "Loading");
+        return;
+      }
       stopPolling();
       showError(error);
     }
@@ -575,7 +594,7 @@ function showSettingsError(error) {
   state.creating = null;
   const message = error.message || String(error);
   state.settingsLoadWarnings = [message];
-  setStatus("Error");
+  setStatus(liveJob() ? "Working" : "Error");
   renderSettingsPanel(settingsDeps());
 }
 
