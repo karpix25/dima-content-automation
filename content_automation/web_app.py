@@ -72,6 +72,7 @@ from .web_models import (
 from .web_notebooklm import build_notebooklm_router
 from .web_auth import install_miniapp_auth
 from .web_serializers import format_to_out, job_to_out, script_to_out
+from .web_script_review import build_script_review_router
 
 settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
@@ -125,6 +126,7 @@ install_miniapp_auth(app, bot_token=settings.telegram_bot_token, required=settin
 app.include_router(build_job_actions_router(storage=storage, asset_store=asset_store, settings=settings))
 app.include_router(build_ideas_router(storage=storage, idea_bank=idea_bank, settings=settings, notebooklm=notebooklm))
 app.include_router(build_notebooklm_router(notebooklm_keepalive))
+app.include_router(build_script_review_router(storage=storage))
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 

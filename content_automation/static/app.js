@@ -3,6 +3,7 @@ import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260
 import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-plan-buttons";
 import { withButtonPending } from "/static/action_feedback.js?v=20260617-plan-buttons";
 import { bindCreateIdeasPrompt, renderCreateIdeasPrompt } from "/static/create_ideas_prompt.js?v=20260618-create-ideas";
+import { bindScriptReviewDeck, renderScriptReviewDeck } from "/static/script_review_deck.js?v=20260618-review-deck";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
@@ -15,6 +16,7 @@ const state = {
     || "",
   formats: [],
   scripts: [],
+  pendingScripts: [],
   jobs: [],
   settings: null,
   avatars: [],
@@ -116,13 +118,15 @@ async function loadAll() {
   $("login").classList.add("hidden");
   setStatus("Loading");
   const userQuery = encodeURIComponent(state.userId);
-  const [formats, scripts, jobs] = await Promise.all([
+  const [formats, scripts, pendingScripts, jobs] = await Promise.all([
     api("/api/formats"),
     api(`/api/scripts/approved?user_id=${userQuery}`),
+    api(`/api/scripts/review?user_id=${userQuery}`),
     api(`/api/format-jobs?user_id=${userQuery}&limit=100`),
   ]);
   state.formats = formats;
   state.scripts = scripts;
+  state.pendingScripts = pendingScripts;
   state.jobs = jobs;
   await loadSettingsData(settingsDeps(), false);
   state.ideas = await api(`/api/ideas?user_id=${userQuery}&limit=30`).catch(() => []);
@@ -158,6 +162,11 @@ function renderTabs() {
 
 function renderScripts() {
   const root = $("scripts");
+  if (state.pendingScripts.length) {
+    root.innerHTML = renderScriptReviewDeck({ pendingScripts: state.pendingScripts, escapeHtml });
+    bindScriptReviewDeck(root, { state, api, setStatus, showError, refresh: loadAll });
+    return;
+  }
   if (!state.scripts.length) {
     root.innerHTML = renderCreateIdeasPrompt({ ideas: state.ideas, escapeHtml });
     bindCreateIdeasPrompt(root, {

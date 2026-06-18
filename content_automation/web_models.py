@@ -26,6 +26,11 @@ class ScriptOut(BaseModel):
     series_name: str = ""
 
 
+class ScriptReviewIn(BaseModel):
+    user_id: str
+    action: str
+
+
 class CreateFormatJobIn(BaseModel):
     user_id: str
     format_key: str

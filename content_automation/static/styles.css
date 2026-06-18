@@ -293,6 +293,56 @@ button:disabled {
   font-size: 12px;
 }
 
+.review-deck-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(36, 161, 222, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  padding: 14px;
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
+}
+
+.review-deck-card h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.review-hook {
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.review-copy {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  background: #fff;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.review-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.review-actions button {
+  min-height: 46px;
+}
+
+.review-help {
+  text-align: center;
+}
+
 .card {
   border: 1px solid var(--line);
   border-radius: 12px;
