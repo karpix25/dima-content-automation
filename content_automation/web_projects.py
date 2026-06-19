@@ -10,9 +10,9 @@ def build_projects_router(project_store: ProjectStore) -> APIRouter:
     router = APIRouter()
 
     @router.get("/api/projects", response_model=list[ProjectOut])
-    def list_projects(user_id: str = Query(..., min_length=1), active_project_id: str = Query("", min_length=0)) -> list[ProjectOut]:
+    def list_projects(user_id: str = Query(..., min_length=1)) -> list[ProjectOut]:
         projects = project_store.list_projects_for_user(user_id)
-        active = active_project_id or project_store.active_project_for_user(user_id)
+        active = project_store.active_project_for_user(user_id)
         return [project_to_out(item, active_project_id=active) for item in projects]
 
     @router.post("/api/projects/active", response_model=ProjectOut)

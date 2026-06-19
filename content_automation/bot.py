@@ -2252,6 +2252,7 @@ async def format_create_callback(callback: CallbackQuery) -> None:
         return
 
     user_id = activate_from_callback(callback)
+    actor_user_id = user_key(callback)
     record = storage.get_script(user_id, script_id)
     if not record:
         await callback.answer("Сценарий не найден", show_alert=True)
@@ -2270,6 +2271,7 @@ async def format_create_callback(callback: CallbackQuery) -> None:
             chat_id=callback.message.chat.id,
             thread_id=message_thread_id(callback.message),
             user_id=user_id,
+            actor_user_id=actor_user_id,
             script_id=script_id,
             format_key=format_key,
             deps=format_action_deps(),

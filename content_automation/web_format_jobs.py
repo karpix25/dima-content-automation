@@ -12,10 +12,18 @@ from .storage import FormatJob, Storage
 from .turan_client import TuranApiClient, submit_format_job
 from .turan_formats import list_turan_formats
 from .turan_service import create_format_job
+from .web_format_job_helpers import (
+    delivered_video_line,
+    delivered_video_url,
+    format_job_delivery_actor_user_id,
+    mark_script_used_after_output_delivery,
+    processing_output,
+    queued_output,
+    with_delivery_actor,
+)
 
 
 logger = logging.getLogger(__name__)
-DELETED_VIDEO_NOTICE = "Файл удален с сервера после отправки в Telegram."
 
 
 class ScriptNotFoundError(RuntimeError):
@@ -30,6 +38,7 @@ def create_queued_format_job(
     user_id: str,
     script_id: int,
     format_key: str,
+    delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
     logger.info(
@@ -39,11 +48,13 @@ def create_queued_format_job(
         job.id,
         format_key,
     )
+    raw = with_delivery_actor(job.raw, user_id, delivery_actor_user_id)
     return storage.update_format_job_delivery(
         user_id,
         job.id,
         status="queued",
-        output_text=_queued_output(job),
+        output_text=queued_output(job),
+        raw=raw,
     )
 
 
@@ -56,6 +67,7 @@ def create_queued_existing_heygen_job(
     script_id: int,
     format_key: str,
     heygen_video_id: str,
+    delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
     video_id = heygen_video_id.strip()
     if not video_id:
@@ -73,7 +85,7 @@ def create_queued_existing_heygen_job(
             f"Использую готовый HeyGen video id: {video_id}.\n"
             "Новый HeyGen ролик генерироваться не будет."
         ),
-        raw={**job.raw, "existing_heygen_video_id": video_id},
+        raw={**with_delivery_actor(job.raw, user_id, delivery_actor_user_id), "existing_heygen_video_id": video_id},
     )
 
 
@@ -90,7 +102,7 @@ def deliver_existing_format_job(
     if existing and existing.status != "queued":
         logger.info("Format job delivery skipped because status is %s: job_id=%s", existing.status, job_id)
         return
-    job = storage.claim_queued_format_job(user_id, job_id, output_text=_processing_output(existing)) if existing else None
+    job = storage.claim_queued_format_job(user_id, job_id, output_text=processing_output(existing)) if existing else None
     if not job:
         logger.warning("Queued format job disappeared before delivery: user_id=%s job_id=%s", user_id, job_id)
         return
@@ -102,6 +114,7 @@ def deliver_existing_format_job(
         job.format_key,
     )
     try:
+        delivery_actor_user_id = format_job_delivery_actor_user_id(job)
         if job.format_key == "all":
             _deliver_existing_all_formats(
                 storage=storage,
@@ -110,6 +123,7 @@ def deliver_existing_format_job(
                 user_id=user_id,
                 script_id=job.script_id,
                 bundle=job,
+                delivery_actor_user_id=delivery_actor_user_id,
             )
             return
         _deliver_existing_single_format(
@@ -119,6 +133,7 @@ def deliver_existing_format_job(
             user_id=user_id,
             script_id=job.script_id,
             job=job,
+            delivery_actor_user_id=delivery_actor_user_id,
         )
     except Exception as exc:
         logger.exception("Queued format job delivery crashed: job_id=%s", job_id)
@@ -160,6 +175,7 @@ def deliver_existing_heygen_video_job(
         script_id=job.script_id,
         job=job,
         existing_heygen_video_id=heygen_video_id,
+        delivery_actor_user_id=format_job_delivery_actor_user_id(job),
     )
 
 
@@ -171,6 +187,7 @@ def create_and_deliver_format_job(
     user_id: str,
     script_id: int,
     format_key: str,
+    delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
     logger.info("Creating format job: user_id=%s script_id=%s format_key=%s", user_id, script_id, format_key)
     if format_key == "all":
@@ -180,6 +197,7 @@ def create_and_deliver_format_job(
             settings=settings,
             user_id=user_id,
             script_id=script_id,
+            delivery_actor_user_id=delivery_actor_user_id,
         )
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
     if job.format_key == "infographic_reels":
@@ -190,6 +208,7 @@ def create_and_deliver_format_job(
             user_id=user_id,
             script_id=script_id,
             job=job,
+            delivery_actor_user_id=delivery_actor_user_id,
         )
     if job.format_key in {"avatar_reels", "avatar_horizontal"}:
         return _deliver_avatar_job(
@@ -199,6 +218,7 @@ def create_and_deliver_format_job(
             user_id=user_id,
             script_id=script_id,
             job=job,
+            delivery_actor_user_id=delivery_actor_user_id,
         )
     if settings.turan_api_base_url:
         result = submit_format_job(job, TuranApiClient(settings.turan_api_base_url), settings.turan_api_telegram_id or user_id)
@@ -221,6 +241,7 @@ def _deliver_existing_single_format(
     user_id: str,
     script_id: int,
     job: FormatJob,
+    delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
     if job.format_key == "infographic_reels":
         return _deliver_infographic_job(
@@ -230,6 +251,7 @@ def _deliver_existing_single_format(
             user_id=user_id,
             script_id=script_id,
             job=job,
+            delivery_actor_user_id=delivery_actor_user_id,
         )
     if job.format_key in {"avatar_reels", "avatar_horizontal"}:
         return _deliver_avatar_job(
@@ -239,6 +261,7 @@ def _deliver_existing_single_format(
             user_id=user_id,
             script_id=script_id,
             job=job,
+            delivery_actor_user_id=delivery_actor_user_id,
         )
     if settings.turan_api_base_url:
         result = submit_format_job(job, TuranApiClient(settings.turan_api_base_url), settings.turan_api_telegram_id or user_id)
@@ -261,6 +284,7 @@ def _deliver_existing_all_formats(
     user_id: str,
     script_id: int,
     bundle: FormatJob,
+    delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
     delivered: list[str] = []
     failed: list[str] = []
@@ -272,6 +296,7 @@ def _deliver_existing_all_formats(
             user_id=user_id,
             script_id=script_id,
             format_key=spec.key,
+            delivery_actor_user_id=delivery_actor_user_id,
         )
         if child.status == "failed":
             failed.append(f"{spec.label}: {child.error or child.output_text}")
@@ -293,6 +318,7 @@ def _deliver_all_formats(
     settings: Settings,
     user_id: str,
     script_id: int,
+    delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
     bundle = create_format_job(storage, user_id, script_id, "all", asset_store=asset_store, settings=settings)
     delivered: list[str] = []
@@ -305,6 +331,7 @@ def _deliver_all_formats(
             user_id=user_id,
             script_id=script_id,
             format_key=spec.key,
+            delivery_actor_user_id=delivery_actor_user_id,
         )
         if child.status == "failed":
             failed.append(f"{spec.label}: {child.error or child.output_text}")
@@ -319,30 +346,6 @@ def _deliver_all_formats(
     return updated
 
 
-def mark_script_used_after_output_delivery(storage: Storage, user_id: str, script_id: int) -> None:
-    record = storage.get_script(user_id, script_id)
-    if not record or record.status != "approved":
-        return
-    storage.update_script_status(user_id, script_id, "used_for_video")
-
-
-def _queued_output(job: FormatJob) -> str:
-    return (
-        f"Задача #{job.id} поставлена в очередь.\n"
-        "Можно закрыть окно: статус обновится в истории, а готовый файл придёт в Telegram."
-    )
-
-
-def _processing_output(job: FormatJob) -> str:
-    if job.format_key == "infographic_reels":
-        return "Генерирую карточку через Kie, собираю 5-секундное видео и отправляю в Telegram."
-    if job.format_key in {"avatar_reels", "avatar_horizontal"}:
-        return "Генерирую озвучку, HeyGen avatar video, визуальные вставки/обложку и отправляю в Telegram."
-    if job.format_key == "all":
-        return "Запускаю все форматы по очереди. Готовые файлы будут отправлены в Telegram."
-    return "Задача выполняется."
-
-
 def _deliver_avatar_job(
     *,
     storage: Storage,
@@ -352,6 +355,7 @@ def _deliver_avatar_job(
     script_id: int,
     job: FormatJob,
     existing_heygen_video_id: str | None = None,
+    delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
     logger.info(
         "Running avatar delivery for format job %s: script_id=%s format_key=%s existing_heygen=%s",
@@ -374,6 +378,7 @@ def _deliver_avatar_job(
                 storage=storage,
                 asset_store=asset_store,
                 kie_client=build_kie_client(settings),
+                delivery_actor_user_id=delivery_actor_user_id,
             )
         else:
             result = create_and_send_avatar_video(
@@ -384,6 +389,7 @@ def _deliver_avatar_job(
                 storage=storage,
                 asset_store=asset_store,
                 kie_client=build_kie_client(settings),
+                delivery_actor_user_id=delivery_actor_user_id,
             )
         heygen_line = f"HeyGen video id: {existing_heygen_video_id}\n" if existing_heygen_video_id else ""
         job = storage.update_format_job_delivery(
@@ -391,11 +397,11 @@ def _deliver_avatar_job(
             job.id,
             status="delivered",
             external_task_id=result.telegram_message_id or result.heygen_video_id,
-            output_url=_delivered_video_url(result),
+            output_url=delivered_video_url(result),
             output_text=(
                 "✅ Avatar формат создан и отправлен в Telegram.\n"
                 f"{heygen_line}"
-                f"{_delivered_video_line(result)}"
+                f"{delivered_video_line(result)}"
             ),
         )
         mark_script_used_after_output_delivery(storage, user_id, script_id)
@@ -420,6 +426,7 @@ def _deliver_infographic_job(
     user_id: str,
     script_id: int,
     job: FormatJob,
+    delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
     logger.info("Running infographic delivery for format job %s", job.id)
     record = storage.get_script(user_id, script_id)
@@ -435,6 +442,7 @@ def _deliver_infographic_job(
             storage=storage,
             cta_text=state.instagram_post_5s_cta_text,
             content_language=state.content_language,
+            delivery_actor_user_id=delivery_actor_user_id,
             face_reference_paths=thumbnail_face_reference_paths(
                 storage=storage,
                 settings=settings,
@@ -448,10 +456,10 @@ def _deliver_infographic_job(
             job.id,
             status="delivered",
             external_task_id=result.telegram_message_id,
-            output_url=_delivered_video_url(result),
+            output_url=delivered_video_url(result),
             output_text=(
                 "✅ Золотой фон / инфографика 5 сек. создана через Kie и отправлена в Telegram.\n"
-                f"{_delivered_video_line(result)}"
+                f"{delivered_video_line(result)}"
             ),
         )
         logger.info(
@@ -461,6 +469,7 @@ def _deliver_infographic_job(
             result.video_path,
         )
         mark_script_used_after_output_delivery(storage, user_id, script_id)
+        return job
     except Exception as exc:
         logger.exception("Infographic format job failed: job_id=%s", job.id)
         job = storage.update_format_job_delivery(
@@ -470,14 +479,4 @@ def _deliver_infographic_job(
             error=str(exc),
             output_text=f"⚠️ Не удалось создать или отправить золотой фон: {exc}",
         )
-    return job
-
-
-def _delivered_video_url(result: object) -> str | None:
-    return None if getattr(result, "video_deleted", False) else str(getattr(result, "video_path"))
-
-
-def _delivered_video_line(result: object) -> str:
-    if getattr(result, "video_deleted", False):
-        return DELETED_VIDEO_NOTICE
-    return f"Файл: {getattr(result, 'video_path')}"
+        return job

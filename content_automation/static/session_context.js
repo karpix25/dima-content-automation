@@ -20,8 +20,8 @@ export function saveProjectId(actorUserId, projectId) {
 
 export function chooseProject(projects, actorUserId) {
   const saved = savedProjectId(actorUserId);
-  return projects.find((item) => item.project_id === saved)?.project_id
-    || projects.find((item) => item.is_active)?.project_id
+  return projects.find((item) => item.is_active)?.project_id
+    || projects.find((item) => item.project_id === saved)?.project_id
     || projects[0]?.project_id
     || actorUserId;
 }

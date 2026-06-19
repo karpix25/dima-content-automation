@@ -1,9 +1,8 @@
-import { chooseProject, projectLabel, saveProjectId, savedProjectId } from "/static/session_context.js";
+import { chooseProject, projectLabel, saveProjectId } from "/static/session_context.js?v=20260619-project-context";
 
 export async function loadProjectContext({ state, api }) {
   const actorQuery = encodeURIComponent(state.actorUserId);
-  const activeQuery = encodeURIComponent(savedProjectId(state.actorUserId));
-  state.projects = await api(`/api/projects?user_id=${actorQuery}&active_project_id=${activeQuery}`).catch(() => []);
+  state.projects = await api(`/api/projects?user_id=${actorQuery}`).catch(() => []);
   state.userId = chooseProject(state.projects, state.actorUserId);
   if (!state.projects.length) {
     state.projects = [{ project_id: state.userId, member_user_id: state.actorUserId, role: "owner", is_active: true }];

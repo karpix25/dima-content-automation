@@ -25,6 +25,7 @@ async def run_format_output_job(
     chat_id: int,
     thread_id: int | None,
     user_id: str,
+    actor_user_id: str | None = None,
     script_id: int,
     format_key: str,
     deps: BotFormatDeps,
@@ -38,6 +39,7 @@ async def run_format_output_job(
             user_id=user_id,
             script_id=script_id,
             format_key=format_key,
+            delivery_actor_user_id=actor_user_id,
         )
     except Exception as exc:
         deps.logger.exception("Failed to create format from Telegram button")

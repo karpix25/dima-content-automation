@@ -50,6 +50,7 @@ def create_and_send_avatar_video(
     storage: Storage,
     asset_store: MediaAssetStore,
     kie_client: KieImageClient,
+    delivery_actor_user_id: str | None = None,
 ) -> AvatarDeliveryResult:
     target = "horizontal" if format_key == "avatar_horizontal" else "vertical"
     output_record = replace(record, format=output_format_for_job(format_key))
@@ -94,7 +95,7 @@ def create_and_send_avatar_video(
     )
     message_id = send_video_document_to_telegram(
         token=settings.telegram_bot_token,
-        chat_id=telegram_delivery_chat_id(storage, user_id),
+        chat_id=telegram_delivery_chat_id(storage, user_id, delivery_actor_user_id),
         video_path=final_path,
         caption=f"🎬 {avatar_name or 'HeyGen avatar'}\nСценарий #{record.id}: {record.title or record.hook}",
     )
@@ -117,6 +118,7 @@ def create_and_send_existing_heygen_video(
     storage: Storage,
     asset_store: MediaAssetStore,
     kie_client: KieImageClient,
+    delivery_actor_user_id: str | None = None,
 ) -> AvatarDeliveryResult:
     target = "horizontal" if format_key == "avatar_horizontal" else "vertical"
     output_record = replace(record, format=output_format_for_job(format_key))
@@ -142,7 +144,7 @@ def create_and_send_existing_heygen_video(
     )
     message_id = send_video_document_to_telegram(
         token=settings.telegram_bot_token,
-        chat_id=telegram_delivery_chat_id(storage, user_id),
+        chat_id=telegram_delivery_chat_id(storage, user_id, delivery_actor_user_id),
         video_path=final_path,
         caption=f"🎬 HeyGen #{video_id}\nСценарий #{record.id}: {record.title or record.hook}",
     )

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -540,6 +540,7 @@ def create_script_format_job(
     script_id: int,
     payload: CreateFormatJobIn,
     background_tasks: BackgroundTasks,
+    request: Request,
 ) -> FormatJobOut:
     try:
         job = create_queued_format_job(
@@ -549,6 +550,7 @@ def create_script_format_job(
             user_id=payload.user_id,
             script_id=script_id,
             format_key=payload.format_key,
+            delivery_actor_user_id=getattr(request.state, "telegram_user_id", None),
         )
         background_tasks.add_task(
             deliver_existing_format_job,
@@ -570,6 +572,7 @@ def create_existing_heygen_format_job(
     script_id: int,
     payload: CreateExistingHeyGenJobIn,
     background_tasks: BackgroundTasks,
+    request: Request,
 ) -> FormatJobOut:
     try:
         job = create_queued_existing_heygen_job(
@@ -580,6 +583,7 @@ def create_existing_heygen_format_job(
             script_id=script_id,
             format_key=payload.format_key,
             heygen_video_id=payload.heygen_video_id,
+            delivery_actor_user_id=getattr(request.state, "telegram_user_id", None),
         )
         background_tasks.add_task(
             deliver_existing_heygen_video_job,

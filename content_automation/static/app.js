@@ -4,8 +4,8 @@ import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobSt
 import { withButtonPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
 import { bindCreateIdeasPrompt, renderCreateIdeasPrompt } from "/static/create_ideas_prompt.js?v=20260618-auto-scripts";
 import { bindScriptReviewDeck, renderScriptReviewDeck } from "/static/script_review_deck.js?v=20260618-review-deck";
-import { loadProjectContext, renderProjectSwitcher } from "/static/project_switcher.js?v=20260619-projects";
-import { initialActorUserId } from "/static/session_context.js";
+import { loadProjectContext, renderProjectSwitcher } from "/static/project_switcher.js?v=20260619-project-context";
+import { initialActorUserId } from "/static/session_context.js?v=20260619-project-context";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();

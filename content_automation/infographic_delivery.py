@@ -48,6 +48,7 @@ def create_and_send_infographic_reels(
     design_reference_paths: list[Path] | None = None,
     cta_text: str | None = None,
     content_language: str = "auto",
+    delivery_actor_user_id: str | None = None,
 ) -> InfographicDeliveryResult:
     output_dir = settings.video_output_directory / "infographic_reels"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -70,7 +71,7 @@ def create_and_send_infographic_reels(
     audio_path = choose_audio_track(asset_store, user_id)
     logger.info("Rendering five second gold card video: script_id=%s audio=%s video=%s", record.id, audio_path, video_path)
     render_five_second_video(image_path=image_path, video_path=video_path, audio_path=audio_path)
-    chat_id = telegram_delivery_chat_id(storage, user_id)
+    chat_id = telegram_delivery_chat_id(storage, user_id, delivery_actor_user_id)
     logger.info("Sending gold card video to Telegram: script_id=%s chat_id=%s video=%s", record.id, chat_id, video_path)
     message_id = send_video_to_telegram(
         token=settings.telegram_bot_token,
