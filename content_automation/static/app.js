@@ -216,6 +216,12 @@ function renderScripts() {
       <h3>#${script.id} ${escapeHtml(script.title || script.hook)}</h3>
       ${window.editorialBadges ? window.editorialBadges(script) : ""}
       <p>${escapeHtml(script.hook)}</p>
+      <details class="script-details">
+        <summary>Показать сценарий</summary>
+        <div class="review-copy">${escapeHtml(script.voiceover || "Текст сценария пуст.")}</div>
+        ${script.trigger ? `<p><strong>Триггер:</strong> ${escapeHtml(script.trigger)}</p>` : ""}
+        ${script.cta ? `<p><strong>CTA:</strong> ${escapeHtml(script.cta)}</p>` : ""}
+      </details>
       <div class="formats">
         ${state.formats.map((format) => `
           <button class="${formatButtonClass(format.key, script.id)}"
@@ -232,12 +238,30 @@ function renderScripts() {
       </div>
       ${formatUsage(script.id)}
       ${formatReadiness(script.id)}
+      <div class="settings-actions">
+        <button class="secondary-button danger" type="button" data-delete-script="${escapeHtml(script.id)}">Удалить сценарий</button>
+      </div>
     </article>
   `).join("");
   root.querySelectorAll("button[data-script]").forEach((button) => {
     if (state.creating || button.disabled) button.disabled = true;
     button.addEventListener("click", () => createJob(button.dataset.script, button.dataset.format).catch(showError));
   });
+  root.querySelectorAll("[data-delete-script]").forEach((button) => {
+    button.addEventListener("click", () => deleteScript(button.dataset.deleteScript).catch(showError));
+  });
+}
+
+async function deleteScript(scriptId) {
+  if (!scriptId) return;
+  if (!window.confirm("Удалить этот сценарий из проекта?")) return;
+  setStatus("Удаляю");
+  await api(`/api/scripts/${scriptId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ user_id: state.userId, action: "delete" }),
+  });
+  await loadAll();
+  setStatus("Удалено");
 }
 
 function formatButtonClass(formatKey, scriptId) {

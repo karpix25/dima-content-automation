@@ -329,6 +329,21 @@ button:disabled {
   line-height: 1.45;
 }
 
+.script-details {
+  margin-top: 10px;
+}
+
+.script-details summary {
+  cursor: pointer;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.script-details .review-copy {
+  margin-top: 8px;
+}
+
 .review-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

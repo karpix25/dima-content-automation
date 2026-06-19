@@ -8,6 +8,7 @@ from .web_serializers import script_to_out
 
 REVIEWABLE_STATUSES = {"pending"}
 REVIEW_ACTIONS = {"approve": "approved", "reject": "rejected"}
+DELETABLE_STATUSES = {"pending", "approved", "used_for_video", "rejected"}
 
 
 def build_script_review_router(*, storage: Storage) -> APIRouter:
@@ -32,6 +33,18 @@ def build_script_review_router(*, storage: Storage) -> APIRouter:
         if record.status not in REVIEWABLE_STATUSES:
             raise HTTPException(status_code=400, detail="Этот сценарий уже обработан.")
         updated = storage.update_script_status(payload.user_id, script_id, next_status)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Сценарий не найден.")
+        return script_to_out(updated)
+
+    @router.delete("/api/scripts/{script_id}", response_model=ScriptOut)
+    def delete_script(script_id: int, payload: ScriptReviewIn) -> ScriptOut:
+        record = storage.get_script(payload.user_id, script_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="Сценарий не найден.")
+        if record.status not in DELETABLE_STATUSES:
+            raise HTTPException(status_code=400, detail="Этот сценарий уже удален.")
+        updated = storage.update_script_status(payload.user_id, script_id, "deleted")
         if not updated:
             raise HTTPException(status_code=404, detail="Сценарий не найден.")
         return script_to_out(updated)
