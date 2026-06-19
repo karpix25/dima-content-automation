@@ -11,6 +11,7 @@ import httpx
 from .config import Settings
 from .deepgram_transcription import DeepgramConfig
 from .delivered_video_cleanup import cleanup_delivered_video_files
+from .delivery_destination import telegram_delivery_chat_id
 from .elevenlabs_errors import missing_audio_file_message
 from .elevenlabs_mcp import ElevenLabsMCPClient
 from .heygen import HeyGenClient
@@ -91,7 +92,7 @@ def create_and_send_avatar_video(
     )
     message_id = send_video_document_to_telegram(
         token=settings.telegram_bot_token,
-        chat_id=user_id,
+        chat_id=telegram_delivery_chat_id(storage, user_id),
         video_path=final_path,
         caption=f"🎬 {avatar_name or 'HeyGen avatar'}\nСценарий #{record.id}: {record.title or record.hook}",
     )
@@ -139,7 +140,7 @@ def create_and_send_existing_heygen_video(
     )
     message_id = send_video_document_to_telegram(
         token=settings.telegram_bot_token,
-        chat_id=user_id,
+        chat_id=telegram_delivery_chat_id(storage, user_id),
         video_path=final_path,
         caption=f"🎬 HeyGen #{video_id}\nСценарий #{record.id}: {record.title or record.hook}",
     )

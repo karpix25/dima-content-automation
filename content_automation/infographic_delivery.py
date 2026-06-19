@@ -12,9 +12,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 from .config import Settings
 from .delivered_video_cleanup import cleanup_delivered_video_files
+from .delivery_destination import telegram_delivery_chat_id
 from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
-from .storage import ScriptRecord
+from .storage import ScriptRecord, Storage
 from .turan_infographic_prompt import build_turan_infographic_prompt
 
 
@@ -40,6 +41,7 @@ def create_and_send_infographic_reels(
     user_id: str,
     settings: Settings,
     asset_store: MediaAssetStore,
+    storage: Storage | None = None,
     kie_client: KieImageClient | None = None,
     reference_paths: list[Path] | None = None,
     face_reference_paths: list[Path] | None = None,
@@ -68,10 +70,11 @@ def create_and_send_infographic_reels(
     audio_path = choose_audio_track(asset_store, user_id)
     logger.info("Rendering five second gold card video: script_id=%s audio=%s video=%s", record.id, audio_path, video_path)
     render_five_second_video(image_path=image_path, video_path=video_path, audio_path=audio_path)
-    logger.info("Sending gold card video to Telegram: script_id=%s chat_id=%s video=%s", record.id, user_id, video_path)
+    chat_id = telegram_delivery_chat_id(storage, user_id)
+    logger.info("Sending gold card video to Telegram: script_id=%s chat_id=%s video=%s", record.id, chat_id, video_path)
     message_id = send_video_to_telegram(
         token=settings.telegram_bot_token,
-        chat_id=user_id,
+        chat_id=chat_id,
         video_path=video_path,
         caption=f"✅ Золотой фон / инфографика 5 сек. через Kie\nСценарий #{record.id}: {record.title or record.hook}",
     )

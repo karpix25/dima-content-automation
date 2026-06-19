@@ -40,6 +40,7 @@ from .turan_service import TuranServiceError, list_approved_scripts
 from .notebooklm_runtime import build_notebooklm_client
 from .notebooklm_auth_notifier import AuthNotificationConfig, NotebookLMAuthNotifier
 from .notebooklm_health import NotebookLMKeepAlive
+from .project_store import ProjectStore
 from .web_format_jobs import (
     ScriptNotFoundError,
     create_queued_existing_heygen_job,
@@ -71,6 +72,7 @@ from .web_models import (
 )
 from .web_notebooklm import build_notebooklm_router
 from .web_auth import install_miniapp_auth
+from .web_projects import build_projects_router
 from .web_serializers import format_to_out, job_to_out, script_to_out
 from .web_script_review import build_script_review_router
 
@@ -78,6 +80,7 @@ settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
 idea_bank = IdeaBank(settings.data_dir / "content_automation.sqlite3")
 asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
+project_store = ProjectStore(settings.data_dir / "content_automation.sqlite3")
 notebooklm = build_notebooklm_client(settings)
 notebooklm_auth_notifier = NotebookLMAuthNotifier(
     AuthNotificationConfig(
@@ -122,11 +125,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="DIMA Content Mini App", lifespan=lifespan)
-install_miniapp_auth(app, bot_token=settings.telegram_bot_token, required=settings.miniapp_require_telegram_auth)
+install_miniapp_auth(
+    app,
+    bot_token=settings.telegram_bot_token,
+    required=settings.miniapp_require_telegram_auth,
+    project_store=project_store,
+)
 app.include_router(build_job_actions_router(storage=storage, asset_store=asset_store, settings=settings))
 app.include_router(build_ideas_router(storage=storage, idea_bank=idea_bank, settings=settings, notebooklm=notebooklm))
 app.include_router(build_notebooklm_router(notebooklm_keepalive))
 app.include_router(build_script_review_router(storage=storage))
+app.include_router(build_projects_router(project_store))
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 

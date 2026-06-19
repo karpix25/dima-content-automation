@@ -1,19 +1,20 @@
-import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260618-auto-voices";
+import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260619-projects";
 import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-plan-buttons";
 import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-plan-buttons";
 import { withButtonPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
 import { bindCreateIdeasPrompt, renderCreateIdeasPrompt } from "/static/create_ideas_prompt.js?v=20260618-auto-scripts";
 import { bindScriptReviewDeck, renderScriptReviewDeck } from "/static/script_review_deck.js?v=20260618-review-deck";
+import { loadProjectContext, renderProjectSwitcher } from "/static/project_switcher.js?v=20260619-projects";
+import { initialActorUserId } from "/static/session_context.js";
 
 const tg = window.Telegram?.WebApp;
 tg?.ready?.();
 tg?.expand?.();
 
 const state = {
-  userId: new URLSearchParams(window.location.search).get("tg_id")
-    || String(tg?.initDataUnsafe?.user?.id || "")
-    || localStorage.getItem("dima_tg_id")
-    || "",
+  actorUserId: initialActorUserId(tg),
+  userId: "",
+  projects: [],
   formats: [],
   scripts: [],
   pendingScripts: [],
@@ -103,9 +104,10 @@ function telegramAuthHeaders() {
 }
 
 async function loadAll() {
-  if (!state.userId) {
+  if (!state.actorUserId) {
     stopPolling();
     document.querySelector(".app").classList.add("login-mode");
+    $("project-switcher")?.classList.add("hidden");
     $("login").classList.remove("hidden");
     $("formats-panel").classList.add("hidden");
     $("result-panel").classList.add("hidden");
@@ -114,10 +116,12 @@ async function loadAll() {
     setStatus("Login");
     return;
   }
-  localStorage.setItem("dima_tg_id", state.userId);
+  localStorage.setItem("dima_tg_id", state.actorUserId);
   document.querySelector(".app").classList.remove("login-mode");
   $("login").classList.add("hidden");
   setStatus("Loading");
+  await loadProjectContext(projectDeps());
+  renderProjectSwitcher(projectDeps());
   const userQuery = encodeURIComponent(state.userId);
   const [formats, scripts, pendingScripts, jobs] = await Promise.all([
     api("/api/formats"),
@@ -138,6 +142,10 @@ async function loadAll() {
   const liveJob = state.jobs.find((job) => isLiveStatus(job.status));
   if (liveJob) pollJob(liveJob.id);
   setStatus(liveJob ? "Working" : "Ready");
+}
+
+function projectDeps() {
+  return { state, api, escapeHtml, reload: loadAll, stopPolling, showError };
 }
 
 function settingsDeps() {
@@ -500,7 +508,7 @@ function stopPolling() {
 }
 
 $("save-user").addEventListener("click", () => {
-  state.userId = $("tg-id").value.trim();
+  state.actorUserId = $("tg-id").value.trim();
   loadAll().catch(showError);
 });
 
@@ -518,7 +526,9 @@ $("logout").addEventListener("click", () => {
   if (!window.confirm("Выйти из аккаунта?")) return;
   stopPolling();
   localStorage.removeItem("dima_tg_id");
+  state.actorUserId = "";
   state.userId = "";
+  $("project-switcher")?.classList.add("hidden");
   $("tg-id").value = "";
   document.querySelector(".app").classList.add("login-mode");
   $("login").classList.remove("hidden");

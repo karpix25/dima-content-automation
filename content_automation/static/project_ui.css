@@ -1,0 +1,97 @@
+.project-switcher {
+  min-width: 0;
+}
+
+.project-switcher select,
+.project-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 190px;
+  height: 36px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 0 12px;
+}
+
+.project-switcher select {
+  appearance: none;
+}
+
+.project-admin-box {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #dbe5f0;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  margin-bottom: 16px;
+  padding: 18px;
+}
+
+.project-admin-box h3 {
+  margin: 4px 0;
+}
+
+.project-admin-box p {
+  color: #64748b;
+  margin: 0;
+}
+
+.project-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-member-pill {
+  align-items: center;
+  background: #eef6ff;
+  border: 1px solid #c8e5ff;
+  border-radius: 999px;
+  color: #0f4268;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.project-member-pill button {
+  background: transparent;
+  border: 0;
+  color: #0f4268;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.project-member-form {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+}
+
+.project-member-form input,
+.project-member-form select {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font: inherit;
+  min-width: 0;
+  padding: 12px;
+}
+
+@media (max-width: 680px) {
+  .project-member-form {
+    grid-template-columns: 1fr;
+  }
+
+  .project-switcher select,
+  .project-badge {
+    max-width: 130px;
+  }
+}

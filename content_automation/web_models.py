@@ -135,6 +135,33 @@ class AutoIdeaScriptsOut(BaseModel):
     message: str
 
 
+class ProjectOut(BaseModel):
+    project_id: str
+    member_user_id: str
+    role: str
+    is_active: bool = False
+
+
+class ProjectMemberOut(BaseModel):
+    project_id: str
+    user_id: str
+    role: str
+    created_at: str
+    updated_at: str
+
+
+class AddProjectMemberIn(BaseModel):
+    user_id: str
+    project_id: str
+    member_user_id: str
+    role: str = "manager"
+
+
+class ActiveProjectIn(BaseModel):
+    user_id: str
+    project_id: str
+
+
 class FaceActivateIn(BaseModel):
     user_id: str
     target: str = "both"

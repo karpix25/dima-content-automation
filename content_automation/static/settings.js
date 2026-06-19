@@ -18,18 +18,20 @@ export async function loadSettingsData(deps, render = true) {
     if (render) renderSettingsPanel(deps);
     return;
   }
-  const [refs, faces, inserts, fiveSecond, voices] = await Promise.all([
+  const [refs, faces, inserts, fiveSecond, voices, members] = await Promise.all([
     optionalSettingsApi(deps, "thumbnail references", `/api/settings/thumbnail-references?user_id=${userQuery}`, []),
     optionalSettingsApi(deps, "thumbnail face references", `/api/settings/thumbnail-face-references?user_id=${userQuery}`, []),
     optionalSettingsApi(deps, "avatar inserts", `/api/settings/avatar-inserts?user_id=${userQuery}`, []),
     optionalSettingsApi(deps, "5-second settings", `/api/settings/instagram-post-5s?user_id=${userQuery}`, null),
     optionalSettingsApi(deps, "ElevenLabs voices", "/api/settings/elevenlabs-voices", state.voices || []),
+    optionalSettingsApi(deps, "project members", `/api/projects/${encodeURIComponent(state.userId)}/members?user_id=${encodeURIComponent(state.actorUserId || state.userId)}`, []),
   ]);
   state.thumbnailReferences = refs;
   state.thumbnailFaces = faces;
   state.avatarInserts = inserts;
   state.fiveSecondSettings = fiveSecond;
   state.voices = voices;
+  state.projectMembers = members;
   state.settingsFormatTab = activeSettingsTab(state);
   if (render) renderSettingsPanel(deps);
 }
@@ -42,7 +44,7 @@ export function renderSettingsPanel(deps) {
       : `<p>Настройки загружаются.</p>`;
     return;
   }
-  root.innerHTML = `${settingsWarnings(deps)}${renderSettingsContent(deps)}`;
+  root.innerHTML = `${renderProjectBox(deps)}${settingsWarnings(deps)}${renderSettingsContent(deps)}`;
   bindSettingsEvents(root, deps);
 }
 
@@ -66,6 +68,7 @@ function settingsWarnings(deps) {
 }
 
 function bindSettingsEvents(root, deps) {
+  bindProjectEvents(root, deps);
   bindFormatTabs(root, deps);
   bindAvatarEvents(root, deps, renderSettingsPanel);
   bindVoiceEvents(root, deps, renderSettingsPanel);
@@ -89,6 +92,74 @@ function bindSettingsEvents(root, deps) {
   root.querySelectorAll("[data-face-target]").forEach((button) => bindAction(button, deps, () => activateFace(deps, button.dataset.id, button.dataset.faceTarget)));
   root.querySelectorAll("[data-upload]").forEach((input) => input.addEventListener("change", () => handleUpload(deps, input).catch(deps.showError)));
   root.querySelectorAll("[data-overlay-file]").forEach((input) => input.addEventListener("change", () => uploadOverlay(deps, input.dataset.overlayFile, input.files[0]).catch(deps.showError)));
+}
+
+function bindProjectEvents(root, deps) {
+  root.querySelectorAll("[data-action='add-project-member']").forEach((button) => bindAction(button, deps, () => addProjectMember(deps)));
+  root.querySelectorAll("[data-remove-project-member]").forEach((button) => {
+    bindAction(button, deps, () => removeProjectMember(deps, button.dataset.removeProjectMember));
+  });
+}
+
+function renderProjectBox(deps) {
+  const { state, escapeHtml } = deps;
+  const active = (state.projects || []).find((item) => item.project_id === state.userId);
+  const members = state.projectMembers || [];
+  const canManage = active?.role === "owner";
+  return `
+    <article class="project-admin-box">
+      <div>
+        <span class="eyebrow">Проект</span>
+        <h3>${escapeHtml(active?.project_id || state.userId || "Проект")}</h3>
+        <p>${escapeHtml(canManage ? "Вы owner. Можно добавлять менеджеров по Telegram ID." : `Ваша роль: ${active?.role || "member"}`)}</p>
+      </div>
+      <div class="project-members">
+        ${members.map((member) => `
+          <span class="project-member-pill">
+            ${escapeHtml(member.user_id)} · ${escapeHtml(member.role)}
+            ${canManage && member.user_id !== state.userId ? `<button type="button" data-remove-project-member="${escapeHtml(member.user_id)}">×</button>` : ""}
+          </span>
+        `).join("")}
+      </div>
+      ${canManage ? `
+        <div class="project-member-form">
+          <input data-project-member-id inputmode="numeric" placeholder="Telegram ID участника" />
+          <select data-project-member-role>
+            <option value="manager">manager</option>
+            <option value="editor">editor</option>
+            <option value="viewer">viewer</option>
+          </select>
+          <button type="button" data-action="add-project-member">Добавить</button>
+        </div>
+      ` : ""}
+    </article>
+  `;
+}
+
+async function addProjectMember(deps) {
+  const memberId = document.querySelector("[data-project-member-id]")?.value?.trim();
+  const role = document.querySelector("[data-project-member-role]")?.value || "manager";
+  if (!memberId) throw new Error("Введите Telegram ID участника");
+  deps.setStatus("Сохраняю");
+  await deps.api("/api/projects/members", {
+    method: "POST",
+    body: JSON.stringify({
+      user_id: deps.state.actorUserId || deps.state.userId,
+      project_id: deps.state.userId,
+      member_user_id: memberId,
+      role,
+    }),
+  });
+  await loadSettingsData(deps);
+  deps.setStatus("Сохранено");
+}
+
+async function removeProjectMember(deps, memberId) {
+  if (!memberId) return;
+  deps.setStatus("Сохраняю");
+  await deps.api(`/api/projects/${encodeURIComponent(deps.state.userId)}/members/${encodeURIComponent(memberId)}?user_id=${encodeURIComponent(deps.state.actorUserId || deps.state.userId)}`, { method: "DELETE" });
+  await loadSettingsData(deps);
+  deps.setStatus("Сохранено");
 }
 
 function bindAction(button, deps, handler) {

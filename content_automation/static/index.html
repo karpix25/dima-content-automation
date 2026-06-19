@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="/static/settings_controls.css" />
     <link rel="stylesheet" href="/static/settings_avatar_voice.css?v=20260617-plan-buttons" />
     <link rel="stylesheet" href="/static/action_feedback.css?v=20260617-plan-buttons" />
+    <link rel="stylesheet" href="/static/project_ui.css?v=20260619-projects" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
@@ -29,6 +30,7 @@
           </div>
         </div>
         <div class="top-actions">
+          <div id="project-switcher" class="project-switcher hidden"></div>
           <span id="status-pill" class="pill">Загрузка</span>
           <button id="logout" class="ghost-button">Выход</button>
         </div>
@@ -115,6 +117,6 @@
     </div>
     <script src="/static/editorial_badges.js"></script>
     <script src="/static/overlay_gallery.js"></script>
-    <script type="module" src="/static/app.js?v=20260618-status-polling"></script>
+    <script type="module" src="/static/app.js?v=20260619-projects"></script>
   </body>
 </html>

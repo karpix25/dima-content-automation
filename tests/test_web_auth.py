@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 
 from content_automation.web_auth import install_miniapp_auth, validate_init_data
+from content_automation.project_store import ProjectStore
 
 
 BOT_TOKEN = "123456:test-token"
@@ -65,6 +66,28 @@ def test_miniapp_auth_rejects_mismatched_user_id():
     )
 
     assert response.status_code == 403
+
+
+def test_miniapp_auth_allows_project_member_user_id(tmp_path):
+    project_store = ProjectStore(tmp_path / "projects.sqlite3")
+    project_store.ensure_default_project("42")
+    project_store.add_member("42", "99", role="manager", actor_user_id="42")
+    app = FastAPI()
+    install_miniapp_auth(app, bot_token=BOT_TOKEN, required=True, project_store=project_store)
+
+    @app.get("/api/private")
+    def private(user_id: str, request: Request):
+        return {"project_id": user_id, "telegram_user_id": request.state.telegram_user_id}
+
+    client = TestClient(app)
+    response = client.get(
+        "/api/private",
+        params={"user_id": "42"},
+        headers={"X-Telegram-Init-Data": signed_init_data("99")},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"project_id": "42", "telegram_user_id": "99"}
 
 
 def test_miniapp_auth_passes_matching_json_body():

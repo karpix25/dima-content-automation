@@ -10,26 +10,45 @@ from urllib.parse import parse_qsl
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from .project_store import ProjectStore
+
 
 PUBLIC_API_PATHS = {"/api/formats"}
 INIT_DATA_HEADER = "x-telegram-init-data"
 
 
-def install_miniapp_auth(app: FastAPI, *, bot_token: str, required: bool, max_age_seconds: int = 86400) -> None:
+def install_miniapp_auth(
+    app: FastAPI,
+    *,
+    bot_token: str,
+    required: bool,
+    max_age_seconds: int = 86400,
+    project_store: ProjectStore | None = None,
+) -> None:
     app.add_middleware(
         MiniAppAuthMiddleware,
         bot_token=bot_token,
         required=required,
         max_age_seconds=max_age_seconds,
+        project_store=project_store,
     )
 
 
 class MiniAppAuthMiddleware:
-    def __init__(self, app, *, bot_token: str, required: bool, max_age_seconds: int = 86400) -> None:
+    def __init__(
+        self,
+        app,
+        *,
+        bot_token: str,
+        required: bool,
+        max_age_seconds: int = 86400,
+        project_store: ProjectStore | None = None,
+    ) -> None:
         self.app = app
         self.bot_token = bot_token
         self.required = required
         self.max_age_seconds = max_age_seconds
+        self.project_store = project_store
 
     async def __call__(self, scope, receive, send) -> None:
         if scope["type"] != "http":
@@ -64,7 +83,7 @@ class MiniAppAuthMiddleware:
         if not requested_user_id and _may_contain_body_user_id(request):
             body = await _read_body(receive)
             requested_user_id = _body_user_id(request, body)
-        if requested_user_id and requested_user_id != telegram_user_id:
+        if requested_user_id and not self._has_requested_user_access(requested_user_id, telegram_user_id):
             await JSONResponse({"detail": "Telegram user does not match request user_id"}, status_code=403)(
                 scope,
                 _replay_body_receive(body) if body is not None else receive,
@@ -74,6 +93,13 @@ class MiniAppAuthMiddleware:
 
         scope.setdefault("state", {})["telegram_user_id"] = telegram_user_id
         await self.app(scope, _replay_body_receive(body) if body is not None else receive, send)
+
+    def _has_requested_user_access(self, requested_user_id: str, telegram_user_id: str) -> bool:
+        if requested_user_id == telegram_user_id:
+            if self.project_store:
+                self.project_store.ensure_default_project(telegram_user_id)
+            return True
+        return bool(self.project_store and self.project_store.is_member(requested_user_id, telegram_user_id))
 
 
 def validate_init_data(init_data: str, *, bot_token: str, max_age_seconds: int | None = 86400) -> str:

@@ -49,6 +49,7 @@ from .bot_approved_formats import (
 from .bot_format_actions import BotFormatDeps, run_format_output_job
 from .bot_keyboards import build_format_output_keyboard, build_main_keyboard
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
+from .project_store import ProjectStore
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .scrapecreators import ScrapeCreatorsClient, ScrapeCreatorsError
 from .settings_service import get_reddit_subreddits, get_reddit_timeframe, get_user_settings
@@ -82,6 +83,7 @@ settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
 idea_bank = IdeaBank(settings.data_dir / "content_automation.sqlite3")
 asset_store = MediaAssetStore(settings.data_dir / "content_automation.sqlite3")
+project_store = ProjectStore(settings.data_dir / "content_automation.sqlite3")
 notebooklm = build_notebooklm_client(settings)
 elevenlabs = ElevenLabsMCPClient(
     api_key=settings.elevenlabs_api_key,
@@ -161,16 +163,18 @@ def save_activation_context(user_id: str, chat_id: int, thread_id: int | None) -
 
 
 def activate_from_message(message: Message) -> str:
-    user_id = user_key(message)
-    save_activation_context(user_id, message.chat.id, message_thread_id(message))
-    return user_id
+    actor_user_id = user_key(message)
+    project_user_id = project_store.active_project_for_user(actor_user_id)
+    save_activation_context(project_user_id, message.chat.id, message_thread_id(message))
+    return project_user_id
 
 
 def activate_from_callback(callback: CallbackQuery) -> str:
-    user_id = user_key(callback)
+    actor_user_id = user_key(callback)
+    project_user_id = project_store.active_project_for_user(actor_user_id)
     if callback.message:
-        save_activation_context(user_id, callback.message.chat.id, message_thread_id(callback.message))
-    return user_id
+        save_activation_context(project_user_id, callback.message.chat.id, message_thread_id(callback.message))
+    return project_user_id
 
 
 async def answer_in_same_thread(
