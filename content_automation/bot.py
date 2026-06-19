@@ -29,6 +29,13 @@ from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
 from .notebooklm import as_script_list, extract_json
+from .notebooklm_script_attempts import (
+    NotebookLMScriptGenerationError,
+    ScriptGenerationAttemptStats,
+    merge_attempt_stats,
+    retry_correction_for_stats,
+    script_generation_failure_message,
+)
 from .notebooklm_mcp import notebook_ref_to_url
 from .notebooklm_runtime import build_notebooklm_client
 from .overlay_catalog import add_overlay_path, list_overlay_paths, select_overlay_path
@@ -690,25 +697,34 @@ async def generate_scripts_for_user(
                 word_budget=word_budget,
                 content_language=user_settings.content_language,
             )
-            new_items = await ask_notebooklm_for_scripts(
-                user_id=user_id,
-                notebook_ref=notebook_ref,
-                prompt=prompt,
-                count=batch_count,
-                format=format,
-                existing_records=recent_existing_records,
-                accepted_payloads=items,
-                exact_existing_records=all_existing_records,
-                editorial_briefs=editorial_briefs,
-                word_budget=word_budget,
-                content_language=user_settings.content_language,
-            )
+            try:
+                new_items = await ask_notebooklm_for_scripts(
+                    user_id=user_id,
+                    notebook_ref=notebook_ref,
+                    prompt=prompt,
+                    count=batch_count,
+                    format=format,
+                    existing_records=recent_existing_records,
+                    accepted_payloads=items,
+                    exact_existing_records=all_existing_records,
+                    editorial_briefs=editorial_briefs,
+                    word_budget=word_budget,
+                    content_language=user_settings.content_language,
+                )
+            except NotebookLMScriptGenerationError:
+                if items:
+                    logger.warning("Stopping NotebookLM short generation early after %s accepted item(s)", len(items))
+                    break
+                raise
             if not new_items:
                 break
             items.extend(new_items)
     items = items[:count]
     if not items:
-        raise ValueError("NotebookLM не вернул новые сценарии в JSON. Попробуй /refill еще раз.")
+        raise NotebookLMScriptGenerationError(
+            "NotebookLM не дал ни одного пригодного сценария после повторных попыток. "
+            "Бот уже запрашивает короткие сценарии по одному, так что это не из-за большой пачки."
+        )
 
     logger.info("Saving %s generated %s script(s) for user %s", len(items), format, user_id)
     records: list[ScriptRecord] = []
@@ -737,6 +753,7 @@ async def ask_notebooklm_for_scripts(
     content_language: str = "auto",
 ) -> list[dict[str, object]]:
     items: list[dict[str, object]] = []
+    attempt_stats: list[ScriptGenerationAttemptStats] = []
     reject_cyrillic = normalize_content_language(content_language) == "en"
     for attempt in range(3):
         logger.info(
@@ -748,14 +765,7 @@ async def ask_notebooklm_for_scripts(
         )
         request_prompt = prompt
         if attempt:
-            correction = (
-                "CRITICAL CORRECTION: the previous response contained Russian/Cyrillic, repeated an old idea, "
-                "repeated another script in the same batch, or missed the required voiceover word count. "
-                "Regenerate with fresh English-only scripts. No Cyrillic characters anywhere in JSON values. "
-                "Do not reuse the excluded titles, hooks, metaphors, or problem frames."
-                if reject_cyrillic
-                else "CRITICAL CORRECTION: the previous response repeated an old idea, repeated another script in the same batch, or missed the required voiceover word count. Regenerate with fresh scripts in the requested output language. Do not reuse the excluded titles, hooks, metaphors, or problem frames."
-            )
+            correction = retry_correction_for_stats(attempt_stats[-1], reject_cyrillic=reject_cyrillic)
             request_prompt = "\n\n".join(
                 [
                     prompt,
@@ -764,22 +774,41 @@ async def ask_notebooklm_for_scripts(
             )
         result = await asyncio.to_thread(notebooklm.ask, request_prompt, notebook_url=notebook_ref_to_url(notebook_ref))
         logger.info("NotebookLM returned %s characters for user %s", len(result.answer), user_id)
-        payload = extract_json(result.answer)
-        for item in as_script_list(payload):
+        stats = ScriptGenerationAttemptStats()
+        attempt_stats.append(stats)
+        try:
+            payload = extract_json(result.answer)
+            candidates = as_script_list(payload)
+        except ValueError as exc:
+            stats.parse_errors.append(str(exc))
+            logger.warning("NotebookLM script JSON parse failed for user %s: %s", user_id, exc)
+            continue
+        if not candidates:
+            stats.reject("empty_json")
+        stats.parsed_items = len(candidates)
+        for item in candidates:
             if reject_cyrillic and script_payload_has_cyrillic(item):
+                stats.reject("cyrillic")
                 continue
             if word_budget and not script_payload_matches_word_budget(item, word_budget):
+                stats.reject("word_budget")
                 continue
             exact_records = exact_existing_records if exact_existing_records is not None else existing_records
             if script_payload_is_exact_duplicate(item, exact_records, accepted_payloads + items):
+                stats.reject("exact_duplicate")
                 continue
             if format in {"short", "youtube"} and script_payload_is_duplicate(item, existing_records, accepted_payloads + items):
+                stats.reject("duplicate")
                 continue
             brief = editorial_briefs[len(items)] if editorial_briefs and len(items) < len(editorial_briefs) else None
             item = apply_editorial_brief(item, brief)
             items.append(item)
+            stats.accepted_items += 1
         if len(items) >= count:
             break
+    if not items:
+        merged_stats = merge_attempt_stats(attempt_stats)
+        raise NotebookLMScriptGenerationError(script_generation_failure_message(merged_stats))
     return items[:count]
 
 
