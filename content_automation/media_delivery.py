@@ -13,7 +13,7 @@ from .deepgram_transcription import DeepgramConfig
 from .delivered_video_cleanup import cleanup_delivered_video_files
 from .delivery_destination import telegram_delivery_chat_id
 from .elevenlabs_errors import missing_audio_file_message
-from .elevenlabs_mcp import ElevenLabsMCPClient
+from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
 from .heygen import HeyGenClient
 from .kie_image import KieImageClient
 from .media_assets import MediaAssetStore
@@ -224,7 +224,7 @@ def _generate_audio(
                     analysis.current_speed,
                     analysis.recommended_speed,
                 )
-                result = _text_to_speech(
+                regenerated = _safe_regenerate_audio(
                     elevenlabs,
                     record=record,
                     voice_id=voice_id,
@@ -232,11 +232,41 @@ def _generate_audio(
                     settings=settings,
                     speed=analysis.recommended_speed,
                 )
+                if regenerated and regenerated.file_path:
+                    result = regenerated
+                else:
+                    logger.warning(
+                        "Adjusted ElevenLabs voiceover did not return an audio file; using first generated audio: script=%s",
+                        record.id,
+                    )
         except VideoOverlayError:
             logger.exception("Voiceover timing analysis failed; using first generated audio")
     if not result.file_path:
         raise RuntimeError(missing_audio_file_message(user_id, result.message))
     return result.file_path
+
+
+def _safe_regenerate_audio(
+    elevenlabs: ElevenLabsMCPClient,
+    *,
+    record: ScriptRecord,
+    voice_id: str | None,
+    voice_name: str,
+    settings: Settings,
+    speed: float,
+):
+    try:
+        return _text_to_speech(
+            elevenlabs,
+            record=record,
+            voice_id=voice_id,
+            voice_name=voice_name,
+            settings=settings,
+            speed=speed,
+        )
+    except ElevenLabsMCPError as exc:
+        logger.warning("Adjusted ElevenLabs voiceover failed; using first generated audio: script=%s error=%s", record.id, exc)
+        return None
 
 
 def _text_to_speech(
