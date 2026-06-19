@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from textwrap import shorten
 
+from .script_message_contract import build_script_message_contract, script_hook_metadata_lines
 from .storage import ScriptRecord
 
 
@@ -66,11 +67,14 @@ def build_all_turan_packages(record: ScriptRecord) -> str:
 
 def build_avatar_reels_package(record: ScriptRecord, spec: TuranFormat) -> str:
     voiceover = _clean_voiceover(record.voiceover)
+    contract = build_script_message_contract(record)
     return _join_sections(
         _header(record, spec),
         ("Format goal", "Vertical AI-avatar reel from the approved NotebookLM script."),
         ("Title", _one_line(record.title)),
-        ("Hook", _one_line(record.hook)),
+        ("Hook", _one_line(contract.hook)),
+        ("First frame", _one_line(contract.first_frame_text)),
+        ("Hook mechanics", _hook_metadata_text(record)),
         ("Voiceover", voiceover),
         ("Caption", _caption(record)),
         ("Visual direction", _visual_direction(record, "talking-head vertical reel with clean business overlays")),
@@ -80,11 +84,13 @@ def build_avatar_reels_package(record: ScriptRecord, spec: TuranFormat) -> str:
 
 def build_infographic_reels_package(record: ScriptRecord, spec: TuranFormat) -> str:
     bullets = _insight_bullets(record)
+    contract = build_script_message_contract(record)
     return _join_sections(
         _header(record, spec),
         ("Format goal", "A five-second gold-background infographic card based on the approved NotebookLM insight."),
-        ("Card title", _short_overlay(record.hook or record.title, 64)),
+        ("Card title", _short_overlay(contract.headline, 64)),
         ("Card subtitle", _short_overlay(record.angle or record.trigger, 90)),
+        ("Hook mechanics", _hook_metadata_text(record)),
         ("Card bullets", "\n".join(f"- {item}" for item in bullets)),
         ("Micro voiceover", _short_voiceover(record.voiceover, 120)),
         ("Image prompt", _image_prompt(record, bullets)),
@@ -95,11 +101,14 @@ def build_infographic_reels_package(record: ScriptRecord, spec: TuranFormat) -> 
 def build_avatar_horizontal_package(record: ScriptRecord, spec: TuranFormat) -> str:
     voiceover = _clean_voiceover(record.voiceover)
     chapters = _chapters_from_voiceover(voiceover)
+    contract = build_script_message_contract(record)
     return _join_sections(
         _header(record, spec),
         ("Format goal", "Horizontal AI-avatar YouTube segment using the approved NotebookLM text as source."),
         ("Working title", _one_line(record.title)),
-        ("Opening hook", _one_line(record.hook)),
+        ("Opening hook", _one_line(contract.hook)),
+        ("First frame", _one_line(contract.first_frame_text)),
+        ("Hook mechanics", _hook_metadata_text(record)),
         ("Script", voiceover),
         ("Chapter beats", "\n".join(f"{idx}. {item}" for idx, item in enumerate(chapters, start=1))),
         ("Description", _caption(record)),
@@ -141,6 +150,10 @@ def _caption(record: ScriptRecord) -> str:
     return "\n\n".join(part for part in parts if part).strip()
 
 
+def _hook_metadata_text(record: ScriptRecord) -> str:
+    return "\n".join(script_hook_metadata_lines(record))
+
+
 def _visual_direction(record: ScriptRecord, base: str) -> str:
     angle = _one_line(record.angle)
     trigger = _one_line(record.trigger)
@@ -161,9 +174,10 @@ def _insight_bullets(record: ScriptRecord) -> list[str]:
 
 def _image_prompt(record: ScriptRecord, bullets: list[str]) -> str:
     bullet_text = "; ".join(bullets)
+    contract = build_script_message_contract(record)
     return (
         "Create a premium 9:16 business infographic card for Amazon sellers. "
-        f"Main idea: {_one_line(record.hook or record.title)}. "
+        f"Main idea: {_one_line(contract.headline)}. "
         f"Supporting points: {bullet_text}. "
         "Use sharp contrast, readable hierarchy, confident founder-brand energy, no clutter."
     )

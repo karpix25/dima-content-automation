@@ -51,6 +51,7 @@ from .bot_format_actions import BotFormatDeps, run_format_output_job
 from .bot_keyboards import build_format_output_keyboard, build_main_keyboard
 from .prompts import DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT, build_short_scripts_prompt, build_youtube_script_prompt
 from .project_store import ProjectStore
+from .script_message_contract import script_hook_metadata_lines
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .scrapecreators import ScrapeCreatorsClient, ScrapeCreatorsError
 from .settings_service import get_reddit_subreddits, get_reddit_timeframe, get_user_settings
@@ -283,6 +284,7 @@ def format_script_message(record: ScriptRecord) -> str:
     cta_type = str(record.raw.get("cta_type") or "unknown").strip()
     cta_reason = str(record.raw.get("cta_reason") or "").strip()
     editorial = script_editorial_summary(record.raw)
+    hook_lines = script_hook_metadata_lines(record)
     return "\n\n".join(
         [
             f"{label} сценарий #{record.id}",
@@ -290,6 +292,7 @@ def format_script_message(record: ScriptRecord) -> str:
             f"Тема: {record.title}",
             f"Угол: {record.angle}",
             f"Хук: {record.hook}",
+            "Хук-механика:\n" + "\n".join(hook_lines) if hook_lines else "",
             f"Триггер: {record.trigger}",
             f"Текст озвучки:\n{record.voiceover}",
             f"CTA type: {cta_type}",
@@ -394,11 +397,13 @@ def format_review_message(record: ScriptRecord, user_id: str) -> str:
     done, total = get_review_progress(user_id)
     current = min(done + 1, total) if total else 1
     editorial = script_editorial_summary(record.raw)
+    hook_lines = script_hook_metadata_lines(record)
     return "\n\n".join(
         [
             f"Сценарий {current}/{total or 1}",
             f"Формат идеи:\n{editorial}" if editorial else "",
             f"Хук:\n{record.hook}",
+            "Хук-механика:\n" + "\n".join(hook_lines) if hook_lines else "",
             f"Текст озвучки:\n{record.voiceover}",
         ]
     ).replace("\n\n\n", "\n\n").strip()

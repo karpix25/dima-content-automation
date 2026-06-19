@@ -50,7 +50,7 @@ def test_turan_infographic_prompt_filters_internal_source_copy_for_russian_card(
     assert ".pdf" not in prompt
     assert "слайды" not in prompt.lower()
     assert "Скрипт разрушает" not in prompt
-    assert 'H1/top headline exact text: "PPC не пробьет потолок выручки"' in prompt
+    assert 'H1/top headline exact text: "Слив бюджета в PPC не пробьет стеклянный потолок"' in prompt
     assert "Revenue growth means nothing" not in prompt
     assert "PPC не лечит слабую конверсию" in prompt
 

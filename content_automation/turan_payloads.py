@@ -1,16 +1,24 @@
 from __future__ import annotations
 
+from .script_message_contract import build_script_message_contract, script_hook_metadata_payload
 from .storage import ScriptRecord
 from .turan_formats import TuranFormat, build_turan_package
 
 
 def build_structured_payload(record: ScriptRecord, spec: TuranFormat, visual_reference: dict[str, object] | None = None) -> dict[str, object]:
+    contract = build_script_message_contract(record)
+    hook_meta = script_hook_metadata_payload(record)
     base = {
         "source": {
             "kind": "notebooklm_approved_script",
             "script_id": record.id,
             "title": record.title,
             "hook": record.hook,
+            "headline": contract.headline,
+            "hook_type": contract.hook_type,
+            "first_frame_text": contract.first_frame_text,
+            "hook_pattern": contract.hook_pattern,
+            "mechanism": contract.mechanism,
             "source_basis": record.source_basis,
         },
         "format": {
@@ -27,6 +35,7 @@ def build_structured_payload(record: ScriptRecord, spec: TuranFormat, visual_ref
             "voiceover": record.voiceover,
             "cta": record.cta,
             "why_it_works": record.why_it_works,
+            **hook_meta,
         },
         "turan_task_input": build_turan_task_input(record, spec),
         "package_text": build_turan_package(record, spec.key),
@@ -37,7 +46,7 @@ def build_structured_payload(record: ScriptRecord, spec: TuranFormat, visual_ref
     if spec.key == "infographic_reels":
         base["infographic_reels"] = {
             "card": {
-                "title": record.hook or record.title,
+                "title": contract.headline,
                 "subtitle": record.angle or record.trigger,
                 "description": _caption(record),
                 "source_title": record.title,
@@ -55,12 +64,20 @@ def build_structured_payload(record: ScriptRecord, spec: TuranFormat, visual_ref
 
 
 def build_turan_task_input(record: ScriptRecord, spec: TuranFormat) -> dict[str, object]:
+    contract = build_script_message_contract(record)
     script_meta = {
         "source": "notebooklm_approved_script",
         "source_script_id": record.id,
         "format_key": spec.key,
         "format_label": spec.label,
+        "headline": contract.headline,
         "hook": record.hook,
+        "hook_type": contract.hook_type,
+        "first_frame_text": contract.first_frame_text,
+        "hook_pattern": contract.hook_pattern,
+        "mechanism": contract.mechanism,
+        "visual_proof": contract.visual_proof,
+        "visual_retention_plan": contract.visual_retention_plan,
         "trigger": record.trigger,
         "angle": record.angle,
         "cta": record.cta,
@@ -69,7 +86,7 @@ def build_turan_task_input(record: ScriptRecord, spec: TuranFormat) -> dict[str,
     if spec.key == "infographic_reels":
         script_meta["infographic_reels"] = {
             "card": {
-                "title": record.hook or record.title,
+                "title": contract.headline,
                 "subtitle": record.angle or record.trigger,
                 "description": _caption(record),
                 "source_title": record.title,

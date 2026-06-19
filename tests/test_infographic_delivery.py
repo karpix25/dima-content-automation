@@ -19,8 +19,7 @@ def test_generate_gold_card_with_kie_uses_prompt_and_output_path(tmp_path: Path)
     assert "exact color #EBC97C" in client.prompts[0]
     assert "off-white/milky rounded rectangle block" in client.prompts[0]
     assert "Montserrat" in client.prompts[0]
-    assert 'H1/top headline exact text: "Sales Up. Margin Down."' in client.prompts[0]
-    assert "Revenue is not profit" not in client.prompts[0]
+    assert 'H1/top headline exact text: "Revenue is not profit"' in client.prompts[0]
     assert client.reference_paths == []
 
 
@@ -78,7 +77,7 @@ def test_gold_card_prompt_limits_h1_h2_and_prevents_broken_words():
     assert "Final thought:" not in prompt
 
 
-def test_gold_card_prompt_uses_trigger_headline_for_social_card():
+def test_gold_card_prompt_uses_hook_before_trigger_heuristic():
     record = _record(
         hook="If your Amazon margins are shrinking, stop listening to agencies.",
         voiceover="Your revenue can grow while your cash disappears.",
@@ -87,9 +86,18 @@ def test_gold_card_prompt_uses_trigger_headline_for_social_card():
 
     prompt = gold_card_prompt(record)
 
-    assert 'H1/top headline exact text: "Your PPC Is Eating Margin."' in prompt
+    assert 'H1/top headline exact text: "If your Amazon margins are shrinking, stop"' in prompt
     assert "exactly 5 expert points" in prompt
     assert "5-second video card designed to take 14-16 seconds to read" in prompt
+
+
+def test_gold_card_prompt_uses_first_frame_text_before_hook():
+    record = _record(raw={"first_frame_text": "CHECK THIS FEE"})
+
+    prompt = gold_card_prompt(record)
+
+    assert 'H1/top headline exact text: "CHECK THIS FEE"' in prompt
+    assert "Revenue is not profit" not in prompt
 
 
 def test_generate_gold_card_with_kie_uses_configured_cta(tmp_path: Path):
@@ -108,7 +116,7 @@ def test_generate_gold_card_with_kie_requires_api_key(tmp_path: Path):
 def test_gold_card_prompt_includes_script_fields():
     prompt = gold_card_prompt(_record())
 
-    assert 'H1/top headline exact text: "Sales Up. Margin Down."' in prompt
+    assert 'H1/top headline exact text: "Revenue is not profit"' in prompt
     assert "Cash conversion" in prompt
     assert "Check contribution margin" in prompt
     assert "#EBC97C" in prompt
@@ -132,7 +140,7 @@ def test_gold_card_prompt_keeps_expert_specificity_from_bullets():
         )
     )
 
-    assert 'H1/top headline exact text: "Your Margins Are Bleeding In SQP."' in prompt
+    assert 'H1/top headline exact text: "If your Amazon margins are shrinking, stop"' in prompt
     assert "High sales can hide a broken contribution margin" in prompt
     assert "Daily PPC caps protect cash before scale" in prompt
     assert "Lost Keywords show where profit is leaking" in prompt
@@ -186,6 +194,7 @@ def _record(**overrides) -> ScriptRecord:
         "cta": "Check contribution margin.",
         "why_it_works": "Sharp seller pain.",
         "source_basis": "NotebookLM notes.",
+        "raw": {},
     }
     values.update(overrides)
     return ScriptRecord(
@@ -201,5 +210,5 @@ def _record(**overrides) -> ScriptRecord:
         cta=values["cta"],
         why_it_works=values["why_it_works"],
         source_basis=values["source_basis"],
-        raw={},
+        raw=values["raw"],
     )

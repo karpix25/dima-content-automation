@@ -73,6 +73,11 @@ def test_approved_scripts_include_editorial_metadata(tmp_path, monkeypatch):
             "emotion_angle": "shock",
             "emotion_angle_label": "Shock",
             "series_name": "Hidden Leaks",
+            "hook_pattern": "specificity slam",
+            "mechanism": "contrast revenue with cash",
+            "first_frame_text": "CASH LEAK",
+            "visual_proof": "cash flow chart",
+            "visual_retention_plan": "headline, proof, fix",
         },
     )
     storage.update_script_status("42", record.id, "approved")
@@ -84,6 +89,11 @@ def test_approved_scripts_include_editorial_metadata(tmp_path, monkeypatch):
     assert response.status_code == 200
     assert response.json()[0]["editorial_summary"] == "Money Leak · Profit & economics · Numbers · Shock · Hidden Leaks"
     assert response.json()[0]["content_format"] == "money_leak"
+    assert response.json()[0]["first_frame_text"] == "CASH LEAK"
+    assert response.json()[0]["hook_pattern"] == "specificity slam"
+    assert response.json()[0]["mechanism"] == "contrast revenue with cash"
+    assert response.json()[0]["visual_proof"] == "cash flow chart"
+    assert response.json()[0]["visual_retention_plan"] == "headline, proof, fix"
 
 
 def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):

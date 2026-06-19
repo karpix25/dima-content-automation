@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from .script_message_contract import build_script_message_contract
 from .storage import ScriptRecord
 
 
@@ -21,12 +22,13 @@ def build_social_card_copy(
     content_language: str = "auto",
 ) -> SocialCardCopy:
     language = card_language(record, content_language)
+    contract = build_script_message_contract(record)
     source = " ".join(
         clean_prompt_text(item)
         for item in [record.title, record.hook, record.angle, record.trigger, record.voiceover, record.cta, *bullets]
         if clean_prompt_text(item)
     )
-    headline = trigger_headline(source, fallback=record.hook or record.title)
+    headline = limit_chars(contract.headline, 48) if contract.headline else trigger_headline(source, fallback=record.title)
     subtitle = limit_chars(record.trigger or record.angle or record.voiceover or "Fix the bottleneck first", 70)
     items = concise_items(bullets, record)
     cta = limit_chars(cta_text or record.cta or default_cta(language), 48)

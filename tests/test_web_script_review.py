@@ -20,6 +20,12 @@ def test_review_scripts_lists_pending_and_approves(tmp_path: Path):
             "cta": "Fix trust first.",
             "why_it_works": "Specific Amazon operator pain.",
             "source_basis": "NotebookLM notes.",
+            "hook_type": "contrarian",
+            "hook_pattern": "specificity slam",
+            "mechanism": "show ranking without sales",
+            "first_frame_text": "RANKING LEAK",
+            "visual_proof": "ranking and conversion split",
+            "visual_retention_plan": "headline, proof, fix",
         },
     )
     app = FastAPI()
@@ -32,6 +38,9 @@ def test_review_scripts_lists_pending_and_approves(tmp_path: Path):
 
     assert listed.status_code == 200
     assert listed.json()[0]["id"] == record.id
+    assert listed.json()[0]["hook_type"] == "contrarian"
+    assert listed.json()[0]["first_frame_text"] == "RANKING LEAK"
+    assert listed.json()[0]["visual_retention_plan"] == "headline, proof, fix"
     assert approved.status_code == 200
     assert storage.get_script("42", record.id).status == "approved"
     assert listed_after.json() == []

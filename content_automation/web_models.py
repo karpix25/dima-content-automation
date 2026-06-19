@@ -24,6 +24,12 @@ class ScriptOut(BaseModel):
     proof_type: str = ""
     emotion_angle: str = ""
     series_name: str = ""
+    hook_type: str = ""
+    hook_pattern: str = ""
+    mechanism: str = ""
+    first_frame_text: str = ""
+    visual_proof: str = ""
+    visual_retention_plan: str = ""
 
 
 class ScriptReviewIn(BaseModel):

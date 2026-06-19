@@ -4,7 +4,8 @@ import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobSt
 import { withButtonPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
 import { bindCreateIdeasPrompt, renderCreateIdeasPrompt } from "/static/create_ideas_prompt.js?v=20260619-auto-idea-scripts";
 import { startAutoIdeaScripts } from "/static/idea_auto_scripts.js?v=20260619-auto-idea-scripts";
-import { bindScriptReviewDeck, renderScriptReviewDeck } from "/static/script_review_deck.js?v=20260618-review-deck";
+import { bindScriptReviewDeck, renderScriptReviewDeck } from "/static/script_review_deck.js?v=20260619-hook-metadata";
+import { renderScriptHookMetadata } from "/static/script_hook_metadata.js?v=20260619-hook-metadata";
 import { loadProjectContext, renderProjectSwitcher } from "/static/project_switcher.js?v=20260619-project-context";
 import { initialActorUserId } from "/static/session_context.js?v=20260619-project-context";
 
@@ -216,6 +217,7 @@ function renderScripts() {
       <h3>#${script.id} ${escapeHtml(script.title || script.hook)}</h3>
       ${window.editorialBadges ? window.editorialBadges(script) : ""}
       <p>${escapeHtml(script.hook)}</p>
+      ${renderScriptHookMetadata(script, escapeHtml)}
       <details class="script-details">
         <summary>Показать сценарий</summary>
         <div class="review-copy">${escapeHtml(script.voiceover || "Текст сценария пуст.")}</div>

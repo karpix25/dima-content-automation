@@ -5,6 +5,7 @@ from typing import Any
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from .script_message_contract import script_hook_metadata_lines
 from .storage import ScriptRecord
 
 
@@ -57,12 +58,14 @@ def approved_scripts_keyboard(records: list[ScriptRecord]) -> InlineKeyboardMark
 
 def approved_script_details(record: ScriptRecord) -> str:
     status = "уже был использован для видео" if record.status == "used_for_video" else "одобрен"
+    hook_lines = script_hook_metadata_lines(record)
     return "\n\n".join(
         part
         for part in [
             f"Сценарий #{record.id} · {status}",
             f"Заголовок:\n{record.title}".strip() if record.title else "",
             f"Хук:\n{record.hook}".strip() if record.hook else "",
+            "Хук-механика:\n" + "\n".join(hook_lines) if hook_lines else "",
             f"Текст озвучки:\n{_one_line(record.voiceover, limit=700)}".strip() if record.voiceover else "",
             "Выбери формат ниже. Контент запустится только после нажатия конкретной кнопки.",
         ]

@@ -1,5 +1,8 @@
 from pathlib import Path
 
+import pytest
+
+from content_automation import bot
 from content_automation.bot_approved_formats import (
     approved_script_details,
     approved_scripts_keyboard,
@@ -40,7 +43,24 @@ def test_approved_scripts_message_and_keyboard(tmp_path: Path):
 
     assert "#1" in message
     assert "Amazon margin trap" in details
+    assert "Первый кадр: PPC CASH LEAK" in details
+    assert "Тип хука: contrarian" in details
+    assert "Механизм: cash-flow contrast" in details
     assert keyboard.inline_keyboard[0][0].callback_data == "approved:show:1"
+
+
+def test_bot_script_messages_include_hook_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    storage = Storage(tmp_path / "bot.sqlite3")
+    record = _add_script(storage, "42", "pending", title="Amazon margin trap")
+    monkeypatch.setattr(bot, "get_review_progress", lambda user_id: (0, 1))
+
+    review = bot.format_review_message(record, "42")
+    full = bot.format_script_message(record)
+
+    assert "Тип хука: contrarian" in review
+    assert "Первый кадр: PPC CASH LEAK" in review
+    assert "Тип хука: contrarian" in full
+    assert "Первый кадр: PPC CASH LEAK" in full
 
 
 def test_main_keyboard_contains_ready_scripts_button():
@@ -74,6 +94,9 @@ def _add_script(storage: Storage, user_id: str, status: str, *, title: str):
             "title": title,
             "hook": "Hook",
             "voiceover": "Voiceover text for the script.",
+            "hook_type": "contrarian",
+            "first_frame_text": "PPC CASH LEAK",
+            "mechanism": "cash-flow contrast",
         },
     )
     return storage.update_script_status(user_id, record.id, status)

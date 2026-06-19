@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from .content_language import viewer_text_language_instruction
 from .kie_image import KieImageClient
+from .script_message_contract import build_script_message_contract
 from .storage import ScriptRecord
 from .video_geometry import is_horizontal_format, video_size_for_format
 
@@ -50,6 +51,7 @@ def generate_post_heygen_assets(
     legacy_paths = reference_paths or []
     all_references = [*face_paths, *style_paths, *legacy_paths]
     has_references = bool(all_references)
+    contract = build_script_message_contract(record)
     cover_request = VisualAssetRequest(
         path=cover_path,
         prompt=_cover_prompt(
@@ -62,7 +64,7 @@ def generate_post_heygen_assets(
         ),
         size=size,
         aspect_ratio=_aspect_ratio_label(size),
-        title=record.hook or record.title or "Key idea",
+        title=contract.headline or "Key idea",
         subtitle=record.trigger or record.angle,
         footer=record.cta,
         accent=(235, 201, 124),
@@ -150,6 +152,7 @@ def _cover_prompt(
     orientation: str = "vertical 9:16",
     content_language: str = "auto",
 ) -> str:
+    contract = build_script_message_contract(record)
     if not has_references:
         reference_rule = ""
     else:
@@ -180,13 +183,14 @@ def _cover_prompt(
         "Use a clear face + oversized readable headline/numbers composition when it fits the references. "
         "High contrast, sharp composition, simple visual story, instantly understandable at phone size. "
         "No logos, no watermarks, no fake platform UI. Replace all reference text with new exact topic text. "
-        f"Main cover headline: {_clean_text(record.hook or record.title)}. "
+        f"Main cover headline: {_clean_text(contract.headline)}. "
         f"Supporting idea: {_clean_text(record.trigger or record.angle)}. "
         f"Context: {_clean_text(record.source_basis or record.voiceover)[:900]}."
     )
 
 
 def _broll_prompt(record: ScriptRecord, text: str, *, has_references: bool = False, content_language: str = "auto") -> str:
+    contract = build_script_message_contract(record)
     reference_rule = (
         "Use uploaded style references as a style board for color, contrast, hierarchy, spacing, and composition. "
         "Do not copy their old text, logos, numbers, faces, or identities. "
@@ -202,7 +206,7 @@ def _broll_prompt(record: ScriptRecord, text: str, *, has_references: bool = Fal
         "No logos, no watermarks, no UI, no fake screenshots. "
         "If text is present, it must be large and readable, minimal, not crowded. "
         f"Cutaway message: {_clean_text(text)}. "
-        f"Video topic: {_clean_text(record.title or record.hook)}. "
+        f"Video topic: {_clean_text(record.title or contract.headline)}. "
         f"Script context: {_clean_text(record.voiceover)[:900]}."
     )
 

@@ -1,4 +1,5 @@
 import { withButtonPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
+import { renderScriptHookMetadata } from "/static/script_hook_metadata.js?v=20260619-hook-metadata";
 
 export function renderScriptReviewDeck({ pendingScripts, escapeHtml }) {
   if (!pendingScripts?.length) return "";
@@ -11,6 +12,7 @@ export function renderScriptReviewDeck({ pendingScripts, escapeHtml }) {
       </div>
       <h3>${escapeHtml(script.title || script.hook || `Сценарий #${script.id}`)}</h3>
       ${script.hook ? `<p class="review-hook">${escapeHtml(script.hook)}</p>` : ""}
+      ${renderScriptHookMetadata(script, escapeHtml)}
       ${script.voiceover ? `<div class="review-copy">${escapeHtml(script.voiceover)}</div>` : ""}
       <div class="review-actions">
         <button class="secondary-button danger" type="button" data-review-action="reject" data-script-id="${escapeHtml(script.id)}">Отклонить</button>

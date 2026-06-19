@@ -31,6 +31,12 @@ def script_to_out(record: ScriptRecord) -> ScriptOut:
         proof_type=str(raw.get("proof_type") or ""),
         emotion_angle=str(raw.get("emotion_angle") or ""),
         series_name=str(raw.get("series_name") or ""),
+        hook_type=str(raw.get("hook_type") or ""),
+        hook_pattern=str(raw.get("hook_pattern") or ""),
+        mechanism=str(raw.get("mechanism") or ""),
+        first_frame_text=str(raw.get("first_frame_text") or ""),
+        visual_proof=str(raw.get("visual_proof") or ""),
+        visual_retention_plan=str(raw.get("visual_retention_plan") or ""),
     )
 
 

@@ -23,6 +23,12 @@ def add_script(storage: Storage, user_id: str = "42"):
             "cta": "Audit contribution margin before scaling.",
             "why_it_works": "Clear pain and action.",
             "source_basis": "NotebookLM notes.",
+            "first_frame_text": "PPC CASH LEAK",
+            "hook_type": "contrarian",
+            "hook_pattern": "specificity slam",
+            "mechanism": "contrast sales with cash flow",
+            "visual_proof": "ACOS and cash-flow split screen",
+            "visual_retention_plan": "headline, proof, fix",
         },
     )
 
@@ -49,6 +55,10 @@ def test_create_format_job_persists_turan_package(tmp_path):
     assert job.raw["avatar"]["target_platform"] == "instagram"
     assert job.raw["turan_task_input"]["source_url"] == f"notebooklm-script://{record.id}"
     assert job.raw["turan_task_input"]["script_text"] == record.voiceover
+    assert job.raw["turan_task_input"]["script_meta"]["first_frame_text"] == "PPC CASH LEAK"
+    assert job.raw["turan_task_input"]["script_meta"]["hook_type"] == "contrarian"
+    assert job.raw["content"]["headline"] == "PPC CASH LEAK"
+    assert "Паттерн хука: specificity slam" in job.output_text
     assert "Turan text-source input JSON" in job.output_text
 
 
@@ -64,6 +74,11 @@ def test_create_all_formats_job_persists_bundle(tmp_path):
     assert "Turan format: ИИ аватар Reels" in job.output_text
     assert "Turan format: Золотой фон / инфографика 5 сек." in job.output_text
     assert job.raw["formats"][0]["turan_task_input"]["script_text"] == record.voiceover
+    formats = {item["format"]["key"]: item for item in job.raw["formats"]}
+    assert formats["infographic_reels"]["infographic_reels"]["card"]["title"] == "PPC CASH LEAK"
+    assert formats["infographic_reels"]["turan_task_input"]["script_meta"]["hook_pattern"] == "specificity slam"
+    assert all(item["turan_task_input"]["script_meta"]["headline"] == "PPC CASH LEAK" for item in formats.values())
+    assert all(item["turan_task_input"]["script_meta"]["mechanism"] == "contrast sales with cash flow" for item in formats.values())
 
 
 def test_list_approved_scripts_filters_pending(tmp_path):
