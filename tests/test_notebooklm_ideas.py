@@ -22,17 +22,39 @@ def test_notebooklm_ideas_prompt_can_force_russian():
 
     assert "5 strong Russian content topic ideas" in prompt
     assert "natural Russian" in prompt
+    assert "Viral angle requirements" in prompt
+    assert '"hook_pattern": ""' in prompt
+    assert '"mechanism": ""' in prompt
+    assert '"first_frame_text": ""' in prompt
 
 
 def test_normalize_notebooklm_ideas_marks_source():
     ideas = normalize_notebooklm_ideas(
-        {"ideas": [{"title": "Margin leak", "pain": "Fees", "angle": "Audit FBA tiers", "summary": "Source note"}]},
+        {
+            "ideas": [
+                {
+                    "title": "Margin leak",
+                    "pain": "Fees",
+                    "angle": "Audit FBA tiers",
+                    "viral_angle": "villain",
+                    "hook_pattern": "negative urgency",
+                    "mechanism": "fee tier mismatch",
+                    "first_frame_text": "FEE LEAK",
+                    "visual_proof": "FBA fee table",
+                    "summary": "Source note",
+                }
+            ]
+        },
         notebook_ref="notebook-1",
     )
 
     assert ideas[0]["source"] == "notebooklm"
     assert ideas[0]["source_url"].startswith("notebooklm://notebook-1/")
     assert ideas[0]["source_meta"]["notebook_ref"] == "notebook-1"
+    assert ideas[0]["source_meta"]["hook_pattern"] == "negative urgency"
+    assert ideas[0]["source_meta"]["mechanism"] == "fee tier mismatch"
+    assert ideas[0]["source_meta"]["first_frame_text"] == "FEE LEAK"
+    assert ideas[0]["source_meta"]["visual_proof"] == "FBA fee table"
 
 
 @pytest.mark.asyncio
@@ -68,6 +90,8 @@ def test_producer_plan_prompt_uses_social_producer_role_and_language():
     assert "Create 30 fresh content episode(s)" in prompt
     assert "natural Russian" in prompt
     assert "Amazon mentorship" in prompt
+    assert "Viral angle requirements" in prompt
+    assert "viral_angle, hook_pattern, mechanism, first_frame_text" in prompt
 
 
 def test_producer_plan_extension_prompt_includes_saved_topics():
@@ -104,8 +128,13 @@ def test_normalize_producer_plan_marks_metadata():
                     "title": "Fee Leak",
                     "pain": "Profit disappears",
                     "angle": "Audit FBA tiers",
+                    "viral_angle": "villain",
+                    "hook_pattern": "specificity slam",
+                    "mechanism": "box size changes the fee tier",
+                    "first_frame_text": "CHECK THIS FEE",
                     "summary": "Catch box-size mistakes.",
                     "visual_note": "Show carton and fee table",
+                    "visual_proof": "Before/after fee table",
                     "source_basis": "Notebook note",
                 }
             ]
@@ -117,6 +146,11 @@ def test_normalize_producer_plan_marks_metadata():
     assert ideas[0]["source_meta"]["day"] == 3
     assert ideas[0]["source_meta"]["pillar"] == "Margin"
     assert ideas[0]["source_meta"]["visual_note"] == "Show carton and fee table"
+    assert ideas[0]["source_meta"]["viral_angle"] == "villain"
+    assert ideas[0]["source_meta"]["hook_pattern"] == "specificity slam"
+    assert ideas[0]["source_meta"]["mechanism"] == "box size changes the fee tier"
+    assert ideas[0]["source_meta"]["first_frame_text"] == "CHECK THIS FEE"
+    assert ideas[0]["source_meta"]["visual_proof"] == "Before/after fee table"
 
 
 @pytest.mark.asyncio

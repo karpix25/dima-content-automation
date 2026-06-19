@@ -22,7 +22,6 @@ export function renderIdeasTab({ state, escapeHtml }) {
             <button data-action="generate-notebooklm-plan">План на месяц</button>
             <button data-action="extend-notebooklm-plan">Добрать еще 30</button>
             <button data-action="generate-notebooklm-ideas">Собрать из NotebookLM</button>
-            <button data-action="auto-script-ideas">Написать все темы</button>
           </div>
         </div>
       `, escapeHtml)}
@@ -42,6 +41,7 @@ export function renderIdeasTab({ state, escapeHtml }) {
         </div>
       `, escapeHtml)}
       ${settingsDisclosure("Банк тем", [chip(`${ideas.length} новых`)], `
+        <p class="muted">Новые темы автоматически уходят в написание сценариев, когда в проекте нет готовых карточек.</p>
         <div class="idea-list">
           ${ideas.length ? ideas.map((idea) => ideaCard(idea, escapeHtml)).join("") : `<p class="muted">Пока нет новых тем. Собери их из NotebookLM или через Reddit Radar.</p>`}
         </div>
@@ -77,7 +77,6 @@ function ideaCard(idea, escapeHtml) {
       ${idea.angle ? `<p><strong>Угол:</strong> ${escapeHtml(idea.angle)}</p>` : ""}
       ${idea.summary ? `<p>${escapeHtml(idea.summary)}</p>` : ""}
       <div class="settings-actions idea-actions">
-        <button data-action="idea-script" data-idea-id="${escapeHtml(idea.id)}">Написать сценарий</button>
         <button class="secondary-button danger" data-action="idea-reject" data-idea-id="${escapeHtml(idea.id)}">Отклонить</button>
       </div>
     </article>

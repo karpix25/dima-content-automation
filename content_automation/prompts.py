@@ -3,6 +3,7 @@ from __future__ import annotations
 from .content_language import normalize_content_language, prompt_language_name, viewer_text_language_instruction
 from .editorial import EditorialBrief, editorial_briefs_prompt
 from .script_length import WordBudget, length_instruction, vertical_word_budget, youtube_word_budget
+from .viral_prompt_rules import viral_script_prompt
 
 
 DEFAULT_AUTHOR_STYLE = """
@@ -50,6 +51,7 @@ def build_short_scripts_prompt(
     language_name = prompt_language_name(language)
     language_rule = viewer_text_language_instruction(language)
     editorial = editorial_briefs_prompt(editorial_briefs or [])
+    viral_rules = viral_script_prompt()
     hint_line = f"\nFocus: {hint}" if hint else ""
     exclusions_line = f"\nAvoid repeating: {exclusions}" if exclusions else ""
     editorial_line = f"\n{editorial}" if editorial else ""
@@ -68,6 +70,7 @@ Social performance rules:
 - Use concrete niche-specific stakes. For Amazon/ecommerce: margin, PPC waste, cash flow, fees, inventory, rankings, operations, or expansion.
 - Resolve the curiosity gap by the end; do not end as a vague teaser.
 - Make the idea feel new compared with the avoided titles, hooks, and fingerprints.
+{viral_rules}
 {editorial_line}
 
 [
@@ -80,8 +83,13 @@ Social performance rules:
     "series_name": "",
     "topic_fingerprint": "pain + mechanism + audience moment + payoff",
     "angle": "",
+    "mechanism": "",
     "hook_type": "hidden mistake | contrarian warning | money leak | belief shift",
+    "hook_pattern": "",
     "hook": "",
+    "first_frame_text": "",
+    "visual_proof": "",
+    "visual_retention_plan": "",
     "trigger": "",
     "retention_beats": ["setup", "turn", "proof", "payoff"],
     "voiceover": "",

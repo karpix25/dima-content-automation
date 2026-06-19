@@ -2,7 +2,8 @@ import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=202
 import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-plan-buttons";
 import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-plan-buttons";
 import { withButtonPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
-import { bindCreateIdeasPrompt, renderCreateIdeasPrompt } from "/static/create_ideas_prompt.js?v=20260618-auto-scripts";
+import { bindCreateIdeasPrompt, renderCreateIdeasPrompt } from "/static/create_ideas_prompt.js?v=20260619-auto-idea-scripts";
+import { startAutoIdeaScripts } from "/static/idea_auto_scripts.js?v=20260619-auto-idea-scripts";
 import { bindScriptReviewDeck, renderScriptReviewDeck } from "/static/script_review_deck.js?v=20260618-review-deck";
 import { loadProjectContext, renderProjectSwitcher } from "/static/project_switcher.js?v=20260619-project-context";
 import { initialActorUserId } from "/static/session_context.js?v=20260619-project-context";
@@ -33,6 +34,7 @@ const state = {
   creating: null,
   pollTimer: null,
   pollFailures: 0,
+  autoScriptProjects: new Set(),
 };
 
 const tabTitles = {
@@ -135,13 +137,28 @@ async function loadAll() {
   state.jobs = jobs;
   await loadSettingsData(settingsDeps(), false);
   state.ideas = await api(`/api/ideas?user_id=${userQuery}&limit=30`).catch(() => []);
+  const autoStarted = await autoStartIdeaScriptsIfNeeded();
   renderScripts();
   renderJobs();
   renderSettings();
   renderTabs();
   const liveJob = state.jobs.find((job) => isLiveStatus(job.status));
   if (liveJob) pollJob(liveJob.id);
-  setStatus(liveJob ? "Working" : "Ready");
+  setStatus(liveJob ? "Working" : autoStarted ? "Пишу" : "Ready");
+}
+
+async function autoStartIdeaScriptsIfNeeded() {
+  if (state.scripts.length || state.pendingScripts.length || !state.ideas.length) return false;
+  if (state.autoScriptProjects.has(state.userId)) return false;
+  state.autoScriptProjects.add(state.userId);
+  try {
+    const result = await startAutoIdeaScripts(settingsDeps(), { count: 30 });
+    return Boolean(result.accepted);
+  } catch (error) {
+    state.autoScriptMessage = `Не смог автоматически написать сценарии: ${error.message}`;
+    showSettingsError(error);
+    return false;
+  }
 }
 
 function projectDeps() {

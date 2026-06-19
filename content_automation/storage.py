@@ -281,7 +281,7 @@ class Storage:
                 """
                 SELECT *
                 FROM scripts
-                WHERE user_id = ? AND format = 'short' AND status = 'approved'
+                WHERE user_id = ? AND format = 'short' AND status IN ('approved', 'used_for_video')
                 ORDER BY id DESC
                 LIMIT ?
                 """,

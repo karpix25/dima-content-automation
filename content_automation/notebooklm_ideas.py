@@ -10,6 +10,7 @@ from .notebooklm import extract_json
 from .notebooklm_mcp import notebook_ref_to_url
 from .notebooklm_runtime import NotebookLMAskClient
 from .prompts import DEFAULT_OFFER_CONTEXT, _short_prompt_value
+from .viral_prompt_rules import viral_angle_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ def build_notebooklm_ideas_prompt(
     language_name = prompt_language_name(language)
     language_rule = viewer_text_language_instruction(language)
     offer = _short_prompt_value(offer_context or DEFAULT_OFFER_CONTEXT, 520)
+    viral_rules = viral_angle_prompt()
     return f"""
 Return ONLY valid JSON. Use the NotebookLM sources.
 Find {count} strong {language_name} content topic ideas for an expert creator in this niche.
@@ -62,12 +64,18 @@ Offer/context:
 
 Pick ideas that are specific enough to become short vertical videos or YouTube scripts.
 Avoid broad beginner topics. Prefer hidden mistakes, money leaks, operational bottlenecks, contrarian warnings, and specific Amazon/ecommerce mechanisms.
+{viral_rules}
 
 [
   {{
     "title": "",
     "pain": "",
     "angle": "",
+    "viral_angle": "",
+    "hook_pattern": "",
+    "mechanism": "",
+    "first_frame_text": "",
+    "visual_proof": "",
     "summary": "",
     "source_basis": "which NotebookLM materials or knowledge-base idea this came from"
   }}
@@ -89,6 +97,7 @@ def normalize_notebooklm_ideas(payload: Any, *, notebook_ref: str) -> list[dict[
         summary = str(item.get("summary") or item.get("source_basis") or "").strip()
         if not title or not angle:
             continue
+        source_basis = str(item.get("source_basis") or "").strip()
         ideas.append(
             {
                 "source": "notebooklm",
@@ -99,7 +108,12 @@ def normalize_notebooklm_ideas(payload: Any, *, notebook_ref: str) -> list[dict[
                 "summary": summary,
                 "source_meta": {
                     "notebook_ref": notebook_ref,
-                    "source_basis": str(item.get("source_basis") or "").strip(),
+                    "source_basis": source_basis,
+                    "viral_angle": _text(item.get("viral_angle")),
+                    "hook_pattern": _text(item.get("hook_pattern")),
+                    "mechanism": _text(item.get("mechanism")),
+                    "first_frame_text": _text(item.get("first_frame_text")),
+                    "visual_proof": _text(item.get("visual_proof")),
                 },
             }
         )
@@ -108,3 +122,7 @@ def normalize_notebooklm_ideas(payload: Any, *, notebook_ref: str) -> list[dict[
 
 def _slug(value: str) -> str:
     return "-".join("".join(char.lower() if char.isalnum() else " " for char in value).split())[:80] or "topic"
+
+
+def _text(value: Any) -> str:
+    return str(value or "").strip()

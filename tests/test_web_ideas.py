@@ -146,11 +146,19 @@ def test_idea_actions_reject_and_create_pending_script(tmp_path: Path):
             "pain": "Conversion is weak",
             "angle": "Audit trust signals",
             "summary": "Notebook source",
+            "source_meta": {
+                "hook_pattern": "negative urgency",
+                "mechanism": "missing trust proof breaks conversion",
+                "first_frame_text": "TRUST LEAK",
+                "visual_proof": "Buy Box panel with weak trust signals",
+            },
         },
     )
+    calls = []
 
     class FakeNotebookLM:
         def ask(self, question, *, notebook_url=None, notebook_id=None):
+            calls.append(question)
             assert "Buy Box trust gap" in question
             return SimpleNamespace(
                 answer=(
@@ -176,6 +184,10 @@ def test_idea_actions_reject_and_create_pending_script(tmp_path: Path):
 
     assert created.status_code == 200
     assert created.json()["title"] == "Buy Box trust gap"
+    assert "Hook pattern: negative urgency" in calls[0]
+    assert "Mechanism to explain: missing trust proof breaks conversion" in calls[0]
+    assert "First-frame text: TRUST LEAK" in calls[0]
+    assert "Visual proof: Buy Box panel with weak trust signals" in calls[0]
     assert idea_bank.get("42", idea.id).status == "used_for_script"
     assert storage.list_scripts("42", status="pending")[0].title == "Buy Box trust gap"
 

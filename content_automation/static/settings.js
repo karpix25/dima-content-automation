@@ -77,8 +77,6 @@ function bindSettingsEvents(root, deps) {
   root.querySelectorAll("[data-action='generate-notebooklm-plan']").forEach((button) => bindAction(button, deps, () => generateNotebookLMPlan(deps)));
   root.querySelectorAll("[data-action='extend-notebooklm-plan']").forEach((button) => bindAction(button, deps, () => extendNotebookLMPlan(deps)));
   root.querySelectorAll("[data-action='generate-notebooklm-ideas']").forEach((button) => bindAction(button, deps, () => generateNotebookLMIdeas(deps)));
-  root.querySelectorAll("[data-action='auto-script-ideas']").forEach((button) => bindAction(button, deps, () => startAutoIdeaScripts(deps, { count: 30 })));
-  root.querySelectorAll("[data-action='idea-script']").forEach((button) => bindAction(button, deps, () => createScriptFromIdea(deps, button.dataset.ideaId)));
   root.querySelectorAll("[data-action='idea-reject']").forEach((button) => bindAction(button, deps, () => rejectIdea(deps, button.dataset.ideaId)));
   root.querySelectorAll("[data-action='save-overlay-percent']").forEach((button) => bindAction(button, deps, () => saveOverlayPercent(deps, button.dataset.format)));
   root.querySelectorAll("[data-action='delete-overlay']").forEach((button) => bindAction(button, deps, () => deleteOverlay(deps, button.dataset.format)));
@@ -239,18 +237,6 @@ async function extendNotebookLMPlan(deps) {
   });
   await startAutoIdeaScripts(deps, { count: 30 });
   deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
-  await loadSettingsData(deps, false);
-  renderSettingsPanel(deps);
-  deps.setStatus("Готово");
-}
-
-async function createScriptFromIdea(deps, ideaId) {
-  deps.setStatus("Идеи");
-  await deps.api(`/api/ideas/${ideaId}/script`, {
-    method: "POST",
-    body: JSON.stringify({ user_id: deps.state.userId, count: 1 }),
-  });
-  deps.state.ideas = await loadIdeas(deps);
   await loadSettingsData(deps, false);
   renderSettingsPanel(deps);
   deps.setStatus("Готово");

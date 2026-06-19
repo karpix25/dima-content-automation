@@ -10,6 +10,7 @@ from .notebooklm import extract_json
 from .notebooklm_mcp import notebook_ref_to_url
 from .notebooklm_runtime import NotebookLMAskClient
 from .prompts import DEFAULT_OFFER_CONTEXT, _short_prompt_value
+from .viral_prompt_rules import viral_angle_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +143,7 @@ def build_producer_plan_prompt(
         else "Build the first monthly plan from scratch."
     )
     existing_section = format_existing_plan_context(existing_ideas or [])
+    viral_rules = viral_angle_prompt()
     return f"""
 Return ONLY valid JSON, no markdown.
 Act as a senior social media producer. Use NotebookLM sources as truth.
@@ -153,13 +155,14 @@ Avoid repeating these saved topics:
 {existing_section}
 
 Return an array of objects with exactly these keys:
-day, pillar, format, title, pain, angle, summary, visual_note, source_basis.
+day, pillar, format, title, pain, angle, viral_angle, hook_pattern, mechanism, first_frame_text, summary, visual_note, visual_proof, source_basis.
 
 Rules:
 - title: 3-8 words, thesis-style
 - format: vertical_short, infographic, or youtube_segment
 - angle and visual_note must be specific enough for a video editor
 - choose a source-backed hidden mistake, money leak, diagnostic, framework, or proof story
+{viral_rules}
 """.strip()
 
 
@@ -201,7 +204,12 @@ def normalize_producer_plan(payload: Any, *, notebook_ref: str) -> list[dict[str
                     "day": day,
                     "pillar": _text(item.get("pillar")),
                     "format": _text(item.get("format")),
+                    "viral_angle": _text(item.get("viral_angle")),
+                    "hook_pattern": _text(item.get("hook_pattern")),
+                    "mechanism": _text(item.get("mechanism")),
+                    "first_frame_text": _text(item.get("first_frame_text")),
                     "visual_note": _text(item.get("visual_note")),
+                    "visual_proof": _text(item.get("visual_proof")),
                     "source_basis": _text(item.get("source_basis")),
                 },
             }

@@ -100,7 +100,12 @@ def test_idea_to_topic_hint_keeps_producer_plan_context():
             "day": 2,
             "pillar": "Margin",
             "format": "vertical_short",
+            "viral_angle": "villain",
+            "hook_pattern": "negative urgency",
+            "mechanism": "box-size fee tier mismatch",
+            "first_frame_text": "FEE LEAK",
             "visual_note": "Box-size fee table",
+            "visual_proof": "Before/after FBA fee table",
             "source_basis": "Notebook note",
         },
     )
@@ -108,7 +113,11 @@ def test_idea_to_topic_hint_keeps_producer_plan_context():
     hint = idea_to_topic_hint(idea)
 
     assert "producer-plan episode seed" in hint
+    assert "Hook pattern: negative urgency" in hint
+    assert "Mechanism to explain: box-size fee tier mismatch" in hint
+    assert "First-frame text: FEE LEAK" in hint
     assert "Box-size fee table" in hint
+    assert "Visual proof: Before/after FBA fee table" in hint
     assert "Do not invent external claims" in hint
 
 

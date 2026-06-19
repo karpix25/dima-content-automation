@@ -51,6 +51,23 @@ def test_short_prompt_includes_editorial_briefs():
     assert "content_format, content_pillar, proof_type, emotion_angle, series_name" in prompt
 
 
+def test_short_prompt_includes_viral_hook_and_visual_rules():
+    prompt = build_short_scripts_prompt(
+        count=1,
+        author_style="Direct operator voice.",
+        word_budget=vertical_word_budget("45"),
+    )
+
+    assert "Select one hook_pattern" in prompt
+    assert "curiosity gap / mechanism reveal" in prompt
+    assert "Hook must be under 15 words" in prompt
+    assert '"mechanism": ""' in prompt
+    assert '"first_frame_text": ""' in prompt
+    assert '"visual_proof": ""' in prompt
+    assert '"visual_retention_plan": ""' in prompt
+    assert "No greetings, no setup" in prompt
+
+
 def test_youtube_prompt_includes_minutes_word_budget():
     prompt = build_youtube_script_prompt(
         author_style="Direct operator voice.",

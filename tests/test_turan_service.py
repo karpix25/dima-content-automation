@@ -70,11 +70,15 @@ def test_list_approved_scripts_filters_pending(tmp_path):
     storage = make_storage(tmp_path)
     pending = add_script(storage)
     approved = add_script(storage)
+    used = add_script(storage)
+    rejected = add_script(storage)
     storage.update_script_status(approved.user_id, approved.id, "approved")
+    storage.update_script_status(used.user_id, used.id, "used_for_video")
+    storage.update_script_status(rejected.user_id, rejected.id, "rejected")
 
     records = list_approved_scripts(storage, pending.user_id)
 
-    assert [record.id for record in records] == [approved.id]
+    assert [record.id for record in records] == [used.id, approved.id]
 
 
 def test_list_approved_scripts_returns_latest_ids_first(tmp_path):

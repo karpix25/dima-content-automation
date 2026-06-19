@@ -46,19 +46,30 @@ def idea_to_topic_hint(idea: ContentIdea) -> str:
                 f"Topic title: {idea.title}",
                 f"Observed pain: {idea.pain}",
                 f"Content angle: {idea.angle}",
+                f"Viral angle: {meta.get('viral_angle') or ''}",
+                f"Hook pattern: {meta.get('hook_pattern') or ''}",
+                f"Mechanism to explain: {meta.get('mechanism') or ''}",
+                f"First-frame text: {meta.get('first_frame_text') or ''}",
                 f"Producer summary: {idea.summary}",
                 f"Visual direction: {meta.get('visual_note') or ''}",
+                f"Visual proof: {meta.get('visual_proof') or ''}",
                 f"Source basis: {meta.get('source_basis') or ''}",
                 "Develop the script through the author's NotebookLM knowledge base. Do not invent external claims.",
             ]
         )
     if idea.source == "notebooklm":
+        meta = idea.source_meta
         return "\n".join(
             [
                 "Use this NotebookLM-derived topic seed.",
                 f"Topic title: {idea.title}",
                 f"Observed pain: {idea.pain}",
                 f"Content angle: {idea.angle}",
+                f"Viral angle: {meta.get('viral_angle') or ''}",
+                f"Hook pattern: {meta.get('hook_pattern') or ''}",
+                f"Mechanism to explain: {meta.get('mechanism') or ''}",
+                f"First-frame text: {meta.get('first_frame_text') or ''}",
+                f"Visual proof: {meta.get('visual_proof') or ''}",
                 f"Source context: {idea.summary}",
                 "Develop the script through the author's NotebookLM knowledge base. Do not invent external claims.",
             ]
