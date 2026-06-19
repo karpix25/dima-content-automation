@@ -1,0 +1,24 @@
+.notebooklm-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.notebooklm-actions > button {
+  width: 100%;
+}
+
+.notebooklm-secondary-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.notebooklm-secondary-actions button {
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  .notebooklm-secondary-actions {
+    grid-template-columns: 1fr;
+  }
+}

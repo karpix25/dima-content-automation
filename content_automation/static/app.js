@@ -1,4 +1,4 @@
-import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260619-plan-feedback";
+import { loadSettingsData, renderSettingsPanel } from "/static/settings.js?v=20260619-ideas-actions";
 import { formatButtonState, usageSummary } from "/static/format_usage.js?v=20260617-plan-buttons";
 import { canRetryJob, canStopJob, isErrorStatus, isLiveStatus, isStaleJob, jobStatusLabel, jobStatusMessage } from "/static/job_status.js?v=20260617-plan-buttons";
 import { withButtonPending } from "/static/action_feedback.js?v=20260618-auto-scripts";

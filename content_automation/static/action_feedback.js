@@ -50,9 +50,9 @@ export async function withUploadPending(input, task, options = {}) {
 export function pendingLabelForAction(action) {
   if (String(action || "").startsWith("delete")) return "Удаляю...";
   if (action === "save-section" || action === "save-text" || action === "save-overlay-percent") return "Сохраняю...";
-  if (action === "generate-notebooklm-plan") return "Собираю план...";
-  if (action === "extend-notebooklm-plan") return "Добираю темы...";
-  if (action === "generate-notebooklm-ideas") return "Собираю темы...";
+  if (action === "generate-notebooklm-plan") return "Собираю план на 30 тем...";
+  if (action === "extend-notebooklm-plan") return "Добавляю еще 30 тем...";
+  if (action === "generate-notebooklm-ideas") return "Быстро собираю 8 тем...";
   if (action === "idea-reject") return "Отклоняю...";
   return "Ждите...";
 }

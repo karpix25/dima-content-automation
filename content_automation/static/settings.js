@@ -1,6 +1,6 @@
 import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-plan-buttons";
 import { bindVoiceEvents } from "/static/settings_voices.js?v=20260619-auto-voices-ui";
-import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260619-plan-feedback";
+import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260619-ideas-actions";
 import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
 import { startAutoIdeaScripts } from "/static/idea_auto_scripts.js?v=20260618-auto-scripts";
 
@@ -204,7 +204,7 @@ async function saveSettingsSection(deps, button) {
 }
 
 async function generateNotebookLMIdeas(deps) {
-  deps.setStatus("Идеи");
+  deps.setStatus("Быстро собираю 8 тем");
   const result = await deps.api("/api/ideas/notebooklm", {
     method: "POST",
     body: JSON.stringify({ user_id: deps.state.userId, count: 8 }),
@@ -218,7 +218,7 @@ async function generateNotebookLMIdeas(deps) {
 }
 
 async function generateNotebookLMPlan(deps) {
-  deps.setStatus("План");
+  deps.setStatus("Собираю план на 30 тем");
   const result = await deps.api("/api/ideas/notebooklm-plan", {
     method: "POST",
     body: JSON.stringify({ user_id: deps.state.userId, count: 30 }),
@@ -232,7 +232,7 @@ async function generateNotebookLMPlan(deps) {
 }
 
 async function extendNotebookLMPlan(deps) {
-  deps.setStatus("План");
+  deps.setStatus("Добавляю еще 30 тем");
   const result = await deps.api("/api/ideas/notebooklm-plan/extend", {
     method: "POST",
     body: JSON.stringify({ user_id: deps.state.userId, count: 30 }),

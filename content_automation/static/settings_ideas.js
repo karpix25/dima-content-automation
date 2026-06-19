@@ -17,13 +17,16 @@ export function renderIdeasTab({ state, escapeHtml }) {
     <section class="settings-stack">
       ${settingsDisclosure("NotebookLM темы", [chip(notebookLabel, !state.settings.notebook_id), chip(contentLanguageLabel(state.settings.content_language || "auto"))], `
         <div class="soft-box">
-          <h3>Темы из базы знаний</h3>
-          <p class="muted">NotebookLM найдет темы внутри твоей базы. Если личный NotebookLM ID пустой, попробую серверный ID из деплоя.</p>
-          <div class="settings-actions">
-            <button data-action="generate-notebooklm-plan">План на месяц</button>
-            <button data-action="extend-notebooklm-plan">Добрать еще 30</button>
-            <button data-action="generate-notebooklm-ideas">Собрать из NotebookLM</button>
+          <h3>Собрать темы из NotebookLM</h3>
+          <p class="muted">Основной режим: бот делает контент-план на 30 тем из базы и сразу запускает написание сценариев, когда очередь пустая.</p>
+          <div class="notebooklm-actions">
+            <button data-action="generate-notebooklm-plan">Собрать план на 30 тем</button>
+            <div class="notebooklm-secondary-actions">
+              <button class="secondary-button" data-action="extend-notebooklm-plan">Добавить еще 30</button>
+              <button class="secondary-button" data-action="generate-notebooklm-ideas">Быстро: 8 тем</button>
+            </div>
           </div>
+          <p class="muted">“Добавить еще 30” продолжает уже собранный план. “Быстро: 8 тем” нужно только для короткой проверки базы.</p>
         </div>
       `, escapeHtml)}
       ${settingsDisclosure("Reddit Radar", [chip(timeframeLabel(timeframe)), chip(subredditCount(subreddits))], `

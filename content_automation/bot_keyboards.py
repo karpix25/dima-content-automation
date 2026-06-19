@@ -20,14 +20,14 @@ def callback_button(text: str, callback_data: str) -> InlineKeyboardButton:
 
 def build_main_keyboard(miniapp_url: str | None = None) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
-        [callback_button("Проверить сценарии", "main:review")],
+        [callback_button("Проверить сценарии на апрув", "main:review")],
         [
-            callback_button("Создать 10 сценариев", "main:daily"),
-            callback_button("Пополнить банк", "main:refill"),
+            callback_button("Собрать сценарии из NotebookLM", "main:daily"),
+            callback_button("Добрать банк сценариев", "main:refill"),
         ],
         [
-            callback_button("Статус банка", "main:bank"),
-            callback_button("Reddit-темы", "main:reddit"),
+            callback_button("Статус очереди", "main:bank"),
+            callback_button("Найти темы в Reddit", "main:reddit"),
         ],
         [callback_button("Готовые сценарии → форматы", "approved:list")],
         [callback_button("YouTube-сценарий", "main:youtube")],
