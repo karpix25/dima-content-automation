@@ -26,6 +26,8 @@ from .heygen_video_input import extract_heygen_video_id
 from .idea_bank import ContentIdea, IdeaBank
 from .idea_cards import format_idea_card, idea_to_topic_hint, select_visible_idea
 from .kie_image import KieImageClient, KieImageConfig
+from .kie_idea_pipeline import generate_short_scripts_with_kie
+from .kie_script_writer import build_kie_text_client
 from .media_assets import MediaAssetStore
 from .montage_renderer import MontageRendererConfig, render_montage_if_configured
 from .notebooklm import as_script_list, extract_json
@@ -37,6 +39,7 @@ from .notebooklm_script_attempts import (
     script_generation_failure_message,
 )
 from .notebooklm_mcp import notebook_ref_to_url
+from .notebooklm_idea_scripts import create_script_from_idea
 from .notebooklm_runtime import build_notebooklm_client
 from .overlay_catalog import add_overlay_path, list_overlay_paths, select_overlay_path
 from .bot_menu_actions import (
@@ -641,6 +644,26 @@ async def generate_scripts_for_user(
     cta_mix = get_cta_mix(user_id)
     user_settings = get_user_settings(storage, settings, user_id)
     voice_wpm = await ensure_voice_wpm(user_id)
+    if format == "short" and settings.script_writer_backend == "kie" and not topic_hint:
+        records = await generate_short_scripts_with_kie(
+            storage=storage,
+            idea_bank=idea_bank,
+            settings=settings,
+            notebooklm=notebooklm,
+            user_id=user_id,
+            notebook_ref=notebook_ref,
+            count=count,
+            author_style=style,
+            offer_context=offer_context,
+            cta_mix=cta_mix,
+            content_language=user_settings.content_language,
+            vertical_duration_mode=user_settings.vertical_avatar_duration_mode,
+        )
+        if records:
+            return records[:count]
+        if build_kie_text_client(settings).is_configured():
+            raise ValueError("Kie не смог написать сценарии по темам NotebookLM. Проверь логи Kie и попробуй позже.")
+        logger.warning("SCRIPT_WRITER_BACKEND=kie, but KIE_API_KEY is missing; falling back to NotebookLM script writing")
     if format == "youtube":
         all_existing_records = storage.list_scripts_for_dedup(user_id, format=format)
         recent_existing_records = all_existing_records[:60]
@@ -2582,9 +2605,27 @@ async def idea_callback(callback: CallbackQuery) -> None:
     if action == "take":
         idea_bank.update_status(user_id, idea.id, "selected")
         await callback.answer("Генерирую сценарий")
-        await callback.message.edit_text("⏳ Отправил Reddit-тему в NotebookLM. Жду сценарий...")
+        user_settings = get_user_settings(storage, settings, user_id)
+        notebook_ref = get_notebook_ref(user_id)
+        kie_text = build_kie_text_client(settings)
+        writer_label = "Kie" if settings.script_writer_backend == "kie" and kie_text.is_configured() else "NotebookLM"
+        await callback.message.edit_text(f"⏳ Отправил тему в {writer_label}. Жду сценарий...")
         try:
-            records = await generate_scripts_for_user(user_id, 1, format="short", topic_hint=idea_to_topic_hint(idea))
+            record = await create_script_from_idea(
+                storage=storage,
+                user_id=user_id,
+                idea=idea,
+                notebook_ref=notebook_ref or "",
+                notebooklm=notebooklm,
+                author_style=get_author_style(user_id),
+                offer_context=get_offer_context(user_id),
+                cta_mix=get_cta_mix(user_id),
+                content_language=user_settings.content_language,
+                vertical_duration_mode=user_settings.vertical_avatar_duration_mode,
+                script_writer_backend=settings.script_writer_backend,
+                kie_text_client=kie_text,
+            )
+            records = [record]
         except Exception as exc:
             logger.exception("Failed to generate script from Reddit idea")
             idea_bank.update_status(user_id, idea.id, "new")

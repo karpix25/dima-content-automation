@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 from types import SimpleNamespace
 
 from fastapi import FastAPI
@@ -310,7 +311,43 @@ def test_auto_scripts_from_ideas_creates_pending_scripts(tmp_path: Path):
     assert idea_bank.list_new("42") == []
 
 
-def _settings(tmp_path: Path) -> Settings:
+def test_auto_scripts_from_ideas_uses_kie_writer(tmp_path: Path, monkeypatch):
+    storage = Storage(tmp_path / "app.sqlite3")
+    idea_bank = IdeaBank(tmp_path / "app.sqlite3")
+    storage.set_setting("42", "notebook_id", "notebook-1")
+    idea_bank.add_if_new(
+        "42",
+        {
+            "source": "notebooklm_plan",
+            "source_url": "notebooklm://notebook-1/topic-1",
+            "title": "Fee leak",
+            "pain": "Margins vanish",
+            "angle": "Audit fee tiers",
+            "summary": "Notebook source",
+            "source_meta": {"first_frame_text": "FEE LEAK", "source_basis": "Notebook note"},
+        },
+    )
+    monkeypatch.setattr("content_automation.kie_script_writer.KieTextClient", lambda config: FakeKieTextClient())
+    app = FastAPI()
+    app.include_router(
+        build_ideas_router(
+            storage=storage,
+            idea_bank=idea_bank,
+            settings=_settings(tmp_path, script_writer_backend="kie", kie_api_key="key"),
+            notebooklm=FailingNotebookLM(),
+        )
+    )
+    client = TestClient(app)
+
+    response = client.post("/api/ideas/scripts/auto", json={"user_id": "42", "count": 1})
+
+    assert response.status_code == 200
+    records = storage.list_scripts("42", status="pending")
+    assert len(records) == 1
+    assert records[0].raw["writer_backend"] == "kie"
+
+
+def _settings(tmp_path: Path, *, script_writer_backend: str = "notebooklm", kie_api_key: str | None = None) -> Settings:
     return Settings(
         telegram_bot_token="token",
         notebooklm_cli_command="notebooklm",
@@ -327,6 +364,7 @@ def _settings(tmp_path: Path) -> Settings:
         notebooklm_auth_notify_cooldown_seconds=300,
         notebooklm_auth_start_command=None,
         notebooklm_auth_start_timeout_seconds=5,
+        script_writer_backend=script_writer_backend,
         default_notebook_id=None,
         elevenlabs_api_key=None,
         elevenlabs_mcp_command=None,
@@ -362,7 +400,7 @@ def _settings(tmp_path: Path) -> Settings:
         post_heygen_cover_seconds=0.1,
         post_heygen_broll_count=3,
         post_heygen_broll_seconds=1.2,
-        kie_api_key=None,
+        kie_api_key=kie_api_key,
         kie_base_url="https://api.kie.ai",
         kie_upload_base_url="https://kie.test",
         kie_image_model="gpt-image-2",
@@ -397,3 +435,31 @@ def _settings(tmp_path: Path) -> Settings:
         scrapecreators_reddit_timeframe="week",
         scrapecreators_trend_limit=5,
     )
+
+
+class FakeKieTextClient:
+    def is_configured(self):
+        return True
+
+    def complete(self, *, system, user):
+        voiceover = " ".join(["Profit leaks hide inside fee tiers before sellers notice the margin problem."] * 8)
+        return json.dumps(
+            [
+                {
+                    "title": "Fee leak",
+                    "angle": "Audit fee tiers",
+                    "hook": "Your fees changed quietly.",
+                    "trigger": "Margins vanish",
+                    "voiceover": voiceover,
+                    "cta": "",
+                    "why_it_works": "Specific seller pain.",
+                    "source_basis": "Notebook note",
+                    "first_frame_text": "FEE LEAK",
+                }
+            ]
+        )
+
+
+class FailingNotebookLM:
+    def ask(self, *args, **kwargs):
+        raise AssertionError("NotebookLM should not be called")

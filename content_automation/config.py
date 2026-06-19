@@ -24,6 +24,7 @@ class Settings:
     notebooklm_auth_notify_cooldown_seconds: int
     notebooklm_auth_start_command: str | None
     notebooklm_auth_start_timeout_seconds: int
+    script_writer_backend: str
     default_notebook_id: str | None
     elevenlabs_api_key: str | None
     elevenlabs_mcp_command: str | None
@@ -136,6 +137,11 @@ def normalize_notebooklm_backend(value: str | None) -> str:
     return backend if backend in {"mcp", "py"} else "mcp"
 
 
+def normalize_script_writer_backend(value: str | None) -> str:
+    backend = (value or "kie").strip().lower()
+    return backend if backend in {"kie", "notebooklm"} else "kie"
+
+
 def get_optional_path_env(name: str, default: str | None = None) -> Path | None:
     raw = (os.getenv(name) or "").strip()
     if raw:
@@ -185,6 +191,7 @@ def load_settings() -> Settings:
             5,
             get_int_env("NOTEBOOKLM_AUTH_START_TIMEOUT_SECONDS", 30),
         ),
+        script_writer_backend=normalize_script_writer_backend(os.getenv("SCRIPT_WRITER_BACKEND")),
         default_notebook_id=(os.getenv("DEFAULT_NOTEBOOK_ID") or "").strip() or None,
         elevenlabs_api_key=(os.getenv("ELEVENLABS_API_KEY") or "").strip() or None,
         elevenlabs_mcp_command=(os.getenv("ELEVENLABS_MCP_SERVER_COMMAND") or "").strip() or None,

@@ -6,6 +6,8 @@ import re
 from .content_language import normalize_content_language
 from .idea_bank import ContentIdea
 from .idea_cards import idea_to_topic_hint
+from .kie_script_writer import write_script_with_kie
+from .kie_text import KieTextClient, KieTextError
 from .notebooklm import as_script_list, extract_json
 from .notebooklm_mcp import notebook_ref_to_url
 from .notebooklm_runtime import NotebookLMAskClient
@@ -26,8 +28,28 @@ async def create_script_from_idea(
     cta_mix: str,
     content_language: str,
     vertical_duration_mode: str,
+    script_writer_backend: str = "notebooklm",
+    kie_text_client: KieTextClient | None = None,
 ) -> ScriptRecord:
     budget = vertical_word_budget(vertical_duration_mode, wpm=DEFAULT_SPOKEN_WORDS_PER_MINUTE)
+    if script_writer_backend == "kie" and kie_text_client and kie_text_client.is_configured():
+        try:
+            item = write_script_with_kie(
+                client=kie_text_client,
+                idea=idea,
+                author_style=author_style,
+                offer_context=offer_context,
+                cta_mix=cta_mix,
+                content_language=content_language,
+                word_budget=budget,
+            )
+            if script_payload_matches_word_budget(item, budget):
+                return storage.add_script(user_id, "short", item, enforce_unique=True)
+            raise ValueError("Kie написал сценарий вне нужной длины озвучки.")
+        except (DuplicateScriptError, KieTextError, ValueError):
+            if script_writer_backend == "kie":
+                raise
+
     prompt = build_short_scripts_prompt(
         count=1,
         author_style=author_style,

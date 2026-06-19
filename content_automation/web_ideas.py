@@ -11,6 +11,7 @@ from .notebooklm_content_plan import generate_notebooklm_content_plan
 from .notebooklm_ideas import generate_notebooklm_ideas
 from .notebooklm_idea_scripts import create_script_from_idea
 from .notebooklm_runtime import NotebookLMAskClient
+from .kie_script_writer import build_kie_text_client
 from .settings_service import get_user_settings
 from .storage import Storage
 from .web_models import AutoIdeaScriptsOut, ContentIdeaOut, GenerateIdeasIn, GenerateIdeasOut, ScriptOut
@@ -124,6 +125,8 @@ def build_ideas_router(
                 cta_mix=state.cta_mix,
                 content_language=state.content_language,
                 vertical_duration_mode=state.vertical_avatar_duration_mode,
+                script_writer_backend=settings.script_writer_backend,
+                kie_text_client=build_kie_text_client(settings),
             )
             idea_bank.update_status(payload.user_id, idea_id, "used_for_script")
         except Exception as exc:
@@ -151,6 +154,8 @@ def build_ideas_router(
                 cta_mix=state.cta_mix,
                 content_language=state.content_language,
                 vertical_duration_mode=state.vertical_avatar_duration_mode,
+                script_writer_backend=settings.script_writer_backend,
+                kie_text_client=build_kie_text_client(settings),
             )
         return AutoIdeaScriptsOut(
             accepted=len(reserved),
@@ -186,6 +191,8 @@ async def create_scripts_for_reserved_ideas(
     cta_mix: str,
     content_language: str,
     vertical_duration_mode: str,
+    script_writer_backend: str,
+    kie_text_client,
 ) -> None:
     for idea_id in idea_ids:
         idea = idea_bank.get(user_id, idea_id)
@@ -203,6 +210,8 @@ async def create_scripts_for_reserved_ideas(
                 cta_mix=cta_mix,
                 content_language=content_language,
                 vertical_duration_mode=vertical_duration_mode,
+                script_writer_backend=script_writer_backend,
+                kie_text_client=kie_text_client,
             )
             idea_bank.update_status(user_id, idea_id, "used_for_script")
         except Exception:
