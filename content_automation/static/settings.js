@@ -1,6 +1,6 @@
 import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-plan-buttons";
 import { bindVoiceEvents } from "/static/settings_voices.js?v=20260619-auto-voices-ui";
-import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260618-auto-scripts";
+import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260619-plan-feedback";
 import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
 import { startAutoIdeaScripts } from "/static/idea_auto_scripts.js?v=20260618-auto-scripts";
 
@@ -209,11 +209,12 @@ async function generateNotebookLMIdeas(deps) {
     method: "POST",
     body: JSON.stringify({ user_id: deps.state.userId, count: 8 }),
   });
+  deps.state.ideaGenerationMessage = result.message || `Добавлено тем: ${result.inserted || 0}.`;
   await startAutoIdeaScripts(deps, { count: 30 });
   deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
   await loadSettingsData(deps, false);
   renderSettingsPanel(deps);
-  deps.setStatus("Готово");
+  deps.setStatus(result.message || "Готово");
 }
 
 async function generateNotebookLMPlan(deps) {
@@ -222,11 +223,12 @@ async function generateNotebookLMPlan(deps) {
     method: "POST",
     body: JSON.stringify({ user_id: deps.state.userId, count: 30 }),
   });
+  deps.state.ideaGenerationMessage = result.message || `Добавлено тем: ${result.inserted || 0}.`;
   await startAutoIdeaScripts(deps, { count: 30 });
   deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
   await loadSettingsData(deps, false);
   renderSettingsPanel(deps);
-  deps.setStatus("Готово");
+  deps.setStatus(result.message || "Готово");
 }
 
 async function extendNotebookLMPlan(deps) {
@@ -235,11 +237,12 @@ async function extendNotebookLMPlan(deps) {
     method: "POST",
     body: JSON.stringify({ user_id: deps.state.userId, count: 30 }),
   });
+  deps.state.ideaGenerationMessage = result.message || `Добавлено тем: ${result.inserted || 0}.`;
   await startAutoIdeaScripts(deps, { count: 30 });
   deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
   await loadSettingsData(deps, false);
   renderSettingsPanel(deps);
-  deps.setStatus("Готово");
+  deps.setStatus(result.message || "Готово");
 }
 
 async function rejectIdea(deps, ideaId) {

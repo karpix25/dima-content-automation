@@ -54,22 +54,23 @@ def build_ideas_router(
 
     @router.post("/api/ideas/notebooklm-plan", response_model=GenerateIdeasOut)
     async def notebooklm_content_plan(payload: GenerateIdeasIn) -> GenerateIdeasOut:
-        inserted = await generate_plan(payload, extension=False)
-        return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted])
+        inserted, message = await generate_plan(payload, extension=False)
+        return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted], message=message)
 
     @router.post("/api/ideas/notebooklm-plan/extend", response_model=GenerateIdeasOut)
     async def extend_notebooklm_content_plan(payload: GenerateIdeasIn) -> GenerateIdeasOut:
-        inserted = await generate_plan(payload, extension=True)
-        return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted])
+        inserted, message = await generate_plan(payload, extension=True)
+        return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted], message=message)
 
-    async def generate_plan(payload: GenerateIdeasIn, *, extension: bool) -> list[ContentIdea]:
+    async def generate_plan(payload: GenerateIdeasIn, *, extension: bool) -> tuple[list[ContentIdea], str]:
         state = get_user_settings(storage, settings, payload.user_id)
         notebook_ref = state.notebook_id or settings.default_notebook_id
         if not notebook_ref:
             raise HTTPException(status_code=400, detail="Сначала задай NotebookLM ID в настройках.")
         existing_ideas = idea_bank.list_new(payload.user_id, limit=100)
+        existing_ids = {idea.id for idea in existing_ideas}
         try:
-            return await generate_notebooklm_content_plan(
+            inserted = await generate_notebooklm_content_plan(
                 user_id=payload.user_id,
                 notebook_ref=notebook_ref,
                 notebooklm=notebooklm,
@@ -80,7 +81,19 @@ def build_ideas_router(
                 existing_ideas=existing_ideas,
                 extension=extension,
             )
+            return inserted, f"Готово: добавлено {len(inserted)} тем."
         except Exception as exc:
+            partial = [idea for idea in idea_bank.list_new(payload.user_id, limit=100) if idea.id not in existing_ids]
+            if partial:
+                logger.warning(
+                    "NotebookLM plan partially generated: user=%s inserted=%s requested=%s error=%s",
+                    payload.user_id,
+                    len(partial),
+                    payload.count,
+                    exc,
+                )
+                message = f"Добавлено {len(partial)} из {payload.count} тем. NotebookLM остановился: {exc}"
+                return partial, message
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.post("/api/ideas/{idea_id}/reject", response_model=ContentIdeaOut)

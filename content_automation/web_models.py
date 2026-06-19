@@ -128,6 +128,7 @@ class GenerateIdeasIn(BaseModel):
 class GenerateIdeasOut(BaseModel):
     inserted: int
     ideas: list[ContentIdeaOut]
+    message: str = ""
 
 
 class AutoIdeaScriptsOut(BaseModel):

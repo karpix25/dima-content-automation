@@ -84,6 +84,49 @@ def test_notebooklm_plan_endpoint_creates_monthly_plan(tmp_path: Path):
     assert "natural Russian" in calls[0]
 
 
+def test_notebooklm_plan_endpoint_returns_partial_plan_on_provider_error(tmp_path: Path):
+    storage = Storage(tmp_path / "app.sqlite3")
+    idea_bank = IdeaBank(tmp_path / "app.sqlite3")
+    storage.set_setting("42", "notebook_id", "notebook-1")
+
+    class FakeNotebookLM:
+        def __init__(self):
+            self.calls = 0
+
+        def ask(self, question, *, notebook_url=None, notebook_id=None):
+            self.calls += 1
+            if self.calls > 1:
+                raise RuntimeError("NotebookLM stream stopped")
+            return SimpleNamespace(
+                answer=(
+                    '{"plan":[{"day":1,"pillar":"Margin","format":"vertical_short",'
+                    '"title":"Fee Leak","pain":"Margins vanish","angle":"Audit FBA tiers",'
+                    '"summary":"Catch fee mistakes.",'
+                    '"visual_note":"Fee table","source_basis":"Notebook note"}]}'
+                )
+            )
+
+    app = FastAPI()
+    app.include_router(
+        build_ideas_router(
+            storage=storage,
+            idea_bank=idea_bank,
+            settings=_settings(tmp_path),
+            notebooklm=FakeNotebookLM(),
+        )
+    )
+    client = TestClient(app)
+
+    response = client.post("/api/ideas/notebooklm-plan", json={"user_id": "42", "count": 2})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["inserted"] == 1
+    assert payload["ideas"][0]["title"] == "Fee Leak"
+    assert "Добавлено 1 из 2 тем" in payload["message"]
+    assert "NotebookLM stream stopped" in payload["message"]
+
+
 def test_notebooklm_plan_extend_endpoint_avoids_existing_topics(tmp_path: Path):
     storage = Storage(tmp_path / "app.sqlite3")
     idea_bank = IdeaBank(tmp_path / "app.sqlite3")
