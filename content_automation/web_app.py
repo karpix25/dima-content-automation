@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import load_settings
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError
+from .elevenlabs_mcp import ElevenLabsMCPClient
 from .heygen import HeyGenClient, HeyGenError
 from .idea_bank import IdeaBank
 from .media_assets import (
@@ -75,6 +76,7 @@ from .web_auth import install_miniapp_auth
 from .web_projects import build_projects_router
 from .web_serializers import format_to_out, job_to_out, script_to_out
 from .web_script_review import build_script_review_router
+from .voice_char_profile import calibrate_voice_chars_per_second
 
 settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
@@ -112,7 +114,32 @@ heygen = HeyGenClient(
     private_avatars_only=settings.heygen_private_avatars_only,
 )
 elevenlabs = ElevenLabsAPIClient(api_key=settings.elevenlabs_api_key)
+elevenlabs_mcp = ElevenLabsMCPClient(
+    api_key=settings.elevenlabs_api_key,
+    command=settings.elevenlabs_mcp_command,
+    output_directory=settings.elevenlabs_output_directory,
+)
 static_dir = Path(__file__).with_name("static")
+
+
+def warm_elevenlabs_voice_profile(user_id: str, voice_id: str, voice_name: str) -> None:
+    try:
+        calibrate_voice_chars_per_second(
+            storage=storage,
+            user_id=user_id,
+            voice_id=voice_id,
+            voice_name=voice_name,
+            elevenlabs=elevenlabs_mcp,
+            model_id=settings.elevenlabs_model_id,
+            speed=settings.elevenlabs_speed,
+            stability=settings.elevenlabs_stability,
+            similarity_boost=settings.elevenlabs_similarity_boost,
+            style=settings.elevenlabs_style,
+            language=settings.elevenlabs_language,
+        )
+    except Exception:
+        # Voice selection must remain usable even when ElevenLabs has a transient issue.
+        pass
 
 
 @asynccontextmanager
@@ -254,8 +281,9 @@ async def elevenlabs_voices() -> list[ElevenLabsVoiceOut]:
 
 
 @app.post("/api/settings/elevenlabs-voice", response_model=UserSettingsOut)
-def update_elevenlabs_voice(payload: SelectAssetIn) -> UserSettingsOut:
+def update_elevenlabs_voice(payload: SelectAssetIn, background_tasks: BackgroundTasks) -> UserSettingsOut:
     set_active_elevenlabs_voice(storage, payload.user_id, payload.id, payload.name)
+    background_tasks.add_task(warm_elevenlabs_voice_profile, payload.user_id, payload.id, payload.name)
     return settings_to_out(payload.user_id)
 
 

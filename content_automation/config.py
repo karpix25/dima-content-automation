@@ -65,6 +65,8 @@ class Settings:
     kie_image_model: str
     kie_image_aspect_ratio: str
     kie_image_resolution: str
+    kie_text_model: str
+    kie_text_timeout_seconds: int
     kie_poll_timeout_seconds: float
     kie_poll_interval_seconds: float
     kie_create_task_max_attempts: int
@@ -224,6 +226,8 @@ def load_settings() -> Settings:
         kie_image_model=(os.getenv("KIE_IMAGE_MODEL") or "gpt-image-2").strip(),
         kie_image_aspect_ratio=(os.getenv("KIE_IMAGE_ASPECT_RATIO") or "9:16").strip(),
         kie_image_resolution=(os.getenv("KIE_IMAGE_RESOLUTION") or "1K").strip(),
+        kie_text_model=(os.getenv("KIE_TEXT_MODEL") or "gemini-3-flash").strip(),
+        kie_text_timeout_seconds=max(10, get_int_env("KIE_TEXT_TIMEOUT_SECONDS", 90)),
         kie_poll_timeout_seconds=get_float_env("KIE_POLL_TIMEOUT_SECONDS", 300),
         kie_poll_interval_seconds=get_float_env("KIE_POLL_INTERVAL_SECONDS", 3),
         kie_create_task_max_attempts=max(1, get_int_env("KIE_CREATE_TASK_MAX_ATTEMPTS", 4)),

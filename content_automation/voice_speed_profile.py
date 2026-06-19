@@ -6,13 +6,10 @@ from .elevenlabs_mcp import ElevenLabsMCPClient
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, count_spoken_words
 from .storage import Storage
 from .video_overlay import probe_duration_seconds
+from .voice_char_profile import calibration_text
 
 
-CALIBRATION_TEXT = (
-    "Amazon sellers often chase more revenue before checking the economics underneath. "
-    "A small change in fees, packaging, refunds, or advertising efficiency can erase the profit from an entire launch. "
-    "The fastest operators measure contribution margin first, then scale only the products that can survive pressure."
-)
+CALIBRATION_TEXT = calibration_text()
 VOICE_WPM_KEY = "elevenlabs_voice_wpm"
 VOICE_WPM_ID_KEY = "elevenlabs_voice_wpm_voice_id"
 

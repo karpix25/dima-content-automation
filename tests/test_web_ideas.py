@@ -313,6 +313,8 @@ def _settings(tmp_path: Path) -> Settings:
         kie_image_model="gpt-image-2",
         kie_image_aspect_ratio="9:16",
         kie_image_resolution="1K",
+        kie_text_model="gemini-3-flash",
+        kie_text_timeout_seconds=30,
         kie_poll_timeout_seconds=1,
         kie_poll_interval_seconds=1,
         kie_create_task_max_attempts=1,

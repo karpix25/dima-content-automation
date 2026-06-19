@@ -13,7 +13,8 @@ from .deepgram_transcription import DeepgramConfig
 from .delivered_video_cleanup import cleanup_delivered_video_files
 from .delivery_destination import telegram_delivery_chat_id
 from .elevenlabs_errors import missing_audio_file_message
-from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
+from .elevenlabs_mcp import ElevenLabsMCPClient
+from .elevenlabs_retry import text_to_speech_with_retry
 from .heygen import HeyGenClient
 from .kie_image import KieImageClient
 from .media_assets import MediaAssetStore
@@ -26,7 +27,7 @@ from .storage import ScriptRecord, Storage
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video
 from .video_geometry import video_size_for_format
 from .voice_speed_profile import calibrated_voice_wpm
-from .voiceover_timing import analyze_voiceover_timing, estimate_initial_voiceover_speed
+from .voiceover_fit import fit_voiceover_for_duration
 from .visual_assets import generate_post_heygen_assets
 
 logger = logging.getLogger(__name__)
@@ -64,15 +65,16 @@ def create_and_send_avatar_video(
         if target == "horizontal"
         else vertical_word_budget(state.vertical_avatar_duration_mode, wpm=voice_wpm)
     )
-    audio_path = _generate_audio(
+    fitted_record, audio_path = _generate_audio(
         record,
         user_id,
         settings,
+        storage,
         state.elevenlabs_voice_id,
         state.elevenlabs_voice_name,
         word_budget=word_budget,
-        voice_wpm=voice_wpm,
     )
+    output_record = replace(output_record, voiceover=fitted_record.voiceover)
     heygen = _heygen_client(settings, target)
     if not heygen.is_configured():
         raise RuntimeError("HEYGEN_API_KEY не задан")
@@ -167,106 +169,47 @@ def _generate_audio(
     record: ScriptRecord,
     user_id: str,
     settings: Settings,
+    storage: Storage,
     voice_id: str | None,
     voice_name: str,
     *,
     word_budget: WordBudget,
-    voice_wpm: int,
-) -> str:
+) -> tuple[ScriptRecord, str]:
     elevenlabs = ElevenLabsMCPClient(
         api_key=settings.elevenlabs_api_key,
         command=settings.elevenlabs_mcp_command,
         output_directory=settings.elevenlabs_output_directory,
         timeout_seconds=180,
     )
-    initial_speed = estimate_initial_voiceover_speed(
-        text=record.voiceover,
-        budget=word_budget,
-        base_speed=settings.elevenlabs_speed,
-        spoken_wpm=voice_wpm,
+    fitted_record = fit_voiceover_for_duration(
+        record=record,
+        user_id=user_id,
+        settings=settings,
+        storage=storage,
+        voice_id=voice_id,
+        voice_name=voice_name,
+        word_budget=word_budget,
+        elevenlabs=elevenlabs,
     )
     logger.info(
-        "Initial voiceover speed estimate: script=%s words=%s target_seconds=%s speed=%.3f",
+        "Generating ElevenLabs audio: script=%s words=%s chars=%s target_seconds=%s speed=%.3f",
         record.id,
-        count_spoken_words(record.voiceover),
+        count_spoken_words(fitted_record.voiceover),
+        len(fitted_record.voiceover),
         word_budget.target_seconds,
-        initial_speed,
+        settings.elevenlabs_speed,
     )
     result = _text_to_speech(
         elevenlabs,
-        record=record,
+        record=fitted_record,
         voice_id=voice_id,
         voice_name=voice_name,
         settings=settings,
-        speed=initial_speed,
+        speed=settings.elevenlabs_speed,
     )
-    if result.file_path:
-        try:
-            analysis = analyze_voiceover_timing(
-                text=record.voiceover,
-                audio_path=Path(result.file_path),
-                budget=word_budget,
-                current_speed=initial_speed,
-                spoken_wpm=voice_wpm,
-            )
-            logger.info(
-                "Voiceover timing: script=%s words=%s duration=%.2fs wpm=%.1f target=%.2fs speed=%.3f",
-                record.id,
-                analysis.words,
-                analysis.duration_seconds,
-                analysis.words_per_minute,
-                analysis.target_duration_seconds,
-                analysis.current_speed,
-            )
-            if analysis.should_regenerate:
-                logger.info(
-                    "Regenerating voiceover with adjusted ElevenLabs speed: %.3f -> %.3f",
-                    analysis.current_speed,
-                    analysis.recommended_speed,
-                )
-                regenerated = _safe_regenerate_audio(
-                    elevenlabs,
-                    record=record,
-                    voice_id=voice_id,
-                    voice_name=voice_name,
-                    settings=settings,
-                    speed=analysis.recommended_speed,
-                )
-                if regenerated and regenerated.file_path:
-                    result = regenerated
-                else:
-                    logger.warning(
-                        "Adjusted ElevenLabs voiceover did not return an audio file; using first generated audio: script=%s",
-                        record.id,
-                    )
-        except VideoOverlayError:
-            logger.exception("Voiceover timing analysis failed; using first generated audio")
     if not result.file_path:
         raise RuntimeError(missing_audio_file_message(user_id, result.message))
-    return result.file_path
-
-
-def _safe_regenerate_audio(
-    elevenlabs: ElevenLabsMCPClient,
-    *,
-    record: ScriptRecord,
-    voice_id: str | None,
-    voice_name: str,
-    settings: Settings,
-    speed: float,
-):
-    try:
-        return _text_to_speech(
-            elevenlabs,
-            record=record,
-            voice_id=voice_id,
-            voice_name=voice_name,
-            settings=settings,
-            speed=speed,
-        )
-    except ElevenLabsMCPError as exc:
-        logger.warning("Adjusted ElevenLabs voiceover failed; using first generated audio: script=%s error=%s", record.id, exc)
-        return None
+    return fitted_record, result.file_path
 
 
 def _text_to_speech(
@@ -278,7 +221,8 @@ def _text_to_speech(
     settings: Settings,
     speed: float,
 ):
-    return elevenlabs.text_to_speech(
+    return text_to_speech_with_retry(
+        elevenlabs,
         text=record.voiceover,
         voice_name=voice_name,
         voice_id=voice_id,

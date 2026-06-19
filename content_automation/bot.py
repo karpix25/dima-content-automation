@@ -19,6 +19,7 @@ from .editorial_planner import plan_editorial_briefs
 from .elevenlabs_errors import missing_audio_file_message
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError, ElevenLabsVoice
 from .elevenlabs_mcp import ElevenLabsMCPClient, ElevenLabsMCPError
+from .elevenlabs_retry import text_to_speech_with_retry
 from .final_video_variants import build_final_video_variants
 from .heygen import HeyGenAvatar, HeyGenClient, HeyGenError
 from .heygen_video_input import extract_heygen_video_id
@@ -67,12 +68,13 @@ from .reference_paths import selected_thumbnail_style_reference_paths, target_fr
 from .reddit_radar import collect_reddit_ideas
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video, remove_file
 from .video_geometry import video_size_for_format
+from .voice_char_profile import calibrate_voice_chars_per_second, clear_voice_chars_profile
 from .vizard_bot import format_vizard_settings, run_vizard_youtube_job, vizard_settings_keyboard
 from .vizard_models import normalize_vizard_setting_value
 from .vizard_project import extract_vizard_project_id
 from .vizard_youtube import extract_youtube_url
 from .voice_speed_profile import calibrated_voice_wpm, calibrate_voice_wpm, clear_voice_wpm, has_voice_wpm_profile
-from .voiceover_timing import analyze_voiceover_timing, estimate_initial_voiceover_speed
+from .voiceover_fit import fit_voiceover_for_duration
 from .visual_assets import generate_post_heygen_assets
 
 
@@ -511,6 +513,7 @@ def set_active_elevenlabs_voice(user_id: str, voice: ElevenLabsVoice) -> None:
     storage.set_setting(user_id, "elevenlabs_voice_id", voice.id)
     storage.set_setting(user_id, "elevenlabs_voice_name", voice.name)
     clear_voice_wpm(storage, user_id)
+    clear_voice_chars_profile(storage, user_id)
 
 
 async def ensure_voice_wpm(user_id: str) -> int:
@@ -537,6 +540,27 @@ async def ensure_voice_wpm(user_id: str) -> int:
     except Exception:
         logger.exception("ElevenLabs voice speed calibration failed; using default WPM")
         return DEFAULT_SPOKEN_WORDS_PER_MINUTE
+
+
+async def warm_voice_chars_profile(user_id: str) -> None:
+    try:
+        cps = await asyncio.to_thread(
+            calibrate_voice_chars_per_second,
+            storage=storage,
+            user_id=user_id,
+            voice_id=get_active_elevenlabs_voice_id(user_id),
+            voice_name=get_active_elevenlabs_voice_name(user_id),
+            elevenlabs=elevenlabs,
+            model_id=settings.elevenlabs_model_id,
+            speed=settings.elevenlabs_speed,
+            stability=settings.elevenlabs_stability,
+            similarity_boost=settings.elevenlabs_similarity_boost,
+            style=settings.elevenlabs_style,
+            language=settings.elevenlabs_language,
+        )
+        logger.info("Calibrated ElevenLabs voice chars/sec for user %s: %.2f", user_id, cps)
+    except Exception:
+        logger.exception("ElevenLabs voice chars/sec calibration failed")
 
 
 def get_active_heygen_avatar_id(user_id: str, target: str = "vertical") -> str | None:
@@ -856,47 +880,26 @@ async def generate_voiceover_audio(record: ScriptRecord, user_id: str) -> str:
         if record.format == "youtube"
         else vertical_word_budget(user_settings.vertical_avatar_duration_mode, wpm=voice_wpm)
     )
-    initial_speed = estimate_initial_voiceover_speed(
-        text=record.voiceover,
-        budget=word_budget,
-        base_speed=settings.elevenlabs_speed,
-        spoken_wpm=voice_wpm,
+    fitted_record = await asyncio.to_thread(
+        fit_voiceover_for_duration,
+        record=record,
+        user_id=user_id,
+        settings=settings,
+        storage=storage,
+        voice_id=get_active_elevenlabs_voice_id(user_id),
+        voice_name=get_active_elevenlabs_voice_name(user_id),
+        word_budget=word_budget,
+        elevenlabs=elevenlabs,
     )
     logger.info(
-        "Initial voiceover speed estimate: script=%s words=%s target_seconds=%s speed=%.3f",
+        "Generating ElevenLabs audio: script=%s words=%s chars=%s target_seconds=%s speed=%.3f",
         record.id,
-        count_spoken_words(record.voiceover),
+        count_spoken_words(fitted_record.voiceover),
+        len(fitted_record.voiceover),
         word_budget.target_seconds,
-        initial_speed,
+        settings.elevenlabs_speed,
     )
-    result = await _generate_elevenlabs_audio(record, user_id, speed=initial_speed)
-    if result.file_path:
-        try:
-            analysis = analyze_voiceover_timing(
-                text=record.voiceover,
-                audio_path=Path(result.file_path),
-                budget=word_budget,
-                current_speed=initial_speed,
-                spoken_wpm=voice_wpm,
-            )
-            logger.info(
-                "Voiceover timing: script=%s words=%s duration=%.2fs wpm=%.1f target=%.2fs speed=%.3f",
-                record.id,
-                analysis.words,
-                analysis.duration_seconds,
-                analysis.words_per_minute,
-                analysis.target_duration_seconds,
-                analysis.current_speed,
-            )
-            if analysis.should_regenerate:
-                logger.info(
-                    "Regenerating voiceover with adjusted ElevenLabs speed: %.3f -> %.3f",
-                    analysis.current_speed,
-                    analysis.recommended_speed,
-                )
-                result = await _generate_elevenlabs_audio(record, user_id, speed=analysis.recommended_speed)
-        except VideoOverlayError:
-            logger.exception("Voiceover timing analysis failed; using first generated audio")
+    result = await _generate_elevenlabs_audio(fitted_record, user_id, speed=settings.elevenlabs_speed)
     if not result.file_path:
         raise ElevenLabsMCPError(missing_audio_file_message(user_id, result.message))
     return result.file_path
@@ -904,7 +907,8 @@ async def generate_voiceover_audio(record: ScriptRecord, user_id: str) -> str:
 
 async def _generate_elevenlabs_audio(record: ScriptRecord, user_id: str, *, speed: float):
     return await asyncio.to_thread(
-        elevenlabs.text_to_speech,
+        text_to_speech_with_retry,
+        elevenlabs,
         text=record.voiceover,
         voice_name=get_active_elevenlabs_voice_name(user_id),
         voice_id=get_active_elevenlabs_voice_id(user_id),
@@ -2101,6 +2105,7 @@ async def eleven_voice_callback(callback: CallbackQuery) -> None:
     voice = voices[index]
     if action == "set":
         set_active_elevenlabs_voice(user_id, voice)
+        asyncio.create_task(warm_voice_chars_profile(user_id))
         await callback.answer("Голос активирован")
         await show_elevenlabs_voice(
             callback.message.chat.id,

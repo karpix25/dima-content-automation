@@ -9,6 +9,7 @@ from .overlay_catalog import add_overlay_path, clear_overlay_paths, list_overlay
 from .prompts import DEFAULT_AUTHOR_STYLE, DEFAULT_CTA_MIX, DEFAULT_OFFER_CONTEXT
 from .storage import Storage
 from .vizard_models import VizardUserSettings, normalize_vizard_setting_value, normalize_vizard_settings
+from .voice_char_profile import clear_voice_chars_profile
 from .voice_speed_profile import clear_voice_wpm
 
 
@@ -202,6 +203,7 @@ def set_active_elevenlabs_voice(storage: Storage, user_id: str, voice_id: str, v
     storage.set_setting(user_id, "elevenlabs_voice_id", voice_id)
     storage.set_setting(user_id, "elevenlabs_voice_name", voice_name)
     clear_voice_wpm(storage, user_id)
+    clear_voice_chars_profile(storage, user_id)
 
 
 def set_active_thumbnail_face(storage: Storage, user_id: str, file_path: str | None, target: str) -> None:

@@ -4,7 +4,7 @@ from content_automation import media_delivery
 from content_automation.storage import ScriptRecord
 
 
-def test_generate_audio_keeps_first_file_when_adjusted_regeneration_returns_no_file(monkeypatch, tmp_path):
+def test_generate_audio_retries_when_first_attempt_returns_no_file(monkeypatch, tmp_path):
     calls = []
 
     class FakeElevenLabs:
@@ -14,37 +14,29 @@ def test_generate_audio_keeps_first_file_when_adjusted_regeneration_returns_no_f
         def text_to_speech(self, **kwargs):
             calls.append(kwargs)
             if len(calls) == 1:
-                return SimpleNamespace(file_path=str(tmp_path / "first.mp3"), message="first ok")
-            return SimpleNamespace(file_path=None, message="second failed")
+                return SimpleNamespace(file_path=None, message="first failed")
+            return SimpleNamespace(file_path=str(tmp_path / "second.mp3"), message="second ok")
 
     monkeypatch.setattr(media_delivery, "ElevenLabsMCPClient", FakeElevenLabs)
-    monkeypatch.setattr(media_delivery, "estimate_initial_voiceover_speed", lambda **kwargs: 1.05)
     monkeypatch.setattr(
         media_delivery,
-        "analyze_voiceover_timing",
-        lambda **kwargs: SimpleNamespace(
-            should_regenerate=True,
-            recommended_speed=1.2,
-            current_speed=1.05,
-            words=108,
-            duration_seconds=39.89,
-            words_per_minute=162.5,
-            target_duration_seconds=32.89,
-        ),
+        "fit_voiceover_for_duration",
+        lambda **kwargs: kwargs["record"],
     )
 
-    path = media_delivery._generate_audio(
+    fitted, path = media_delivery._generate_audio(
         _record(),
         "42",
         _settings(tmp_path),
+        SimpleNamespace(get_setting=lambda *args: None, set_setting=lambda *args: None),
         "voice-1",
         "Voice",
         word_budget=SimpleNamespace(target_seconds=30),
-        voice_wpm=190,
     )
 
-    assert path.endswith("first.mp3")
-    assert [call["speed"] for call in calls] == [1.05, 1.2]
+    assert fitted.voiceover == _record().voiceover
+    assert path.endswith("second.mp3")
+    assert [call["speed"] for call in calls] == [1.0, 1.0]
 
 
 def _settings(tmp_path):
@@ -58,6 +50,10 @@ def _settings(tmp_path):
         elevenlabs_similarity_boost=0.8,
         elevenlabs_style=0.0,
         elevenlabs_language="en",
+        kie_api_key=None,
+        kie_base_url="https://api.kie.ai",
+        kie_text_model="gemini-3-flash",
+        kie_text_timeout_seconds=30,
     )
 
 
