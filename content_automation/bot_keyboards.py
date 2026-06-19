@@ -1,6 +1,17 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+
+FORMAT_BUTTONS = {
+    "avatar_reels": "Reels/Shorts",
+    "infographic_reels": "Инфографика",
+    "avatar_horizontal": "YouTube horizontal",
+    "all": "Все форматы",
+}
+VISIBLE_FORMAT_KEYS = {"avatar_reels", "infographic_reels", "avatar_horizontal", "all"}
 
 
 def callback_button(text: str, callback_data: str) -> InlineKeyboardButton:
@@ -29,15 +40,34 @@ def build_main_keyboard(miniapp_url: str | None = None) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def build_format_output_keyboard(script_id: int) -> InlineKeyboardMarkup:
+def build_format_output_keyboard(script_id: int, *, used_format_keys: Iterable[str] | None = None) -> InlineKeyboardMarkup:
+    used = normalize_used_format_keys(used_format_keys or [])
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                callback_button("Reels/Shorts", f"format:create:{script_id}:avatar_reels"),
-                callback_button("Инфографика", f"format:create:{script_id}:infographic_reels"),
+                callback_button(format_button_text("avatar_reels", used), f"format:create:{script_id}:avatar_reels"),
+                callback_button(format_button_text("infographic_reels", used), f"format:create:{script_id}:infographic_reels"),
             ],
-            [callback_button("YouTube horizontal", f"format:create:{script_id}:avatar_horizontal")],
-            [callback_button("Все форматы", f"format:create:{script_id}:all")],
+            [callback_button(format_button_text("avatar_horizontal", used), f"format:create:{script_id}:avatar_horizontal")],
+            [callback_button(format_button_text("all", used), f"format:create:{script_id}:all")],
             [callback_button("Главное меню", "main:home")],
         ]
     )
+
+
+def format_button_text(format_key: str, used_format_keys: set[str]) -> str:
+    label = FORMAT_BUTTONS.get(format_key, format_key)
+    if format_key not in used_format_keys:
+        return label
+    return f"✓ {_strike(label)}"
+
+
+def normalize_used_format_keys(values: Iterable[str]) -> set[str]:
+    used = {str(value) for value in values if str(value) in VISIBLE_FORMAT_KEYS}
+    if "all" in used:
+        used.update(VISIBLE_FORMAT_KEYS)
+    return used
+
+
+def _strike(value: str) -> str:
+    return "".join(f"{char}\u0336" if char != " " else char for char in value)

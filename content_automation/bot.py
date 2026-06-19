@@ -1484,8 +1484,20 @@ def format_action_deps() -> BotFormatDeps:
         settings=settings,
         logger=logger,
         send_to_chat_thread=send_to_chat_thread,
-        format_output_keyboard=build_format_output_keyboard,
+        format_output_keyboard=format_output_keyboard,
     )
+
+
+def format_output_keyboard(user_id: str, script_id: int, extra_used: set[str] | None = None) -> InlineKeyboardMarkup:
+    used = used_format_keys_for_script(user_id, script_id)
+    used.update(extra_used or set())
+    return build_format_output_keyboard(script_id, used_format_keys=used)
+
+
+def used_format_keys_for_script(user_id: str, script_id: int) -> set[str]:
+    used_statuses = {"queued", "processing", "delivered"}
+    jobs = storage.list_format_jobs(user_id, limit=100)
+    return {job.format_key for job in jobs if job.script_id == script_id and job.status in used_statuses}
 
 
 def format_current_settings(user_id: str) -> str:
@@ -2246,7 +2258,7 @@ async def format_create_callback(callback: CallbackQuery) -> None:
         thread_id=message_thread_id(callback.message),
         message=callback.message,
         edit=True,
-        reply_markup=build_format_output_keyboard(script_id),
+        reply_markup=format_output_keyboard(user_id, script_id, {format_key}),
     )
     asyncio.create_task(
         run_format_output_job(
@@ -2429,7 +2441,7 @@ async def approved_formats_callback(callback: CallbackQuery) -> None:
             thread_id=message_thread_id(callback.message),
             message=callback.message,
             edit=True,
-            reply_markup=build_format_output_keyboard(record.id),
+            reply_markup=format_output_keyboard(user_id, record.id, None),
             disable_web_page_preview=True,
         )
         return
@@ -2576,7 +2588,7 @@ async def script_review(callback: CallbackQuery) -> None:
                 callback.message.chat.id,
                 f"Сценарий #{updated.id} одобрен. Что сделать на выходе?",
                 thread_id=message_thread_id(callback.message),
-                reply_markup=build_format_output_keyboard(updated.id),
+                reply_markup=format_output_keyboard(user_id, updated.id, None),
             )
         if flow == "review" and updated and updated.format == "short":
             advance_review_progress(user_id)

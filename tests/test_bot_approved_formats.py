@@ -7,7 +7,7 @@ from content_automation.bot_approved_formats import (
     list_format_ready_scripts,
     parse_approved_format_callback,
 )
-from content_automation.bot_keyboards import build_main_keyboard
+from content_automation.bot_keyboards import build_format_output_keyboard, build_main_keyboard
 from content_automation.storage import Storage
 
 
@@ -48,6 +48,22 @@ def test_main_keyboard_contains_ready_scripts_button():
     buttons = [button.text for row in keyboard.inline_keyboard for button in row]
 
     assert "Готовые сценарии → форматы" in buttons
+
+
+def test_format_keyboard_strikes_used_format():
+    keyboard = build_format_output_keyboard(8, used_format_keys={"avatar_reels"})
+
+    assert keyboard.inline_keyboard[0][0].text.startswith("✓")
+    assert "\u0336" in keyboard.inline_keyboard[0][0].text
+    assert keyboard.inline_keyboard[0][1].text == "Инфографика"
+
+
+def test_format_keyboard_strikes_all_outputs_when_all_was_used():
+    keyboard = build_format_output_keyboard(8, used_format_keys={"all"})
+    buttons = [button.text for row in keyboard.inline_keyboard for button in row]
+
+    assert any("R\u0336" in text for text in buttons)
+    assert any("В\u0336" in text for text in buttons)
 
 
 def _add_script(storage: Storage, user_id: str, status: str, *, title: str):

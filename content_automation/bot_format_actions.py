@@ -17,7 +17,7 @@ class BotFormatDeps:
     settings: Any
     logger: Any
     send_to_chat_thread: Callable[..., Awaitable[Any]]
-    format_output_keyboard: Callable[[int], InlineKeyboardMarkup]
+    format_output_keyboard: Callable[[str, int, set[str] | None], InlineKeyboardMarkup]
 
 
 async def run_format_output_job(
@@ -45,14 +45,14 @@ async def run_format_output_job(
             chat_id,
             f"Не удалось сделать формат для сценария #{script_id}: {exc}",
             thread_id=thread_id,
-            reply_markup=deps.format_output_keyboard(script_id),
+            reply_markup=deps.format_output_keyboard(user_id, script_id, None),
         )
         return
     await deps.send_to_chat_thread(
         chat_id,
         format_completion_message(script_id=script_id, job=job),
         thread_id=thread_id,
-        reply_markup=deps.format_output_keyboard(script_id),
+        reply_markup=deps.format_output_keyboard(user_id, script_id, {format_key}),
     )
 
 
