@@ -166,6 +166,35 @@ def test_existing_heygen_job_reuses_video_id(tmp_path, monkeypatch):
     assert opened.json()["output_url"].endswith("existing.mp4")
 
 
+def test_existing_heygen_job_hides_output_url_when_video_deleted(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
+    record = add_approved_script(storage)
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+
+    def fake_existing_delivery(**kwargs):
+        return SimpleNamespace(
+            video_path=tmp_path / "existing.mp4",
+            telegram_message_id="tg-existing",
+            heygen_video_id=kwargs["heygen_video_id"],
+            video_deleted=True,
+        )
+
+    monkeypatch.setattr(web_format_jobs, "create_and_send_existing_heygen_video", fake_existing_delivery)
+    client = TestClient(web_app.app)
+
+    created = client.post(
+        f"/api/scripts/{record.id}/format-jobs/existing-heygen",
+        json={"user_id": record.user_id, "format_key": "avatar_reels", "heygen_video_id": "video-123"},
+    )
+    opened = client.get(f"/api/format-jobs/{created.json()['id']}", params={"user_id": record.user_id})
+
+    assert opened.json()["status"] == "delivered"
+    assert opened.json()["output_url"] is None
+    assert "Файл удален с сервера после отправки в Telegram" in opened.json()["output_text"]
+
+
 def test_infographic_reels_job_sends_video_instead_of_prompt(tmp_path, monkeypatch):
     storage = make_storage(tmp_path)
     asset_store = make_asset_store(tmp_path)

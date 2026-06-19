@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
+from .content_language import detect_content_language, resolve_content_language
 from .deepgram_transcription import DeepgramConfig, transcribe_video_with_deepgram
 from .kie_image import KieImageClient
 from .montage_assets import prepare_vertical_montage_assets
@@ -86,7 +87,25 @@ def _render(
 ) -> Path | None:
     output_dir.mkdir(parents=True, exist_ok=True)
     duration = probe_duration_seconds(video_path)
-    transcript = _transcribe_for_timing(video_path=video_path, output_dir=output_dir, config=deepgram)
+    transcript_config = _deepgram_config_for_record(
+        deepgram,
+        record=record,
+        content_language=content_language,
+    )
+    transcript = _transcribe_for_timing(video_path=video_path, output_dir=output_dir, config=transcript_config)
+    if transcript and not _transcript_is_usable(
+        transcript.words,
+        record=record,
+        duration_seconds=duration,
+        content_language=content_language,
+    ):
+        logger.warning(
+            "Deepgram transcript discarded for script %s: word_count=%s language=%s",
+            record.id,
+            len(transcript.words),
+            transcript_config.language if transcript_config else None,
+        )
+        transcript = None
     plan = build_montage_plan(
         record,
         duration_seconds=duration,
@@ -147,6 +166,53 @@ def _transcribe_for_timing(
     except Exception:
         logger.exception("Deepgram transcription failed; falling back to synthetic montage timing")
         return None
+
+
+def _deepgram_config_for_record(
+    config: DeepgramConfig | None,
+    *,
+    record: ScriptRecord,
+    content_language: str,
+) -> DeepgramConfig | None:
+    if not config:
+        return None
+    language = resolve_content_language(content_language, _record_text(record))
+    if language != config.language:
+        logger.info("Using Deepgram language %s for script %s", language, record.id)
+    return replace(config, language=language)
+
+
+def _transcript_is_usable(
+    words: list[dict],
+    *,
+    record: ScriptRecord,
+    duration_seconds: float,
+    content_language: str,
+) -> bool:
+    if not words:
+        return False
+    if duration_seconds >= 15 and len(words) < max(8, int(duration_seconds * 0.35)):
+        return False
+    expected_language = resolve_content_language(content_language, _record_text(record))
+    transcript_text = " ".join(str(item.get("punctuated_word") or item.get("word") or "") for item in words)
+    if expected_language == "ru" and detect_content_language(transcript_text) != "ru":
+        return False
+    return True
+
+
+def _record_text(record: ScriptRecord) -> str:
+    return " ".join(
+        item
+        for item in (
+            record.title,
+            record.hook,
+            record.voiceover,
+            record.cta,
+            record.angle,
+            record.trigger,
+        )
+        if item
+    )
 
 
 def _requires_vertical_generated_images(record_format: str) -> bool:

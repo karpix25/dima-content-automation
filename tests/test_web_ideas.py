@@ -286,6 +286,7 @@ def _settings(tmp_path: Path) -> Settings:
         elevenlabs_output_directory=tmp_path,
         video_output_directory=tmp_path,
         video_keep_days=1,
+        delete_delivered_videos_after_send=True,
         heygen_api_key=None,
         heygen_api_base_url="https://api.heygen.com",
         heygen_upload_base_url="https://upload.heygen.com",

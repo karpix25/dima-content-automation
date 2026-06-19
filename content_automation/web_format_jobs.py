@@ -15,6 +15,7 @@ from .turan_service import create_format_job
 
 
 logger = logging.getLogger(__name__)
+DELETED_VIDEO_NOTICE = "Файл удален с сервера после отправки в Telegram."
 
 
 class ScriptNotFoundError(RuntimeError):
@@ -390,11 +391,11 @@ def _deliver_avatar_job(
             job.id,
             status="delivered",
             external_task_id=result.telegram_message_id or result.heygen_video_id,
-            output_url=str(result.video_path),
+            output_url=_delivered_video_url(result),
             output_text=(
                 "✅ Avatar формат создан и отправлен в Telegram.\n"
                 f"{heygen_line}"
-                f"Файл: {result.video_path}"
+                f"{_delivered_video_line(result)}"
             ),
         )
         mark_script_used_after_output_delivery(storage, user_id, script_id)
@@ -446,10 +447,10 @@ def _deliver_infographic_job(
             job.id,
             status="delivered",
             external_task_id=result.telegram_message_id,
-            output_url=str(result.video_path),
+            output_url=_delivered_video_url(result),
             output_text=(
                 "✅ Золотой фон / инфографика 5 сек. создана через Kie и отправлена в Telegram.\n"
-                f"Файл: {result.video_path}"
+                f"{_delivered_video_line(result)}"
             ),
         )
         logger.info(
@@ -469,3 +470,13 @@ def _deliver_infographic_job(
             output_text=f"⚠️ Не удалось создать или отправить золотой фон: {exc}",
         )
     return job
+
+
+def _delivered_video_url(result: object) -> str | None:
+    return None if getattr(result, "video_deleted", False) else str(getattr(result, "video_path"))
+
+
+def _delivered_video_line(result: object) -> str:
+    if getattr(result, "video_deleted", False):
+        return DELETED_VIDEO_NOTICE
+    return f"Файл: {getattr(result, 'video_path')}"

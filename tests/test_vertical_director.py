@@ -26,6 +26,9 @@ def test_vertical_director_uses_transcript_language_for_titles():
     assert all(scene["motionPattern"] for scene in plan.scenes)
     assert all(scene["metricValue"] for scene in plan.scenes)
     assert all(scene["evidenceLabel"] for scene in plan.scenes)
+    assert all(scene["storyPoint"] for scene in plan.scenes)
+    assert all(scene["visualMetaphor"] for scene in plan.scenes)
+    assert all(scene["mustShow"] for scene in plan.scenes)
 
 
 def test_vertical_director_can_force_russian_prompt_language():
@@ -68,6 +71,29 @@ def test_vertical_director_image_prompt_is_visual_only_for_html_overlay():
     assert "top-right and bottom edge visually clean" in prompt
     assert "main interface dense enough to teach something" in prompt
     assert "Avoid dark dashboards" in prompt
+    assert "The picture must advance the story" in prompt
+    assert "Storyboard role:" in prompt
+    assert "Must show:" in prompt
+
+
+def test_vertical_director_storyboard_turns_exit_copy_into_payoff_visual():
+    plan = build_montage_plan(
+        _record(),
+        duration_seconds=18,
+        max_scenes=2,
+        content_language="ru",
+        transcript_words=_words(
+            "Главные деньги делаются на экзите.",
+            "Успешные бренды покупают агрегаторы за х3-х5 от годовой чистой прибыли.",
+        ),
+    )
+
+    assert plan.scenes
+    payoff_scene = plan.scenes[-1]
+    assert payoff_scene["cutawayRole"] == "payoff"
+    assert payoff_scene["motionPattern"] == "asset_exit"
+    assert "x3-x5 multiple" in payoff_scene["mustShow"]
+    assert "daily operator grind vs sellable business asset" in payoff_scene["imagePrompt"]
 
 
 def test_vertical_director_subtitle_ends_on_complete_phrase():
@@ -111,6 +137,29 @@ def test_vertical_director_rewrites_price_bump_title_for_vertical_layout():
 
     assert plan.scenes[0]["title"] == "$1 Price Bump"
     assert plan.scenes[0]["subtitle"] == ""
+
+
+def test_vertical_fallback_keeps_russian_copy_and_generates_image_prompts():
+    plan = build_montage_plan(
+        _record_with_english_metadata(),
+        duration_seconds=42,
+        max_scenes=8,
+        content_language="ru",
+        transcript_words=[
+            {"word": "private", "punctuated_word": "Private", "start": 4.0, "end": 4.3},
+            {"word": "label", "punctuated_word": "label.", "start": 4.3, "end": 4.8},
+            {"word": "cash", "punctuated_word": "Cash", "start": 8.9, "end": 9.1},
+            {"word": "flow", "punctuated_word": "flow", "start": 9.1, "end": 9.6},
+        ],
+    )
+
+    assert plan.scenes
+    assert all(scene["language"] == "ru" for scene in plan.scenes)
+    assert all(scene.get("imagePrompt") for scene in plan.scenes)
+    assert all("short Russian UI labels" in scene["imagePrompt"] for scene in plan.scenes)
+    assert not any("Seller is exhausted" in scene["title"] for scene in plan.scenes)
+    assert not any("Private Label is not a monthly cash flow job" in scene["title"] for scene in plan.scenes)
+    assert not any(scene["title"].split()[-1].lower() in {"не", "за", "а"} for scene in plan.scenes)
 
 
 def test_prepare_vertical_montage_assets_generates_expected_kie_files(tmp_path, monkeypatch):
@@ -249,5 +298,27 @@ def _record() -> ScriptRecord:
         cta="Check the fee tier.",
         why_it_works="",
         source_basis="",
+        raw={},
+    )
+
+
+def _record_with_english_metadata() -> ScriptRecord:
+    return ScriptRecord(
+        id=8,
+        user_id="38061745",
+        format="short",
+        status="approved",
+        title="Как продать бренд за три годовые прибыли",
+        angle="Private Label is not a monthly cash flow job, it is an asset-building game for a massive exit.",
+        hook="Вытаскивать из Амазона только ежемесячную прибыль — самая дорогая ошибка.",
+        trigger="Seller is exhausted by daily PPC management and inventory issues.",
+        voiceover=(
+            "Вытаскивать из Амазона только ежемесячную прибыль — самая дорогая ошибка. "
+            "Вы застреваете в операционке и вытягиваете кэшфлоу на жизнь. "
+            "Главные деньги делаются на экзите."
+        ),
+        cta="Загляните в канал, там я разобрал стратегию подготовки бренда к экзиту.",
+        why_it_works="It directly attacks the seller's operational fatigue.",
+        source_basis="Based on sources about selling PL brands for 3-5x annual profit.",
         raw={},
     )

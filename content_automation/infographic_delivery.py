@@ -11,6 +11,7 @@ import httpx
 from PIL import Image, ImageDraw, ImageFont
 
 from .config import Settings
+from .delivered_video_cleanup import cleanup_delivered_video_files
 from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .storage import ScriptRecord
@@ -30,6 +31,7 @@ class InfographicDeliveryResult:
     video_path: Path
     image_source: str
     telegram_message_id: str | None
+    video_deleted: bool = False
 
 
 def create_and_send_infographic_reels(
@@ -73,12 +75,19 @@ def create_and_send_infographic_reels(
         video_path=video_path,
         caption=f"✅ Золотой фон / инфографика 5 сек. через Kie\nСценарий #{record.id}: {record.title or record.hook}",
     )
+    deleted = cleanup_delivered_video_files(
+        root=settings.video_output_directory,
+        final_path=video_path,
+        record_id=record.id,
+        enabled=settings.delete_delivered_videos_after_send,
+    )
     logger.info("Gold card video sent to Telegram: script_id=%s message_id=%s", record.id, message_id)
     return InfographicDeliveryResult(
         image_path=image_path,
         video_path=video_path,
         image_source="kie",
         telegram_message_id=message_id,
+        video_deleted=bool(deleted),
     )
 
 

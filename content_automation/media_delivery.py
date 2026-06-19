@@ -10,6 +10,7 @@ import httpx
 
 from .config import Settings
 from .deepgram_transcription import DeepgramConfig
+from .delivered_video_cleanup import cleanup_delivered_video_files
 from .elevenlabs_errors import missing_audio_file_message
 from .elevenlabs_mcp import ElevenLabsMCPClient
 from .heygen import HeyGenClient
@@ -35,6 +36,7 @@ class AvatarDeliveryResult:
     video_path: Path
     telegram_message_id: str | None
     heygen_video_id: str
+    video_deleted: bool = False
 
 
 def create_and_send_avatar_video(
@@ -93,7 +95,13 @@ def create_and_send_avatar_video(
         video_path=final_path,
         caption=f"🎬 {avatar_name or 'HeyGen avatar'}\nСценарий #{record.id}: {record.title or record.hook}",
     )
-    return AvatarDeliveryResult(video_path=final_path, telegram_message_id=message_id, heygen_video_id=ready.video_id)
+    deleted = _cleanup_after_telegram_send(record=record, settings=settings, final_path=final_path)
+    return AvatarDeliveryResult(
+        video_path=final_path,
+        telegram_message_id=message_id,
+        heygen_video_id=ready.video_id,
+        video_deleted=deleted,
+    )
 
 
 def create_and_send_existing_heygen_video(
@@ -135,7 +143,23 @@ def create_and_send_existing_heygen_video(
         video_path=final_path,
         caption=f"🎬 HeyGen #{video_id}\nСценарий #{record.id}: {record.title or record.hook}",
     )
-    return AvatarDeliveryResult(video_path=final_path, telegram_message_id=message_id, heygen_video_id=ready.video_id)
+    deleted = _cleanup_after_telegram_send(record=record, settings=settings, final_path=final_path)
+    return AvatarDeliveryResult(
+        video_path=final_path,
+        telegram_message_id=message_id,
+        heygen_video_id=ready.video_id,
+        video_deleted=deleted,
+    )
+
+
+def _cleanup_after_telegram_send(*, record: ScriptRecord, settings: Settings, final_path: Path) -> bool:
+    deleted = cleanup_delivered_video_files(
+        root=settings.video_output_directory,
+        final_path=final_path,
+        record_id=record.id,
+        enabled=settings.delete_delivered_videos_after_send,
+    )
+    return bool(deleted)
 
 
 def _generate_audio(

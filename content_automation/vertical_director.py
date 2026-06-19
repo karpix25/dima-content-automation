@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from .content_language import resolve_content_language
 from .storage import ScriptRecord
+from .vertical_storyboard import build_storyboard_frame, build_storyboard_image_prompt
 
 
 _SUBTITLE_TRAILING_STOPS = {
@@ -36,6 +37,49 @@ _SUBTITLE_TRAILING_STOPS = {
 class DirectedScene:
     scenes: list[dict]
     word_cues: list[dict]
+
+
+def build_vertical_scene_art(
+    *,
+    title: str,
+    text: str,
+    index: int,
+    content_language: str = "auto",
+    cta: str = "",
+) -> dict:
+    language = resolve_content_language(content_language, f"{title} {text}")
+    clean_text = _clean(text or title)
+    headline = _fit_title(title or clean_text, language=language)
+    terms = _visual_terms(clean_text or headline)
+    frame = build_storyboard_frame(title=headline, text=clean_text, index=index)
+    subtitle = _fit_subtitle(clean_text, title=headline, role=frame.role)
+    return {
+        "title": headline,
+        "chapterTitle": headline,
+        "subtitle": subtitle,
+        "insight": subtitle,
+        "cta": _clean(cta),
+        "language": language,
+        "visualElements": terms,
+        "template": frame.template,
+        "motionPattern": frame.pattern,
+        "cutawayRole": frame.role,
+        "directorCue": frame.cue,
+        "metricValue": frame.metric_value,
+        "metricLabel": frame.metric_label,
+        "evidenceLabel": frame.evidence,
+        "storyPoint": frame.story_point,
+        "visualMetaphor": frame.visual_metaphor,
+        "storyContrast": frame.contrast,
+        "mustShow": list(frame.must_show),
+        "imagePrompt": build_storyboard_image_prompt(
+            frame=frame,
+            title=headline,
+            subtitle=subtitle,
+            terms=terms,
+            language=language,
+        ),
+    }
 
 
 def build_vertical_director_scenes(
@@ -120,49 +164,33 @@ def _scene_from_sentence(
     title = _fit_title(text, language=language)
     start = max(0.8, float(sentence["start"]) - 0.05)
     end = min(duration_seconds, max(start + 3.8, float(sentence["end"]) + 2.2))
-    terms = _visual_terms(text)
-    visual = _visual_story(title=title, text=text, index=index)
-    subtitle = _fit_subtitle(text, title=title, role=visual["role"])
+    art = build_vertical_scene_art(
+        title=title,
+        text=text,
+        index=index,
+        content_language=language,
+        cta=record.cta,
+    )
     return {
         "id": f"scene-{index + 1}",
         "start": round(start, 3),
         "end": round(end, 3),
         "mode": "director_cutaway",
-        "title": title,
-        "chapterTitle": title,
-        "subtitle": subtitle,
-        "insight": subtitle,
-        "cta": _clean(record.cta),
-        "language": language,
-        "visualElements": terms,
-        "template": visual["template"],
-        "motionPattern": visual["pattern"],
-        "cutawayRole": visual["role"],
-        "directorCue": visual["cue"],
-        "metricValue": visual["metric_value"],
-        "metricLabel": visual["metric_label"],
-        "evidenceLabel": visual["evidence"],
-        "imagePrompt": _image_prompt(
-            title=title,
-            subtitle=subtitle,
-            terms=terms,
-            language=language,
-            visual_story=visual["story"],
-            role=visual["role"],
-        ),
+        **art,
     }
 
 
 def _fit_title(text: str, *, language: str) -> str:
     clean = _headline_rewrite(text) if language == "en" else text
     clean = re.sub(r"^(you are|i see|we recently|that is|this is)\s+", "", clean, flags=re.I)
+    clean = re.sub(r"^(но|и|а)\s+", "", clean, flags=re.I)
     clean = re.sub(r"\b(because|without|instead of|which is exactly)\b.*$", "", clean, flags=re.I)
     words = clean.split()
     if language == "en":
         title = _trim_trailing_stopword(" ".join(words[:5]))
         title = _title_case(title)
     else:
-        title = " ".join(words[:5])
+        title = _trim_trailing_stopword(" ".join(words[:6]))
     return _clean(title).rstrip(".,;:") or _clean(text).split(".")[0][:42]
 
 
@@ -221,7 +249,35 @@ def _headline_rewrite(text: str) -> str:
 
 
 def _trim_trailing_stopword(value: str) -> str:
-    stopwords = {"a", "an", "and", "at", "by", "for", "from", "of", "the", "to", "with"}
+    stopwords = {
+        "a",
+        "an",
+        "and",
+        "at",
+        "by",
+        "for",
+        "from",
+        "of",
+        "the",
+        "to",
+        "with",
+        "а",
+        "без",
+        "в",
+        "и",
+        "или",
+        "как",
+        "к",
+        "на",
+        "не",
+        "но",
+        "по",
+        "с",
+        "то",
+        "что",
+        "чтобы",
+        "за",
+    }
     words = value.split()
     while words and words[-1].lower().strip(".,;:") in stopwords:
         words.pop()
@@ -236,111 +292,6 @@ def _title_case(value: str) -> str:
         upper = clean.upper()
         words.append(upper if upper in keep else word[:1].upper() + word[1:])
     return " ".join(words)
-
-
-def _visual_story(*, title: str, text: str, index: int) -> dict[str, str]:
-    joined = f"{title} {text}".lower()
-    if "sales drop" in joined or "price sensitive" in joined:
-        return {
-            "template": "decision",
-            "pattern": "demand_drop",
-            "role": "decision point",
-            "cue": "Demand reaction",
-            "metric_value": "50%",
-            "metric_label": "drop threshold",
-            "evidence": "stop if demand breaks",
-            "story": "Show a seller analytics screen from first-person perspective: hourly sales line drops after a price test, conversion and BSR widgets sit nearby, and red marker annotations circle the break point.",
-        }
-    if "velocity" in joined and ("hold" in joined or "keep" in joined):
-        return {
-            "template": "greenlight",
-            "pattern": "velocity_hold",
-            "role": "greenlight",
-            "cue": "Velocity check",
-            "metric_value": "HOLD",
-            "metric_label": "velocity stable",
-            "evidence": "keep the bump",
-            "story": "Show a seller dashboard from first-person perspective where the velocity chart stays stable after a price change; highlight the hold zone with a green check and a red bracket around the price test window.",
-        }
-    if "profit" in joined or "sku" in joined:
-        return {
-            "template": "proof",
-            "pattern": "profit_proof",
-            "role": "proof",
-            "cue": "Profit proof",
-            "metric_value": "+$1",
-            "metric_label": "daily profit lever",
-            "evidence": "proof beats theory",
-            "story": "Show a unit-economics interface board from first-person perspective: SKU card, selling price, FBA fee, margin, daily units, and profit total, with arrows showing the extra dollar flowing into daily profit.",
-        }
-    if "elasticity" in joined or "test" in joined:
-        return {
-            "template": "diagnostic",
-            "pattern": "test_setup",
-            "role": "diagnostic test",
-            "cue": "A/B price test setup",
-            "metric_value": "A/B",
-            "metric_label": "price test",
-            "evidence": "measure before scaling",
-            "story": "Show an Amazon listing and seller dashboard interface from first-person perspective: two price options, BSR trend, review stars, Buy Box panel, and a red circle pointing to the metric that decides the test.",
-        }
-    if "$1" in joined or "exactly $1" in joined or "bump the price" in joined:
-        return {
-            "template": "lever",
-            "pattern": "price_lever",
-            "role": "price move",
-            "cue": "$1 price lever",
-            "metric_value": "$1",
-            "metric_label": "controlled bump",
-            "evidence": "small move, measured risk",
-            "story": "Show a seller interface mockup from first-person perspective: product listing price changes from $23.99 to $24.99, Buy Box remains visible, margin calculator updates, and red arrows connect price to profit.",
-        }
-    cues = ["Audit point", "Hidden lever", "Margin check", "Operator move", "Proof frame"]
-    return {
-        "template": "analysis",
-        "pattern": "audit_point",
-        "role": "analysis",
-        "cue": cues[index % len(cues)],
-        "metric_value": "CHECK",
-        "metric_label": "operator signal",
-        "evidence": "make the hidden lever visible",
-        "story": "Show the practical Amazon operator consequence as a first-person interface teardown: a listing panel, seller metric cards, and red annotations that explain what the expert is pointing at.",
-    }
-
-
-def _image_prompt(
-    *,
-    title: str,
-    subtitle: str,
-    terms: list[str],
-    language: str,
-    visual_story: str,
-    role: str,
-) -> str:
-    text_rule = (
-        "Do not include Russian text. Use short English UI labels, SKU tags, values, arrows, and object annotations only when they clarify the evidence."
-        if language == "en"
-        else "Use short Russian UI labels, SKU tags, values, arrows, and object annotations only when they clarify the evidence."
-    )
-    return (
-        "Create a central square first-person Amazon interface teardown image for a vertical Amazon seller expert video. "
-        "It will be placed inside an HTML/CSS Hyperframes card; Hyperframes adds the headline, metric chip, and evidence caption. "
-        "Do not design a full poster, thumbnail, slide, or complete card. "
-        "No big headline text, no subtitles, no logos, no watermarks, no social-media thumbnail copy. "
-        f"{text_rule} "
-        "Make it feel like the expert is showing a real screen or printed interface board from their point of view. "
-        "Use a realistic but generic Amazon-style product listing interface, seller dashboard modules, Buy Box panel, conversion card, BSR chart, review stars, price block, trust-signal checklist, unit-economics panel, product thumbnails, and metric cards when they fit the beat. "
-        "Add 2-4 useful moodboard-style annotations: red hand-drawn circle, arrow, bracket, underline, check mark, cross mark, or sticky-note callout. "
-        "Show the decision, consequence, or evidence through interface modules, highlighted metrics, annotated charts, short UI labels, numeric callouts, and operator notes. "
-        "Make the image information-rich: include 4-7 small evidence details such as SKU card, Buy Box state, margin note, price tag, BSR line, conversion percentage, fee tier marker, trust checklist, review count, or before/after value. "
-        "Keep the top-right and bottom edge visually clean for HTML overlays, but keep the main interface dense enough to teach something. "
-        "No decorative filler, no generic business people. "
-        f"Director role: {role}. Required visual action: {visual_story} "
-        "Use a clean bright off-white workspace, light paper surfaces, pale gray UI cards, thin navy lines, realistic UI spacing, and muted red/orange annotation accents. "
-        "Avoid dark dashboards, black blocks, heavy machinery, dense shadows, and cargo-heavy compositions, but keep enough labeled detail to feel analytical. "
-        "Make it feel practical, premium, editorial, realistic, and easy to scan, like a consultant marking up an Amazon seller screen. "
-        f"Visual anchors: {', '.join(terms)}."
-    )
 
 
 def _word_cues_from_transcript(words: list[dict]) -> list[dict]:
@@ -363,8 +314,29 @@ def _word_cues_from_transcript(words: list[dict]) -> list[dict]:
 
 
 def _visual_terms(text: str) -> list[str]:
-    stop = {"your", "because", "without", "checking", "exactly", "doing", "this", "that", "they", "their"}
-    words = re.findall(r"[A-Za-z][A-Za-z0-9$+.-]{3,}", text)
+    stop = {
+        "your",
+        "because",
+        "without",
+        "checking",
+        "exactly",
+        "doing",
+        "this",
+        "that",
+        "they",
+        "their",
+        "это",
+        "как",
+        "для",
+        "что",
+        "или",
+        "ваш",
+        "ваша",
+        "ваши",
+        "потому",
+        "который",
+    }
+    words = re.findall(r"[\w$+.-]{3,}", text or "", flags=re.UNICODE)
     unique: list[str] = []
     for word in words:
         normalized = word.lower().strip(".,;:")

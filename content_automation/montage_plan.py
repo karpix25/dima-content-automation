@@ -3,8 +3,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from .content_language import detect_content_language, resolve_content_language
 from .storage import ScriptRecord
-from .vertical_director import build_vertical_director_scenes
+from .vertical_director import build_vertical_director_scenes, build_vertical_scene_art
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ def build_montage_plan(
         duration_seconds=duration_seconds,
         max_scenes=max_scenes,
         transcript_words=timed_words,
+        content_language=content_language,
     )
     word_cues = timed_words or _word_cues(record.voiceover, duration_seconds=duration_seconds)
     return MontagePlan(scenes=scenes, word_cues=word_cues)
@@ -48,16 +50,10 @@ def _scenes(
     duration_seconds: float,
     max_scenes: int,
     transcript_words: list[dict],
+    content_language: str,
 ) -> list[dict]:
-    texts = [
-        record.hook,
-        record.trigger,
-        record.angle,
-        record.why_it_works,
-        record.source_basis,
-        record.cta,
-        *_sentences(record.voiceover),
-    ]
+    language = resolve_content_language(content_language, _record_viewer_text(record))
+    texts = _scene_texts(record, language=language)
     titles = [_clean(item) for item in texts if _clean(item)]
     titles = titles[: max(1, max_scenes)]
     if not titles:
@@ -70,20 +66,84 @@ def _scenes(
         next_start = starts[index + 1] if index + 1 < len(starts) else None
         fallback_end = min(duration_seconds, (index + 1) * segment)
         end = round(min(duration_seconds, next_start - 0.08 if next_start else fallback_end), 3)
+        art = build_vertical_scene_art(
+            title=title,
+            text=title,
+            index=index,
+            content_language=language,
+            cta=record.cta,
+        )
         scenes.append(
             {
                 "id": f"scene-{index + 1}",
                 "start": start,
                 "end": max(start + 0.5, end),
                 "mode": "full" if index == 0 else "overlay",
-                "title": title[:92],
-                "chapterTitle": title[:64],
-                "insight": _clean(record.title or record.angle)[:120],
-                "cta": _clean(record.cta)[:120],
-                "visualElements": _visual_elements(title),
+                **art,
             }
         )
     return scenes
+
+
+def _scene_texts(record: ScriptRecord, *, language: str) -> list[str]:
+    primary = [
+        record.hook,
+    ]
+    secondary = [
+        record.trigger,
+        record.angle,
+        record.why_it_works,
+        record.source_basis,
+    ]
+    narrative = [
+        *_sentences(record.voiceover),
+        record.cta,
+        record.title,
+    ]
+    values: list[str] = []
+    seen: set[str] = set()
+    for item in primary:
+        _append_unique(values, seen, item)
+    for item in secondary:
+        if _matches_language(item, language=language):
+            _append_unique(values, seen, item)
+    for item in narrative:
+        _append_unique(values, seen, item)
+    return values
+
+
+def _append_unique(values: list[str], seen: set[str], value: str | None) -> None:
+    clean = _clean(value)
+    key = clean.lower()
+    if clean and key not in seen and not _is_near_duplicate(key, seen):
+        seen.add(key)
+        values.append(clean)
+
+
+def _is_near_duplicate(key: str, seen: set[str]) -> bool:
+    if len(key) < 12:
+        return False
+    return any(key in existing or existing in key for existing in seen if len(existing) >= 12)
+
+
+def _matches_language(value: str | None, *, language: str) -> bool:
+    clean = _clean(value)
+    if not clean:
+        return False
+    detected = detect_content_language(clean)
+    if language == "ru":
+        return detected == "ru"
+    if language == "en":
+        return detected == "en"
+    return True
+
+
+def _record_viewer_text(record: ScriptRecord) -> str:
+    return " ".join(
+        item
+        for item in (record.title, record.hook, record.voiceover, record.cta)
+        if _clean(item)
+    )
 
 
 def _transcript_word_cues(words: list[dict] | None) -> list[dict]:

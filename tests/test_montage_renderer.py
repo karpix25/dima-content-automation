@@ -2,7 +2,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import content_automation.montage_renderer as montage_renderer
-from content_automation.montage_renderer import MontageRendererConfig, _command, _render
+from content_automation.deepgram_transcription import DeepgramConfig
+from content_automation.montage_renderer import MontageRendererConfig, _command, _deepgram_config_for_record, _render, _transcript_is_usable
 from content_automation.storage import ScriptRecord
 
 
@@ -123,7 +124,38 @@ def test_hyperframes_command_passes_transcript_when_available():
     assert command[-1] == "transcript.deepgram.json"
 
 
+def test_deepgram_config_uses_record_language_over_env_default():
+    config = _deepgram_config_for_record(
+        DeepgramConfig(api_key="key", language="en"),
+        record=_record_with_voiceover(format="reels", voiceover="Это русский сценарий для Amazon."),
+        content_language="ru",
+    )
+
+    assert config
+    assert config.language == "ru"
+
+
+def test_bad_deepgram_transcript_is_not_usable_for_russian_record():
+    usable = _transcript_is_usable(
+        [
+            {"word": "private", "punctuated_word": "Private", "start": 4.0, "end": 4.3},
+            {"word": "label", "punctuated_word": "label.", "start": 4.3, "end": 4.8},
+            {"word": "cash", "punctuated_word": "Cash", "start": 8.9, "end": 9.1},
+            {"word": "flow", "punctuated_word": "flow", "start": 9.1, "end": 9.6},
+        ],
+        record=_record_with_voiceover(format="reels", voiceover="Это русский сценарий для Amazon про прибыль."),
+        duration_seconds=42,
+        content_language="ru",
+    )
+
+    assert usable is False
+
+
 def _record(*, format: str) -> ScriptRecord:
+    return _record_with_voiceover(format=format, voiceover="Your revenue can grow while your cash disappears.")
+
+
+def _record_with_voiceover(*, format: str, voiceover: str) -> ScriptRecord:
     return ScriptRecord(
         id=1,
         user_id="42",
@@ -133,7 +165,7 @@ def _record(*, format: str) -> ScriptRecord:
         angle="Profit angle",
         hook="Revenue is not profit",
         trigger="Cash conversion",
-        voiceover="Your revenue can grow while your cash disappears.",
+        voiceover=voiceover,
         cta="Check contribution margin.",
         why_it_works="Sharp seller pain.",
         source_basis="NotebookLM notes.",
