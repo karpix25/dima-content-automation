@@ -1,12 +1,13 @@
 export function renderVoiceSelector(state, escapeHtml) {
   const settings = state.settings;
+  const voices = state.voices || [];
   return `
     <div class="voice-compact">
       <label>Голос диктора</label>
       <div class="voice-row">
         <select data-voice-select>
           <option value="">${escapeHtml(settings.elevenlabs_voice_name || "Не выбран")}</option>
-          ${state.voices.map((voice) => `
+          ${voices.map((voice) => `
             <option
               value="${escapeHtml(voice.id)}"
               data-name="${escapeHtml(voice.name)}"
@@ -14,10 +15,10 @@ export function renderVoiceSelector(state, escapeHtml) {
             >${escapeHtml(voice.name)}</option>
           `).join("")}
         </select>
-        <button data-action="load-voices">Обновить список</button>
+        ${voices.length ? "" : `<button data-action="load-voices">Повторить</button>`}
       </div>
       <code>${escapeHtml(settings.elevenlabs_voice_id || "")}</code>
-      ${state.voices.length ? "" : `<p>Список голосов загрузится автоматически при открытии настроек.</p>`}
+      <p>${voices.length ? "Список голосов обновляется автоматически при открытии настроек." : "Список голосов загружается автоматически. Если пусто, попробуйте повторить."}</p>
     </div>
   `;
 }
