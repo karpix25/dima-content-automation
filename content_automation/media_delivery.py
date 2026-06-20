@@ -27,6 +27,7 @@ from .storage import ScriptRecord, Storage
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video
 from .video_geometry import video_size_for_format
 from .voice_speed_profile import calibrated_voice_wpm
+from .voiceover_text import normalize_voiceover_for_tts
 from .voiceover_fit import fit_voiceover_for_duration
 from .visual_assets import generate_post_heygen_assets
 
@@ -193,6 +194,7 @@ def _generate_audio(
         word_budget=word_budget,
         elevenlabs=elevenlabs,
     )
+    fitted_record = replace(fitted_record, voiceover=normalize_voiceover_for_tts(fitted_record.voiceover))
     logger.info(
         "Generating ElevenLabs audio: script=%s words=%s chars=%s target_seconds=%s speed=%.3f",
         record.id,

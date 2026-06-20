@@ -15,6 +15,7 @@ from .script_unique_store import (
 )
 from .script_uniqueness import unique_script_keys
 from .topic_dedupe import script_topic_fingerprint
+from .voiceover_text import normalize_voiceover_for_tts
 
 
 @dataclass(frozen=True)
@@ -426,7 +427,7 @@ def normalize_script_payload(payload: dict[str, Any]) -> dict[str, str]:
         "angle": pick("angle", "угол"),
         "hook": pick("hook", "хук"),
         "trigger": pick("trigger", "триггер"),
-        "voiceover": pick("voiceover", "voice_over", "text", "озвучка", "текст_озвучки"),
+        "voiceover": normalize_voiceover_for_tts(pick("voiceover", "voice_over", "text", "озвучка", "текст_озвучки")),
         "cta": pick("cta", "призыв"),
         "cta_type": pick("cta_type"),
         "cta_reason": pick("cta_reason"),
