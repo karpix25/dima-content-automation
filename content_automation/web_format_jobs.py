@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 
 from .config import Settings
+from .format_reference_paths import delivery_face_reference_paths
 from .infographic_delivery import build_kie_client, create_and_send_infographic_reels
 from .media_delivery import create_and_send_avatar_video, create_and_send_existing_heygen_video
 from .media_assets import MediaAssetStore
-from .reference_paths import infographic_design_reference_paths, thumbnail_face_reference_paths
+from .reference_paths import infographic_design_reference_paths
 from .settings_service import get_user_settings
 from .storage import FormatJob, Storage
 from .turan_client import TuranApiClient, submit_format_job
@@ -443,11 +444,12 @@ def _deliver_infographic_job(
             cta_text=state.instagram_post_5s_cta_text,
             content_language=state.content_language,
             delivery_actor_user_id=delivery_actor_user_id,
-            face_reference_paths=thumbnail_face_reference_paths(
+            face_reference_paths=delivery_face_reference_paths(
                 storage=storage,
                 settings=settings,
                 user_id=user_id,
                 target="vertical",
+                delivery_actor_user_id=delivery_actor_user_id,
             ),
             design_reference_paths=infographic_design_reference_paths(asset_store=asset_store, user_id=user_id),
         )

@@ -55,6 +55,38 @@ def test_turan_infographic_prompt_filters_internal_source_copy_for_russian_card(
     assert "PPC не лечит слабую конверсию" in prompt
 
 
+def test_turan_infographic_prompt_omits_english_internal_fields_for_russian_card():
+    record = _record(
+        title="Скрытая прибыль через Amazon Attribution",
+        hook="Вы сливаете маржу на внешний трафик, потому что не забираете кэшбэк от самого Амазона.",
+        trigger="scaling external traffic without utilizing marketplace reimbursement programs",
+        angle="Раскрываем механику Amazon Attribution для возврата рекламных расходов.",
+        cta="Внедряем такие системы масштабирования на наставничестве.",
+        why_it_works="Targets a very specific operational inefficiency for existing sellers.",
+        source_basis="lovepdf (8).pdf, slide 112",
+        raw={
+            "mechanism": "Amazon Attribution tracks external traffic and refunds a portion of the referral fee",
+            "visual_proof": "Скриншот дашборда Amazon Attribution с начисленным бонусом.",
+        },
+    )
+
+    prompt = build_turan_infographic_prompt(
+        record=record,
+        bullets=[
+            record.trigger,
+            record.why_it_works,
+            "Сначала проверь маржу, потом разгоняй трафик.",
+        ],
+        content_language="ru",
+    )
+
+    assert "scaling external traffic" not in prompt
+    assert "Targets a very specific" not in prompt
+    assert "tracks external traffic" not in prompt
+    assert "Сначала проверь маржу" in prompt
+    assert "Скриншот дашборда Amazon Attribution" in prompt
+
+
 def _record(**overrides) -> ScriptRecord:
     values = {
         "title": "Margin trap",
@@ -66,7 +98,9 @@ def _record(**overrides) -> ScriptRecord:
         "why_it_works": "Sharp seller pain.",
         "source_basis": "NotebookLM notes.",
     }
+    raw = values.pop("raw", {})
     values.update(overrides)
+    raw = values.pop("raw", raw)
     return ScriptRecord(
         id=1,
         user_id="42",
@@ -80,5 +114,5 @@ def _record(**overrides) -> ScriptRecord:
         cta=values["cta"],
         why_it_works=values["why_it_works"],
         source_basis=values["source_basis"],
-        raw={},
+        raw=raw,
     )

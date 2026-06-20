@@ -23,14 +23,15 @@ def build_social_card_copy(
 ) -> SocialCardCopy:
     language = card_language(record, content_language)
     contract = build_script_message_contract(record)
+    visible_bullets = viewer_facing_items(bullets, language)
     source = " ".join(
         clean_prompt_text(item)
-        for item in [record.title, record.hook, record.angle, record.trigger, record.voiceover, record.cta, *bullets]
+        for item in [record.title, record.hook, record.angle, record.voiceover, record.cta, *visible_bullets]
         if clean_prompt_text(item)
     )
     headline = limit_chars(contract.headline, 48) if contract.headline else trigger_headline(source, fallback=record.title)
-    subtitle = limit_chars(record.trigger or record.angle or record.voiceover or "Fix the bottleneck first", 70)
-    items = concise_items(bullets, record)
+    subtitle = limit_chars(preferred_subtitle(record, language), 70)
+    items = concise_items(visible_bullets, record, language=language)
     cta = limit_chars(cta_text or record.cta or default_cta(language), 48)
     return SocialCardCopy(headline=headline, subtitle=subtitle, items=items, cta=cta)
 
@@ -73,13 +74,12 @@ def russian_trigger_headline(normalized: str, *, fallback: str | None) -> str:
     return sentence_case(limit_chars(remove_soft_opening(fallback or "Проверь это до масштабирования"), 48))
 
 
-def concise_items(bullets: list[str], record: ScriptRecord) -> list[str]:
+def concise_items(bullets: list[str], record: ScriptRecord, *, language: str) -> list[str]:
     source = " ".join(clean_prompt_text(item) for item in [*bullets, record.voiceover, record.trigger, record.angle] if item)
     items = expert_items_from_source(source)
     candidates = [
         str(record.raw.get("mechanism") or ""),
         str(record.raw.get("visual_proof") or ""),
-        str(record.raw.get("visual_retention_plan") or ""),
         *bullets,
         record.trigger,
         record.cta,
@@ -87,7 +87,7 @@ def concise_items(bullets: list[str], record: ScriptRecord) -> list[str]:
     ]
     for candidate in candidates:
         clean = clean_prompt_text(candidate)
-        if not clean or should_skip_item(clean):
+        if not is_viewer_language(clean, language) or should_skip_item(clean):
             continue
         short = limit_chars(clean, 68).rstrip(".")
         if short and short.lower() not in {item.lower() for item in items}:
@@ -98,6 +98,18 @@ def concise_items(bullets: list[str], record: ScriptRecord) -> list[str]:
     while len(items) < 5:
         items.append(fallbacks[len(items)])
     return items[:5]
+
+
+def preferred_subtitle(record: ScriptRecord, language: str) -> str:
+    for candidate in (record.angle, record.trigger, record.hook, record.voiceover):
+        clean = clean_prompt_text(candidate)
+        if is_viewer_language(clean, language) and not should_skip_item(clean):
+            return clean
+    return "Проверь это до масштабирования" if language == "ru" else "Fix the bottleneck first"
+
+
+def viewer_facing_items(items: list[str], language: str) -> list[str]:
+    return [clean for item in items if (clean := clean_prompt_text(item)) and is_viewer_language(clean, language)]
 
 
 def expert_items_from_source(source: str) -> list[str]:
@@ -191,6 +203,10 @@ def should_skip_item(value: str) -> bool:
         "скрипт ",
         "опора из базы",
         "источник",
+        "targets a very specific",
+        "operational inefficiency",
+        "viewer retention",
+        "visual retention",
     )
     return any(marker in lowered for marker in skip_markers) or not has_viewer_value(value)
 
@@ -199,6 +215,7 @@ def has_viewer_value(value: str) -> bool:
     lowered = value.lower()
     business_terms = (
         "amazon",
+        "attribution",
         "ppc",
         "sqp",
         "margin",
@@ -220,8 +237,23 @@ def has_viewer_value(value: str) -> bool:
         "запас",
         "конверс",
         "арбитраж",
+        "атрибут",
+        "кэшб",
+        "трафик",
+        "комисс",
+        "реферал",
     )
     return any(term in lowered for term in business_terms)
+
+
+def is_viewer_language(value: str, language: str) -> bool:
+    if not value:
+        return False
+    if language == "ru":
+        return has_cyrillic(value)
+    if language == "en":
+        return not has_cyrillic(value)
+    return True
 
 
 def card_language(record: ScriptRecord, content_language: str) -> str:
