@@ -34,6 +34,31 @@ def test_create_script_from_idea_uses_kie_without_notebooklm(tmp_path: Path):
     assert "NotebookLM factual packet" in kie.calls[0]["user"]
 
 
+def test_create_script_from_idea_falls_back_to_notebooklm_when_kie_fails(tmp_path: Path):
+    storage = Storage(tmp_path / "scripts.sqlite3")
+    notebooklm = NotebookLMAnswer(_script_json())
+
+    record = _run(
+        create_script_from_idea(
+            storage=storage,
+            user_id="42",
+            idea=_idea(),
+            notebook_ref="notebook-1",
+            notebooklm=notebooklm,
+            author_style="Direct expert",
+            offer_context="Amazon profit audit",
+            cta_mix="no CTA",
+            content_language="en",
+            vertical_duration_mode="original",
+            script_writer_backend="kie",
+            kie_text_client=FailingKieTextClient(),
+        )
+    )
+
+    assert record.title == "Fee leak"
+    assert notebooklm.calls == 1
+
+
 def _run(coro):
     import asyncio
 
@@ -102,3 +127,21 @@ class FakeKieTextClient:
 class FailingNotebookLM:
     def ask(self, *args, **kwargs):
         raise AssertionError("NotebookLM should not be called")
+
+
+class NotebookLMAnswer:
+    def __init__(self, answer: str) -> None:
+        self.answer = answer
+        self.calls = 0
+
+    def ask(self, *args, **kwargs):
+        self.calls += 1
+        return self
+
+
+class FailingKieTextClient:
+    def is_configured(self) -> bool:
+        return True
+
+    def complete(self, *, system: str, user: str) -> str:
+        raise ValueError("model unsupported")

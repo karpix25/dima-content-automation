@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 
 from .content_language import normalize_content_language
@@ -14,6 +15,8 @@ from .notebooklm_runtime import NotebookLMAskClient
 from .prompts import build_short_scripts_prompt
 from .script_length import DEFAULT_SPOKEN_WORDS_PER_MINUTE, vertical_word_budget
 from .storage import DuplicateScriptError, ScriptRecord, Storage
+
+logger = logging.getLogger(__name__)
 
 
 async def create_script_from_idea(
@@ -46,9 +49,8 @@ async def create_script_from_idea(
             if script_payload_matches_word_budget(item, budget):
                 return storage.add_script(user_id, "short", item, enforce_unique=True)
             raise ValueError("Kie написал сценарий вне нужной длины озвучки.")
-        except (DuplicateScriptError, KieTextError, ValueError):
-            if script_writer_backend == "kie":
-                raise
+        except (DuplicateScriptError, KieTextError, ValueError) as exc:
+            logger.warning("Kie script writer failed, falling back to NotebookLM: idea_id=%s error=%s", idea.id, exc)
 
     prompt = build_short_scripts_prompt(
         count=1,

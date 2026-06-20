@@ -661,9 +661,7 @@ async def generate_scripts_for_user(
         )
         if records:
             return records[:count]
-        if build_kie_text_client(settings).is_configured():
-            raise ValueError("Kie не смог написать сценарии по темам NotebookLM. Проверь логи Kie и попробуй позже.")
-        logger.warning("SCRIPT_WRITER_BACKEND=kie, but KIE_API_KEY is missing; falling back to NotebookLM script writing")
+        logger.warning("Kie script writing returned no records; falling back to NotebookLM script writing")
     if format == "youtube":
         all_existing_records = storage.list_scripts_for_dedup(user_id, format=format)
         recent_existing_records = all_existing_records[:60]
