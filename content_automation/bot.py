@@ -12,7 +12,7 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Message, WebAppInfo
 
 from .config import load_settings
-from .content_language import normalize_content_language
+from .content_language import normalize_content_language, should_reject_cyrillic_scripts
 from .deepgram_transcription import DeepgramConfig
 from .editorial import EditorialBrief, apply_editorial_brief, script_editorial_summary
 from .editorial_planner import plan_editorial_briefs
@@ -339,7 +339,9 @@ def script_record_has_cyrillic(record: ScriptRecord) -> bool:
     )
 
 
-def reject_cyrillic_pending_scripts(user_id: str) -> int:
+def reject_cyrillic_pending_scripts(user_id: str, *, content_language: str = "auto") -> int:
+    if not should_reject_cyrillic_scripts(content_language):
+        return 0
     rejected = 0
     while True:
         records = storage.list_scripts(user_id, format="short", status="pending", limit=100)
@@ -1596,7 +1598,8 @@ async def start_review_session(
     message: Message | None = None,
     edit: bool = False,
 ) -> int:
-    removed = reject_cyrillic_pending_scripts(user_id)
+    user_settings = get_user_settings(storage, settings, user_id)
+    removed = reject_cyrillic_pending_scripts(user_id, content_language=user_settings.content_language)
     duplicate_removed = reject_duplicate_pending_scripts(user_id)
     pending = storage.count_scripts(user_id, format="short", status="pending")
     if pending == 0:
@@ -1632,7 +1635,8 @@ async def start_review_session(
 
 
 async def edit_to_next_review_card(callback: CallbackQuery, user_id: str) -> None:
-    reject_cyrillic_pending_scripts(user_id)
+    user_settings = get_user_settings(storage, settings, user_id)
+    reject_cyrillic_pending_scripts(user_id, content_language=user_settings.content_language)
     reject_duplicate_pending_scripts(user_id)
     records = storage.list_scripts(user_id, format="short", status="pending", limit=1)
     if records:

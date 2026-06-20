@@ -66,3 +66,7 @@ def viewer_text_language_instruction(value: str | None) -> str:
         "All viewer-facing text must match the dominant language of the original source "
         "content or transcript. Do not translate the visuals into a different language."
     )
+
+
+def should_reject_cyrillic_scripts(value: str | None) -> bool:
+    return normalize_content_language(value) == CONTENT_LANGUAGE_EN

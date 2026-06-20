@@ -51,6 +51,8 @@ async def generate_short_scripts_with_kie(
         content_language=content_language,
         vertical_duration_mode=vertical_duration_mode,
         settings=settings,
+        notebook_ref=notebook_ref,
+        notebooklm=notebooklm,
     )
 
 
@@ -66,6 +68,8 @@ async def create_scripts_from_ideas_with_kie(
     content_language: str,
     vertical_duration_mode: str,
     settings: Any,
+    notebook_ref: str,
+    notebooklm: NotebookLMAskClient,
 ) -> list[ScriptRecord]:
     client = build_kie_text_client(settings)
     records: list[ScriptRecord] = []
@@ -77,8 +81,8 @@ async def create_scripts_from_ideas_with_kie(
                 storage=storage,
                 user_id=user_id,
                 idea=idea,
-                notebook_ref="",
-                notebooklm=_UnusedNotebookLM(),
+                notebook_ref=notebook_ref,
+                notebooklm=notebooklm,
                 author_style=author_style,
                 offer_context=offer_context,
                 cta_mix=cta_mix,
@@ -93,8 +97,3 @@ async def create_scripts_from_ideas_with_kie(
         records.append(record)
         idea_bank.update_status(user_id, idea.id, "used_for_script")
     return records
-
-
-class _UnusedNotebookLM:
-    def ask(self, *args: object, **kwargs: object) -> object:
-        raise RuntimeError("NotebookLM should not be called by Kie script writer")

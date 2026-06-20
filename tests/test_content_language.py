@@ -1,4 +1,4 @@
-from content_automation.content_language import normalize_content_language, resolve_content_language
+from content_automation.content_language import normalize_content_language, resolve_content_language, should_reject_cyrillic_scripts
 from content_automation.settings_service import normalize_text_setting
 
 
@@ -18,3 +18,9 @@ def test_resolve_content_language_detects_auto_from_text():
     assert resolve_content_language("auto", "Привет, это русский текст") == "ru"
     assert resolve_content_language("auto", "This is English text") == "en"
     assert resolve_content_language("en", "Привет") == "en"
+
+
+def test_cyrillic_scripts_are_rejected_only_for_english_projects():
+    assert should_reject_cyrillic_scripts("en") is True
+    assert should_reject_cyrillic_scripts("ru") is False
+    assert should_reject_cyrillic_scripts("auto") is False
