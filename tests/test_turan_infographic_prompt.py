@@ -87,6 +87,37 @@ def test_turan_infographic_prompt_omits_english_internal_fields_for_russian_card
     assert "Скриншот дашборда Amazon Attribution" in prompt
 
 
+def test_turan_infographic_prompt_uses_complete_short_phrases_for_russian_card():
+    record = _record(
+        title="Скрытая прибыль через Amazon Attribution",
+        hook="Вы сливаете маржу на внешний трафик, потому что не забираете кэшбэк от самого Амазона.",
+        trigger="scaling external traffic without utilizing marketplace reimbursement programs",
+        angle="Раскрываем механику инструмента Amazon Attribution для возврата части рекламных расходов.",
+        cta="Внедряем такие системы масштабирования на нашем наставничестве.",
+        raw={
+            "headline": "Верните деньги за трафик",
+            "visual_proof": "Скриншот дашборда Amazon Attribution, показывающий начисленный Referral Bonus за переходы по сгенерированной ссылке.",
+        },
+    )
+
+    prompt = build_turan_infographic_prompt(
+        record=record,
+        bullets=[
+            "Скриншот дашборда Amazon Attribution, показывающий начисленный Referral Bonus за переходы по сгенерированной ссылке.",
+            record.angle,
+            record.hook,
+        ],
+        content_language="ru",
+    )
+
+    assert "для возврата части" not in prompt
+    assert "показывающий начисленный" not in prompt
+    assert "на нашем" not in prompt
+    assert "Amazon Attribution возвращает часть расходов" in prompt
+    assert "Покажи начисленный бонус в дашборде" in prompt
+    assert "Разбираем это на наставничестве" in prompt
+
+
 def _record(**overrides) -> ScriptRecord:
     values = {
         "title": "Margin trap",

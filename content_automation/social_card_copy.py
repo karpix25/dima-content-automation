@@ -30,9 +30,9 @@ def build_social_card_copy(
         if clean_prompt_text(item)
     )
     headline = limit_chars(contract.headline, 48) if contract.headline else trigger_headline(source, fallback=record.title)
-    subtitle = limit_chars(preferred_subtitle(record, language), 70)
+    subtitle = preferred_subtitle(record, language)
     items = concise_items(visible_bullets, record, language=language)
-    cta = limit_chars(cta_text or record.cta or default_cta(language), 48)
+    cta = compact_cta(cta_text or record.cta, language)
     return SocialCardCopy(headline=headline, subtitle=subtitle, items=items, cta=cta)
 
 
@@ -89,7 +89,7 @@ def concise_items(bullets: list[str], record: ScriptRecord, *, language: str) ->
         clean = clean_prompt_text(candidate)
         if not is_viewer_language(clean, language) or should_skip_item(clean):
             continue
-        short = limit_chars(clean, 68).rstrip(".")
+        short = compact_card_line(clean, 68, language=language).rstrip(".")
         if short and short.lower() not in {item.lower() for item in items}:
             items.append(short)
         if len(items) == 5:
@@ -104,12 +104,69 @@ def preferred_subtitle(record: ScriptRecord, language: str) -> str:
     for candidate in (record.angle, record.trigger, record.hook, record.voiceover):
         clean = clean_prompt_text(candidate)
         if is_viewer_language(clean, language) and not should_skip_item(clean):
-            return clean
+            compact = compact_card_line(clean, 70, language=language)
+            if compact:
+                return compact
     return "Проверь это до масштабирования" if language == "ru" else "Fix the bottleneck first"
 
 
 def viewer_facing_items(items: list[str], language: str) -> list[str]:
     return [clean for item in items if (clean := clean_prompt_text(item)) and is_viewer_language(clean, language)]
+
+
+def compact_cta(value: str | None, language: str) -> str:
+    compact = compact_card_line(value or "", 48, language=language)
+    if compact:
+        return compact
+    clean = clean_prompt_text(value)
+    lowered = clean.lower()
+    if language == "ru" and ("наставнич" in lowered or "ментор" in lowered):
+        return "Разбираем это на наставничестве"
+    if language == "en" and ("audit" in lowered or "mentor" in lowered):
+        return "Book an operator audit"
+    return default_cta(language)
+
+
+def compact_card_line(value: str | None, limit: int, *, language: str) -> str:
+    clean = clean_prompt_text(value)
+    if not clean:
+        return ""
+    if len(clean) <= limit:
+        return clean
+    rule = rule_based_short_line(clean, language=language)
+    if rule and len(rule) <= limit:
+        return rule
+    sentence = first_complete_sentence(clean, limit)
+    return sentence if sentence and len(sentence) <= limit else ""
+
+
+def first_complete_sentence(value: str, limit: int) -> str:
+    for sentence in re.split(r"(?<=[.!?])\s+", value):
+        clean = sentence.strip()
+        if clean and len(clean) <= limit:
+            return clean
+    return ""
+
+
+def rule_based_short_line(value: str, *, language: str) -> str:
+    lowered = value.lower()
+    if language == "ru":
+        if "amazon attribution" in lowered and ("возврат" in lowered or "кэшб" in lowered or "бонус" in lowered):
+            return "Amazon Attribution возвращает часть расходов"
+        if "дашборд" in lowered and ("бонус" in lowered or "начисл" in lowered):
+            return "Покажи начисленный бонус в дашборде"
+        if "марж" in lowered and ("трафик" in lowered or "реклам" in lowered):
+            return "Проверь маржу до разгона рекламы"
+        if "карточ" in lowered and ("трафик" in lowered or "реклам" in lowered):
+            return "Сначала усили карточку, потом трафик"
+        if "кэшб" in lowered:
+            return "Забирай кэшбэк с внешнего трафика"
+    else:
+        if "amazon attribution" in lowered and ("refund" in lowered or "reimburse" in lowered):
+            return "Amazon Attribution refunds part of ad spend"
+        if "margin" in lowered and ("traffic" in lowered or "ads" in lowered):
+            return "Check margin before scaling traffic"
+    return ""
 
 
 def expert_items_from_source(source: str) -> list[str]:
