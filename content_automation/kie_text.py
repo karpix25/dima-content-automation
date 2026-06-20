@@ -41,7 +41,7 @@ class KieTextClient:
             "temperature": 0.25,
         }
         errors: list[str] = []
-        for endpoint in ("/v1/chat/completions", "/api/v1/chat/completions"):
+        for endpoint in _chat_endpoints(self.config.model):
             try:
                 with httpx.Client(timeout=self.config.timeout_seconds) as client:
                     response = client.post(f"{self.config.base_url}{endpoint}", headers=headers, json=payload)
@@ -66,3 +66,12 @@ def _extract_content(data: dict[str, Any]) -> str:
             if isinstance(value, str) and value.strip():
                 return value.strip()
     raise KieTextError(f"KIE text response has no content: {data}")
+
+
+def _chat_endpoints(model: str) -> tuple[str, ...]:
+    normalized = (model or "").strip().strip("/")
+    endpoints: list[str] = []
+    if normalized:
+        endpoints.append(f"/{normalized}/v1/chat/completions")
+    endpoints.extend(["/v1/chat/completions", "/api/v1/chat/completions"])
+    return tuple(dict.fromkeys(endpoints))
