@@ -1,6 +1,6 @@
 import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-plan-buttons";
 import { bindVoiceEvents } from "/static/settings_voices.js?v=20260619-auto-voices-ui";
-import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260619-ideas-actions";
+import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260701-common-cover-inline";
 import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
 import { startAutoIdeaScripts } from "/static/idea_auto_scripts.js?v=20260618-auto-scripts";
 

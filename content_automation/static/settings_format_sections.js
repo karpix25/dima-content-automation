@@ -1,6 +1,6 @@
 import { renderAvatarSelectors } from "/static/settings_avatars.js?v=20260617-plan-buttons";
 import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-plan-buttons";
-import { commonCoverSummaryChips, coverSummaryChips, renderCoverAssetsSection } from "/static/settings_cover_assets.js?v=20260701-common-cover-face";
+import { commonCoverSummaryChips, coverSummaryChips, renderCoverAssetsSection } from "/static/settings_cover_assets.js?v=20260701-common-cover-inline";
 import { renderVizardTab } from "/static/settings_vizard.js?v=20260617-plan-buttons";
 import { renderVoiceSelector } from "/static/settings_voices.js?v=20260619-auto-voices-ui";
 import { renderIdeasTab } from "/static/settings_ideas.js?v=20260619-ideas-actions";
@@ -132,7 +132,7 @@ function renderCommonTab({ state, escapeHtml }) {
   return `
     ${formatHeader("Общие настройки", "База для контента: NotebookLM, голос, модель HeyGen и стиль текстов.", commonSummaryChips(state), escapeHtml)}
     <section class="settings-stack">
-      ${settingsDisclosure("Голос и модель", commonSummaryChips(state), `
+      ${settingsDisclosure("Голос, модель, обложки и лицо", commonSummaryChips(state), `
         <div class="settings-two">
           <div class="soft-box">
             <h3>Голос ElevenLabs</h3>
@@ -143,6 +143,7 @@ function renderCommonTab({ state, escapeHtml }) {
             ${renderAvatarSelectors(state, escapeHtml, { mode: "model" })}
           </div>
         </div>
+        ${renderCoverAssetsSection(state, escapeHtml)}
       `, escapeHtml)}
       ${settingsDisclosure("NotebookLM", [chip(settings.notebook_id ? "задан" : "пустой", !settings.notebook_id)], textAreaSetting("notebook_id", "NotebookLM ID", settings.notebook_id || "", 2, escapeHtml), escapeHtml)}
       ${settingsDisclosure("Язык контента", [chip(contentLanguageLabel(settings.content_language || "auto"))], `
@@ -157,7 +158,6 @@ function renderCommonTab({ state, escapeHtml }) {
         ${textAreaSetting("offer_context", "Контекст оффера", settings.offer_context || "", 5, escapeHtml)}
         ${textAreaSetting("cta_mix", "Логика CTA", settings.cta_mix || "", 5, escapeHtml)}
       `, escapeHtml)}
-      ${settingsDisclosure("Обложки и лицо", commonCoverSummaryChips(state), renderCoverAssetsSection(state, escapeHtml), escapeHtml)}
     </section>
   `;
 }
@@ -365,6 +365,7 @@ function commonSummaryChips(state) {
     chip(state.settings.elevenlabs_voice_name || "голос не выбран", !state.settings.elevenlabs_voice_name),
     chip(contentLanguageLabel(state.settings.content_language || "auto")),
     chip(state.settings.notebook_id ? "NotebookLM задан" : "NotebookLM пустой", !state.settings.notebook_id),
+    ...commonCoverSummaryChips(state),
   ];
 }
 
