@@ -56,6 +56,20 @@ def test_retry_failed_job_creates_new_queued_job(tmp_path, monkeypatch):
     assert response.json()["script_id"] == record.id
 
 
+def test_retry_failed_job_records_actor_from_query(tmp_path, monkeypatch):
+    client, storage = make_client(tmp_path, monkeypatch)
+    record = add_script(storage)
+    job = storage.add_format_job("42", script_id=record.id, format_key="avatar_reels", task_type="avatar", title="Avatar", output_text="")
+    storage.update_format_job_delivery("42", job.id, status="failed", error="boom")
+
+    response = client.post(f"/api/format-jobs/{job.id}/retry", params={"user_id": "42", "actor_user_id": "42"})
+
+    assert response.status_code == 200
+    retried = storage.get_format_job("42", response.json()["id"])
+    assert retried is not None
+    assert retried.raw["delivery_actor_user_id"] == "42"
+
+
 def test_mark_live_job_failed(tmp_path, monkeypatch):
     client, storage = make_client(tmp_path, monkeypatch)
     record = add_script(storage)

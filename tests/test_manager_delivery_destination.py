@@ -38,11 +38,18 @@ def test_manager_actor_overrides_project_active_chat(tmp_path: Path):
     assert telegram_delivery_chat_id(storage, "42", "99") == "99"
 
 
-def test_project_owner_keeps_existing_active_chat_behavior(tmp_path: Path):
+def test_project_owner_actor_overrides_stale_active_chat(tmp_path: Path):
     storage = _storage(tmp_path)
-    storage.set_setting("42", "active_chat_id", "owner-chat")
+    storage.set_setting("42", "active_chat_id", "manager-chat")
 
-    assert telegram_delivery_chat_id(storage, "42", "42") == "owner-chat"
+    assert telegram_delivery_chat_id(storage, "42", "42") == "42"
+
+
+def test_missing_actor_keeps_existing_active_chat_fallback(tmp_path: Path):
+    storage = _storage(tmp_path)
+    storage.set_setting("42", "active_chat_id", "manager-chat")
+
+    assert telegram_delivery_chat_id(storage, "42", None) == "manager-chat"
 
 
 def test_queued_infographic_delivery_uses_manager_actor(tmp_path: Path, monkeypatch):

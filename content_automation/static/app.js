@@ -327,7 +327,7 @@ async function createJob(scriptId, formatKey) {
   try {
     const job = await api(`/api/scripts/${scriptId}/format-jobs`, {
       method: "POST",
-      body: JSON.stringify({ user_id: state.userId, format_key: formatKey }),
+      body: JSON.stringify({ user_id: state.userId, actor_user_id: state.actorUserId, format_key: formatKey }),
     });
     upsertJob(job);
     renderJobs();
@@ -613,7 +613,8 @@ $("output").addEventListener("click", (event) => {
 async function retryJob(jobId) {
   setStatus("Working");
   const userQuery = encodeURIComponent(state.userId);
-  const job = await api(`/api/format-jobs/${jobId}/retry?user_id=${userQuery}`, { method: "POST" });
+  const actorQuery = encodeURIComponent(state.actorUserId || "");
+  const job = await api(`/api/format-jobs/${jobId}/retry?user_id=${userQuery}&actor_user_id=${actorQuery}`, { method: "POST" });
   upsertJob(job);
   renderJobs();
   renderResultJob(job);

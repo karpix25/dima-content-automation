@@ -535,6 +535,10 @@ def instagram_post_5s_out(user_id: str) -> InstagramPost5sOut:
     )
 
 
+def delivery_actor_from_request(request: Request, payload_actor_user_id: str | None) -> str | None:
+    return getattr(request.state, "telegram_user_id", None) or (payload_actor_user_id or "").strip() or None
+
+
 @app.post("/api/scripts/{script_id}/format-jobs", response_model=FormatJobOut)
 def create_script_format_job(
     script_id: int,
@@ -550,7 +554,7 @@ def create_script_format_job(
             user_id=payload.user_id,
             script_id=script_id,
             format_key=payload.format_key,
-            delivery_actor_user_id=getattr(request.state, "telegram_user_id", None),
+            delivery_actor_user_id=delivery_actor_from_request(request, payload.actor_user_id),
         )
         background_tasks.add_task(
             deliver_existing_format_job,
@@ -583,7 +587,7 @@ def create_existing_heygen_format_job(
             script_id=script_id,
             format_key=payload.format_key,
             heygen_video_id=payload.heygen_video_id,
-            delivery_actor_user_id=getattr(request.state, "telegram_user_id", None),
+            delivery_actor_user_id=delivery_actor_from_request(request, payload.actor_user_id),
         )
         background_tasks.add_task(
             deliver_existing_heygen_video_job,

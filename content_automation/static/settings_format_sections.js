@@ -1,5 +1,6 @@
 import { renderAvatarSelectors } from "/static/settings_avatars.js?v=20260617-plan-buttons";
 import { chip, formatHeader, settingsDisclosure } from "/static/settings_sections.js?v=20260617-plan-buttons";
+import { commonCoverSummaryChips, coverSummaryChips, renderCoverAssetsSection } from "/static/settings_cover_assets.js?v=20260701-common-cover-face";
 import { renderVizardTab } from "/static/settings_vizard.js?v=20260617-plan-buttons";
 import { renderVoiceSelector } from "/static/settings_voices.js?v=20260619-auto-voices-ui";
 import { renderIdeasTab } from "/static/settings_ideas.js?v=20260619-ideas-actions";
@@ -79,12 +80,6 @@ function renderYoutubeTab({ state, escapeHtml }) {
           ${renderAvatarSelectors(state, escapeHtml, { target: "horizontal" })}
         </div>
       `, escapeHtml)}
-      ${settingsDisclosure("Обложки и лицо", coverSummaryChips(state, "horizontal"), `
-        <div class="settings-two cover-grid">
-          ${faceReferenceBox(state, "horizontal", escapeHtml)}
-          ${thumbnailReferenceBox(state, "horizontal", escapeHtml)}
-        </div>
-      `, escapeHtml)}
       ${settingsDisclosure("Видео-вставки", avatarInsertSummaryChips(state), avatarInsertBox(state, escapeHtml), escapeHtml)}
       ${settingsDisclosure("Описание YouTube", [chip(settings.youtube_description_template ? "шаблон задан" : "пусто", !settings.youtube_description_template)], textAreaSetting("youtube_description_template", "Шаблон описания YouTube", settings.youtube_description_template || "", 5, escapeHtml), escapeHtml)}
     </section>
@@ -116,12 +111,6 @@ function renderShortsTab({ state, escapeHtml }) {
           </div>
         </div>
       `, escapeHtml)}
-      ${settingsDisclosure("Обложки и лицо", coverSummaryChips(state, "vertical"), `
-        <div class="settings-two cover-grid">
-          ${faceReferenceBox(state, "vertical", escapeHtml)}
-          ${thumbnailReferenceBox(state, "vertical", escapeHtml)}
-        </div>
-      `, escapeHtml)}
     </section>
   `;
 }
@@ -132,12 +121,7 @@ function renderFiveSecondTab({ state, escapeHtml }) {
     ${formatHeader("5 секунд / золотая инфографика", "Kie генерирует карточку по сценарию, лицу и референсам дизайна. Обложка здесь не используется.", fiveSecondSummaryChips(five, state), escapeHtml)}
     <section class="settings-stack">
       ${settingsDisclosure("CTA", [chip(five.cta_text ? "задан" : "пусто", !five.cta_text)], textInputSetting("instagram_post_5s_cta_text", "CTA в нижнем белом фрейме", five.cta_text || "", 180, escapeHtml), escapeHtml)}
-      ${settingsDisclosure("Лицо и дизайн", fiveSecondSummaryChips(five, state), `
-        <div class="settings-two cover-grid">
-          ${faceReferenceBox(state, "vertical", escapeHtml, "Референс лица для инфографики")}
-          ${fiveSecondReferenceBox(five, escapeHtml)}
-        </div>
-      `, escapeHtml)}
+      ${settingsDisclosure("Дизайн инфографики", fiveSecondDesignChips(five), fiveSecondReferenceBox(five, escapeHtml), escapeHtml)}
       ${settingsDisclosure("Аудио", [chip(`аудио: ${five.audio_tracks.length}`, five.audio_tracks.length === 0)], fiveSecondAudioBox(five, escapeHtml), escapeHtml)}
     </section>
   `;
@@ -173,7 +157,7 @@ function renderCommonTab({ state, escapeHtml }) {
         ${textAreaSetting("offer_context", "Контекст оффера", settings.offer_context || "", 5, escapeHtml)}
         ${textAreaSetting("cta_mix", "Логика CTA", settings.cta_mix || "", 5, escapeHtml)}
       `, escapeHtml)}
-      ${settingsDisclosure("Медиатека обложек", [chip(`refs: ${state.thumbnailReferences.length}`, state.thumbnailReferences.length === 0)], thumbnailLibraryBox(state, escapeHtml), escapeHtml)}
+      ${settingsDisclosure("Обложки и лицо", commonCoverSummaryChips(state), renderCoverAssetsSection(state, escapeHtml), escapeHtml)}
     </section>
   `;
 }
@@ -191,53 +175,6 @@ function durationCard(key, title, value, suffix, options, escapeHtml) {
       ${suffix ? `<span class="duration-suffix">${escapeHtml(suffix)}</span>` : ""}
       <button data-action="save-text" data-key="${escapeHtml(key)}">Сохранить</button>
     </article>
-  `;
-}
-
-function faceReferenceBox(state, target, escapeHtml, title = "Референс лица") {
-  return `
-    <div class="soft-box">
-      <div class="box-head">
-        <h3>${escapeHtml(title)}</h3>
-        <label class="upload-button">
-          Загрузить
-          <input type="file" multiple accept="image/png,image/jpeg,image/webp" data-upload="thumbnail-faces" />
-        </label>
-      </div>
-      ${renderFaceReferences(state, escapeHtml, target)}
-    </div>
-  `;
-}
-
-function thumbnailReferenceBox(state, target, escapeHtml) {
-  return `
-    <div class="soft-box">
-      <div class="box-head">
-        <h3>Референсы обложек</h3>
-        <label class="upload-button blue">
-          Добавить
-          <input type="file" multiple accept="image/png,image/jpeg,image/webp" data-upload="thumbnail-references" data-upload-target="${target}" />
-        </label>
-      </div>
-      ${renderThumbnailReferences(state, target)}
-      <p>Эти референсы используются только для обложек выбранного формата.</p>
-    </div>
-  `;
-}
-
-function thumbnailLibraryBox(state, escapeHtml) {
-  return `
-    <div class="soft-box">
-      <div class="box-head">
-        <h3>Общая медиатека обложек</h3>
-        <label class="upload-button blue">
-          Добавить
-          <input type="file" multiple accept="image/png,image/jpeg,image/webp" data-upload="thumbnail-references" />
-        </label>
-      </div>
-      <p>Здесь можно включать один референс для YouTube, Instagram или обоих форматов.</p>
-      ${renderAllThumbnailReferences(state, escapeHtml)}
-    </div>
   `;
 }
 
@@ -336,56 +273,6 @@ function textAreaSetting(key, label, value, rows, escapeHtml) {
   `;
 }
 
-function renderFaceReferences(state, escapeHtml, target) {
-  if (!state.thumbnailFaces.length) return `<div class="empty-box">Фото лица не загружено</div>`;
-  return `<div class="asset-grid">${state.thumbnailFaces.map((item) => {
-    const activePath = target === "horizontal" ? state.settings.thumbnail_face_path : state.settings.vertical_thumbnail_face_path;
-    const isActive = item.url && item.file_path === activePath;
-    return `
-      <article class="thumb-card ${isActive ? "selected" : ""}">
-        <img src="${item.url}" alt="" />
-        <button class="delete-chip" data-action="delete-face" data-id="${item.id}" title="Удалить">x</button>
-        <div class="target-row">
-          <button class="${isActive ? "active" : ""}" data-face-target="${target}" data-id="${item.id}">${targetLabel(target)}</button>
-        </div>
-      </article>
-    `;
-  }).join("")}</div>`;
-}
-
-function renderThumbnailReferences(state, target) {
-  const items = state.thumbnailReferences.filter((item) => targetHas(item.target, target));
-  if (!items.length) return `<div class="empty-box">Референсы для этого формата не загружены</div>`;
-  return `<div class="asset-grid">${items.map((item) => `
-    <article class="thumb-card selected">
-      <img src="${item.url}" alt="" />
-      <button class="delete-chip" data-action="delete-ref" data-id="${item.id}" title="Удалить">x</button>
-      <div class="target-row">
-        <button class="active ${target === "horizontal" ? "dark" : ""}" data-target-ref="${target}" data-id="${item.id}">${targetLabel(target)}</button>
-      </div>
-    </article>
-  `).join("")}</div>`;
-}
-
-function renderAllThumbnailReferences(state, escapeHtml) {
-  if (!state.thumbnailReferences.length) return `<div class="empty-box">Референсы обложек не загружены</div>`;
-  return `<div class="asset-grid">${state.thumbnailReferences.map((item) => {
-    const isYoutube = targetHas(item.target, "horizontal");
-    const isShorts = targetHas(item.target, "vertical");
-    return `
-      <article class="thumb-card ${isYoutube || isShorts ? "selected" : ""}">
-        <img src="${item.url}" alt="" />
-        <button class="delete-chip" data-action="delete-ref" data-id="${item.id}" title="Удалить">x</button>
-        <div class="target-row">
-          <button class="${isYoutube ? "active dark" : ""}" data-target-ref="horizontal" data-id="${item.id}">YouTube</button>
-          <button class="${isShorts ? "active" : ""}" data-target-ref="vertical" data-id="${item.id}">Instagram</button>
-        </div>
-        <small>${escapeHtml(item.file_name)}</small>
-      </article>
-    `;
-  }).join("")}</div>`;
-}
-
 function renderSimpleAssetList(items, escapeHtml, action) {
   if (!items.length) return `<div class="empty-box compact-empty">Пока пусто</div>`;
   return items.map((item) => `
@@ -450,15 +337,6 @@ function verticalOverlayChips(state) {
   ];
 }
 
-function coverSummaryChips(state, target) {
-  const facePath = target === "horizontal" ? state.settings.thumbnail_face_path : state.settings.vertical_thumbnail_face_path;
-  const refs = state.thumbnailReferences.filter((item) => targetHas(item.target, target)).length;
-  return [
-    chip(facePath ? "лицо выбрано" : "лицо не выбрано", !facePath),
-    chip(`refs: ${refs}`, refs === 0),
-  ];
-}
-
 function avatarInsertSummaryChips(state) {
   const settings = state.settings;
   return [
@@ -477,6 +355,11 @@ function fiveSecondSummaryChips(five, state) {
   ];
 }
 
+function fiveSecondDesignChips(five) {
+  const referenceCount = five.infographic_references?.length || 0;
+  return [chip(`дизайн refs: ${referenceCount}`, referenceCount === 0)];
+}
+
 function commonSummaryChips(state) {
   return [
     chip(state.settings.elevenlabs_voice_name || "голос не выбран", !state.settings.elevenlabs_voice_name),
@@ -493,14 +376,6 @@ function contentLanguageLabel(value) {
 
 function overlayState(state, format) {
   return (state.settings.overlays || []).find((item) => item.format === format);
-}
-
-function targetHas(value, target) {
-  return value === "both" || value === target;
-}
-
-function targetLabel(target) {
-  return target === "horizontal" ? "YouTube" : "Instagram";
 }
 
 function verticalLabel(value) {

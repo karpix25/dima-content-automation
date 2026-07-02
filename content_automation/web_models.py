@@ -40,12 +40,14 @@ class ScriptReviewIn(BaseModel):
 class CreateFormatJobIn(BaseModel):
     user_id: str
     format_key: str
+    actor_user_id: str | None = None
 
 
 class CreateExistingHeyGenJobIn(BaseModel):
     user_id: str
     format_key: str = "avatar_reels"
     heygen_video_id: str
+    actor_user_id: str | None = None
 
 
 class TextSettingIn(BaseModel):

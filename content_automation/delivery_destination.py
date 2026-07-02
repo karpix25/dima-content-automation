@@ -5,7 +5,7 @@ from .storage import Storage
 
 def telegram_delivery_chat_id(storage: Storage | None, project_user_id: str, actor_user_id: str | None = None) -> str:
     actor = (actor_user_id or "").strip()
-    if actor and actor != project_user_id:
+    if actor:
         return actor
     if not storage:
         return project_user_id

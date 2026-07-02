@@ -32,7 +32,7 @@ def processing_output(job: FormatJob) -> str:
 
 def with_delivery_actor(raw: dict, project_user_id: str, actor_user_id: str | None) -> dict:
     actor = (actor_user_id or "").strip()
-    if not actor or actor == project_user_id:
+    if not actor:
         return raw
     return {**raw, "delivery_actor_user_id": actor}
 

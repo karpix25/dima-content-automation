@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 
 from .config import Settings
 from .media_assets import MediaAssetStore
@@ -26,10 +26,17 @@ def build_job_actions_router(*, storage: Storage, asset_store: MediaAssetStore, 
     router = APIRouter()
 
     @router.post("/api/format-jobs/{job_id}/retry")
-    def retry_format_job(job_id: int, background_tasks: BackgroundTasks, user_id: str = Query(..., min_length=1)):
+    def retry_format_job(
+        job_id: int,
+        background_tasks: BackgroundTasks,
+        request: Request,
+        user_id: str = Query(..., min_length=1),
+        actor_user_id: str | None = Query(None),
+    ):
         job = _get_job(storage, user_id, job_id)
         if not can_retry_job(job):
             raise HTTPException(status_code=400, detail="Эту задачу пока нельзя повторить")
+        delivery_actor_user_id = _delivery_actor_user_id(request, actor_user_id, job)
         try:
             video_id = str(job.raw.get("existing_heygen_video_id") or "").strip()
             if video_id:
@@ -41,6 +48,7 @@ def build_job_actions_router(*, storage: Storage, asset_store: MediaAssetStore, 
                     script_id=job.script_id,
                     format_key=job.format_key,
                     heygen_video_id=video_id,
+                    delivery_actor_user_id=delivery_actor_user_id,
                 )
                 background_tasks.add_task(
                     deliver_existing_heygen_video_job,
@@ -59,6 +67,7 @@ def build_job_actions_router(*, storage: Storage, asset_store: MediaAssetStore, 
                     user_id=user_id,
                     script_id=job.script_id,
                     format_key=job.format_key,
+                    delivery_actor_user_id=delivery_actor_user_id,
                 )
                 background_tasks.add_task(
                     deliver_existing_format_job,
@@ -109,6 +118,15 @@ def _get_job(storage: Storage, user_id: str, job_id: int) -> FormatJob:
     if not job:
         raise HTTPException(status_code=404, detail="Format job not found")
     return job
+
+
+def _delivery_actor_user_id(request: Request, actor_user_id: str | None, job: FormatJob) -> str | None:
+    return (
+        getattr(request.state, "telegram_user_id", None)
+        or (actor_user_id or "").strip()
+        or str(job.raw.get("delivery_actor_user_id") or "").strip()
+        or None
+    )
 
 
 def _parse_datetime(value: str) -> datetime | None:
