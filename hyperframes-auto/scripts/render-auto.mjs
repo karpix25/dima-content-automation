@@ -17,6 +17,11 @@ import {
   directorPatternMarkup,
   directorPatternTweens,
 } from './render-auto-director-patterns.mjs';
+import {
+  VERTICAL_DOCK_CSS,
+  verticalDockClip,
+  verticalDockTimelineTween,
+} from './render-auto-vertical-dock.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,8 +86,12 @@ const youtubeChapterRibbonEnabled =
   isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_CHAPTER_RIBBON', false);
 const youtubeRequireAllImages =
   isYoutubeLayout && envFlag('HYPERFRAMES_YOUTUBE_REQUIRE_ALL_IMAGES', true);
+const useVerticalDockCards =
+  isVerticalHeygenLayout && envFlag('HYPERFRAMES_VERTICAL_DOCK_CARDS', true);
 const verticalRequireAllImages =
-  isVerticalHeygenLayout && envFlag('HYPERFRAMES_VERTICAL_REQUIRE_ALL_IMAGES', true);
+  isVerticalHeygenLayout &&
+  !useVerticalDockCards &&
+  envFlag('HYPERFRAMES_VERTICAL_REQUIRE_ALL_IMAGES', true);
 const renderQuality = getArgValue(
   'quality',
   process.env.HYPERFRAMES_RENDER_QUALITY || (isYoutubeLayout ? 'high' : 'standard')
@@ -365,6 +374,16 @@ const youtubeDirectorClips = scenes
     const directorCue = normalizeText(scene.directorCue || scene.cutawayRole || '');
     if (!title && !subtitle) return '';
     const duration = sceneDuration(scene, index, 9);
+    if (useVerticalDockCards) {
+      return verticalDockClip({
+        scene,
+        index,
+        title: title || pickSceneOpener(scene),
+        subtitle,
+        duration,
+        escapeHtml,
+      });
+    }
     const imageExists = fs.existsSync(generatedImagePath(index));
     let imageMarkup = `<div class="director-fallback" aria-hidden="true">
           <div class="fallback-panel"></div>
@@ -464,6 +483,9 @@ const youtubeTimelineTweens = [
     const subtitle = shouldHideSubtitle(title, rawSubtitle) ? '' : rawSubtitle;
     if (!title && !subtitle) return '';
     const duration = sceneDuration(scene, index, 9);
+    if (useVerticalDockCards) {
+      return verticalDockTimelineTween({index, scene, duration});
+    }
     const fadeOutAt = Math.max(scene.start + 0.6, scene.start + duration - 0.4);
     const panStart = index % 2 === 0 ? -14 : 14;
     const panEnd = index % 2 === 0 ? 18 : -18;
@@ -930,6 +952,7 @@ const html = `<!doctype html>
         display: none;
       }
 ${DIRECTOR_PATTERN_CSS}
+${useVerticalDockCards ? VERTICAL_DOCK_CSS : ''}
 ${overlayScaleCss(overlaySizing)}
     </style>
   </head>

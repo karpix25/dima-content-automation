@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -216,7 +217,12 @@ def _record_text(record: ScriptRecord) -> str:
 
 
 def _requires_vertical_generated_images(record_format: str) -> bool:
-    return record_format in {"short", "shorts", "reels", "avatar_reels"}
+    return record_format in {"short", "shorts", "reels", "avatar_reels"} and not _vertical_dock_cards_enabled()
+
+
+def _vertical_dock_cards_enabled() -> bool:
+    raw = (os.getenv("HYPERFRAMES_VERTICAL_DOCK_CARDS") or "true").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
 
 
 def _command(

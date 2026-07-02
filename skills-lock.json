@@ -1,11 +1,29 @@
 {
   "version": 1,
   "skills": {
+    "hyperframes": {
+      "source": "heygen-com/hyperframes",
+      "sourceType": "github",
+      "skillPath": "skills/hyperframes/SKILL.md",
+      "computedHash": "55f1e72887f8f983a7d983165a6bb22280447d4dd8f8821e03430aa4527d2933"
+    },
+    "motion-graphics": {
+      "source": "heygen-com/hyperframes",
+      "sourceType": "github",
+      "skillPath": "skills/motion-graphics/SKILL.md",
+      "computedHash": "c0ab7e3d575104ca10bffae63f84867f6a38b6b614512757c0fd561d9a62288d"
+    },
     "scrapecreators-api": {
       "source": "scrapecreators/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/scrapecreators-api/SKILL.md",
       "computedHash": "53b3f03866951c84f791720b9c4381c9238ff4d67f6c588710870d476604b6d0"
+    },
+    "talking-head-recut": {
+      "source": "heygen-com/hyperframes",
+      "sourceType": "github",
+      "skillPath": "skills/talking-head-recut/SKILL.md",
+      "computedHash": "a82a030cfeea7b799907cd1f7e278d81b38274f6be5cd6cbb57016f41f3f4fb4"
     }
   }
 }

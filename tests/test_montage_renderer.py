@@ -66,6 +66,7 @@ def test_hyperframes_command_uses_vertical_heygen_layout_for_short_avatar_reels(
 
 
 def test_render_prepares_vertical_images_for_reels(tmp_path, monkeypatch):
+    monkeypatch.setenv("HYPERFRAMES_VERTICAL_DOCK_CARDS", "false")
     project_dir = tmp_path / "hyperframes"
     project_dir.mkdir()
     video_path = tmp_path / "source.mp4"
@@ -107,6 +108,50 @@ def test_render_prepares_vertical_images_for_reels(tmp_path, monkeypatch):
     assert rendered and rendered.exists()
     assert calls[0]["project_dir"] == project_dir
     assert calls[0]["scenes"][0]["imagePrompt"] == "Amazon dashboard"
+
+
+def test_render_skips_vertical_images_for_default_dock_cards(tmp_path, monkeypatch):
+    project_dir = tmp_path / "hyperframes"
+    project_dir.mkdir()
+    video_path = tmp_path / "source.mp4"
+    video_path.write_bytes(b"video")
+    calls = []
+
+    monkeypatch.delenv("HYPERFRAMES_VERTICAL_DOCK_CARDS", raising=False)
+    monkeypatch.setattr(montage_renderer, "probe_duration_seconds", lambda _: 10.0)
+    monkeypatch.setattr(montage_renderer, "_transcribe_for_timing", lambda **_: None)
+    monkeypatch.setattr(
+        montage_renderer,
+        "build_montage_plan",
+        lambda *_, **__: SimpleNamespace(
+            scenes=[{"start": 0, "end": 2, "title": "Scene", "imagePrompt": "Amazon dashboard"}],
+            word_cues=[],
+        ),
+    )
+    monkeypatch.setattr(montage_renderer, "prepare_vertical_montage_assets", lambda **kwargs: calls.append(kwargs))
+
+    def fake_run(cmd, **kwargs):
+        out_path = Path(cmd[cmd.index("--out") + 1])
+        out_path.write_bytes(b"rendered")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(montage_renderer.subprocess, "run", fake_run)
+
+    rendered = _render(
+        name="hyperframes",
+        project_dir=project_dir,
+        record=_record(format="reels"),
+        video_path=video_path,
+        output_dir=tmp_path / "out",
+        timeout_seconds=30,
+        max_scenes=3,
+        deepgram=None,
+        kie_client=None,
+        content_language="en",
+    )
+
+    assert rendered and rendered.exists()
+    assert calls == []
 
 
 def test_hyperframes_command_passes_transcript_when_available():

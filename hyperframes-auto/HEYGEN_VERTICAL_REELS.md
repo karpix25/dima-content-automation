@@ -19,25 +19,33 @@ Use this rule for every vertical HeyGen source video in this project.
 
 ## Card Design
 
-- All slide cards use one standard size:
-  - width: `100%` of the overlay safe area
-  - height: `70%`
-  - centered in the frame
-  - same padding, radius, visual block height, and vertical centering
-- Do not vary slide height by beat type.
-- Keep the top of the card as deterministic HTML/CSS:
+- Vertical HeyGen overlays use one stable lower dock by default:
+  - width: `984px`
+  - height: `320px`
+  - left: `48px`
+  - top: `1210px`
+  - same position for every scene
+- Do not move the card between corners or cover the speaker's face.
+- Keep the dock as deterministic HTML/CSS:
   - kicker
   - headline
-  - subtitle
-  - quote attribution if needed
-- If a card is a quote or author interpretation, it must name the source/context, e.g. `Авторский перевод дипломатического смысла`.
-- Remove low-value footers, meters, and status boxes once AI visual art is available.
+  - optional subtitle
+  - compact infographic: metric, bars, flow, or keyword pills
+- Do not show technical production comments such as why the visual supports the face or the scene.
+- Avoid long explanatory labels. The overlay should summarize the spoken point, not compete with the narration.
+- If a card is a quote or author interpretation, name the source/context only when that helps the viewer.
+- To restore the legacy large-card image mode, set `HYPERFRAMES_VERTICAL_DOCK_CARDS=false`.
 
 ## Visual Block
 
-- The lower visual block is the main infographic.
-- Generate this block as an image when possible.
-- The generated image must:
+- The right side of the dock is the main infographic.
+- Prefer native HTML graphics when the point is simple:
+  - metric/value cards for one strong number
+  - bar comparisons for `before/after` or `base/target`
+  - flow boxes for process or cause/effect
+  - keyword pills for compact concept clusters
+- Generate a visual image only in legacy large-card mode.
+- A generated image must:
   - use a square `1:1` composition so the visual can occupy more vertical card space
   - make the main object/metaphor large and readable, filling most of the frame
   - use stronger real-world associations when useful: national flags, people, ships, ports, oil objects, documents, borders, checkpoints, bridges, shields, and other concrete editorial symbols

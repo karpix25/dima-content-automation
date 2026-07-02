@@ -6,9 +6,25 @@ This project uses AI agent skills for framework-specific patterns. Install them 
 
 ```bash
 npx skills add heygen-com/hyperframes
+npx skills add heygen-com/hyperframes --skill talking-head-recut
+npx skills add heygen-com/hyperframes --skill motion-graphics
 ```
 
 Skills encode patterns like `window.__timelines` registration, `data-*` attribute semantics, Tailwind v4 browser-runtime styling for `--tailwind` projects, and shader-compatible CSS rules that are not in generic web docs. Using them produces correct compositions from the start.
+
+For DIMA vertical HeyGen reels, use `talking-head-recut` as the creative
+direction model for designed overlay cards: timed graphic cards, lower-thirds,
+data callouts, pull-quotes, side panels, and picture-in-picture that support the
+spoken point.
+
+Do not run the skill's built-in Whisper transcription flow for DIMA renders.
+Transcription/timing is owned by the app pipeline and enters HyperFrames through
+`scene-plan.generated.json`, `scene-word-cues.generated.json`, and, when
+available, `transcript.deepgram.json`. Treat those files as authoritative.
+
+Use `motion-graphics` only for short standalone animated inserts or transparent
+overlay elements. If an insert becomes part of the talking-head render, keep it
+synced to the existing scene plan instead of adding a second transcription step.
 
 ## Commands
 
