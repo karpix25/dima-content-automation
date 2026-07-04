@@ -2,13 +2,20 @@ const compact = (value) => String(value || '').replace(/\s+/g, ' ').trim();
 
 const escapeAttr = (value, escapeHtml) => escapeHtml(compact(value));
 
+const isPlaceholderMetric = (value) => ['check', 'ready', 'n/a', 'na'].includes(compact(value).toLowerCase());
+
+const metricDisplayValue = (value) => {
+  const clean = compact(value);
+  return clean && !isPlaceholderMetric(clean) ? clean : '';
+};
+
 const pickTerms = (scene) => {
   const values = [
     ...(Array.isArray(scene.visualElements) ? scene.visualElements : []),
     ...(Array.isArray(scene.anchorWords) ? scene.anchorWords : []),
     ...(Array.isArray(scene.facts) ? scene.facts.map((fact) => fact?.text || fact) : []),
     scene.keyword,
-    scene.metricLabel,
+    metricDisplayValue(scene.metricValue) ? scene.metricLabel : '',
   ];
   const seen = new Set();
   return values
@@ -34,7 +41,7 @@ const barValues = (scene) => {
       .slice(0, 3);
   }
 
-  const metricValue = compact(scene.metricValue);
+  const metricValue = metricDisplayValue(scene.metricValue);
   const multiplier = Number(String(metricValue).match(/(\d+(?:[.,]\d+)?)\s*x/i)?.[1]?.replace(',', '.'));
   if (Number.isFinite(multiplier) && multiplier > 1) {
     return [
@@ -72,9 +79,9 @@ const dockGraphicMarkup = (scene, escapeHtml) => {
           </div>`;
   }
 
-  const metricValue = compact(scene.metricValue);
-  const metricLabel = compact(scene.metricLabel);
-  if (metricValue || metricLabel) {
+  const metricValue = metricDisplayValue(scene.metricValue);
+  const metricLabel = metricValue ? compact(scene.metricLabel) : '';
+  if (metricValue) {
     return `
           <div class="dock-metric">
             ${metricValue ? `<strong>${escapeHtml(metricValue)}</strong>` : ''}

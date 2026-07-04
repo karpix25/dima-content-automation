@@ -52,7 +52,7 @@ def build_vertical_scene_art(
     headline = _fit_title(title or clean_text, language=language)
     terms = _visual_terms(clean_text or headline)
     frame = build_storyboard_frame(title=headline, text=clean_text, index=index)
-    subtitle = _fit_subtitle(clean_text, title=headline, role=frame.role)
+    subtitle = _fit_subtitle(clean_text, title=headline, role=frame.role, language=language)
     return {
         "title": headline,
         "chapterTitle": headline,
@@ -181,7 +181,7 @@ def _scene_from_sentence(
 
 
 def _fit_title(text: str, *, language: str) -> str:
-    clean = _headline_rewrite(text) if language == "en" else text
+    clean = _headline_rewrite(text) if language == "en" else _headline_rewrite_ru(text)
     clean = re.sub(r"^(you are|i see|we recently|that is|this is)\s+", "", clean, flags=re.I)
     clean = re.sub(r"^(но|и|а)\s+", "", clean, flags=re.I)
     clean = re.sub(r"\b(because|without|instead of|which is exactly)\b.*$", "", clean, flags=re.I)
@@ -194,10 +194,14 @@ def _fit_title(text: str, *, language: str) -> str:
     return _clean(title).rstrip(".,;:") or _clean(text).split(".")[0][:42]
 
 
-def _fit_subtitle(text: str, *, title: str, role: str = "") -> str:
+def _fit_subtitle(text: str, *, title: str, role: str = "", language: str = "en") -> str:
     if role in {"proof", "greenlight", "price move"}:
         return ""
     clean = _clean(text)
+    if language == "ru":
+        rewritten = _subtitle_rewrite_ru(clean, title=title)
+        if rewritten is not None:
+            return rewritten
     if clean.lower().startswith(title.lower()):
         clean = _clean(clean[len(title) :])
     clean = _trim_incomplete_subtitle(clean)
@@ -246,6 +250,43 @@ def _headline_rewrite(text: str) -> str:
         if next_value != clean:
             return next_value
     return clean
+
+
+def _headline_rewrite_ru(text: str) -> str:
+    clean = _clean(text).rstrip(".!?")
+    lower = clean.lower()
+    rules = [
+        (("3d", "клиент", "уход"), "3D не удерживает клиентов"),
+        (("вылизан", "картин"), "Красивая картинка не продает"),
+        (("ppc", "выжига"), "PPC сжигает бюджет"),
+        (("бюджет", "довер"), "Доверие важнее картинки"),
+        (("показател", "пада"), "Падает ключевой показатель"),
+        (("ключ", "визуал"), "Визуал должен доказывать"),
+        (("клиент", "сомнева"), "Клиент сомневается"),
+        (("продукт", "ценност"), "Ценность должна быть ясной"),
+        (("довер",), "Доверие важнее полировки"),
+        (("клиент", "уход"), "Почему клиенты уходят"),
+    ]
+    for needles, replacement in rules:
+        if all(needle in lower for needle in needles):
+            return replacement
+    return clean
+
+
+def _subtitle_rewrite_ru(text: str, *, title: str) -> str | None:
+    lower = text.lower()
+    title_lower = title.lower()
+    if "3d" in lower and ("клиент" in lower or "уход" in lower):
+        return "Клиенту нужен понятный результат"
+    if "ppc" in lower and "выжига" in lower:
+        return "Деньги уходят раньше, чем появляется доверие"
+    if "довер" in lower and "картин" in lower:
+        return "Картинка должна объяснять пользу"
+    if "ключ" in lower and "визуал" in lower:
+        return "Каждый элемент обязан работать на вывод"
+    if title_lower and title_lower in lower:
+        return ""
+    return None
 
 
 def _trim_trailing_stopword(value: str) -> str:

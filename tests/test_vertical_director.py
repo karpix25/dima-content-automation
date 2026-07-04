@@ -24,7 +24,7 @@ def test_vertical_director_uses_transcript_language_for_titles():
     assert all(len(scene["title"].split()) <= 7 for scene in plan.scenes)
     assert "Do not include Russian text" in plan.scenes[0]["imagePrompt"]
     assert all(scene["motionPattern"] for scene in plan.scenes)
-    assert all(scene["metricValue"] for scene in plan.scenes)
+    assert not any(scene["metricValue"] in {"CHECK", "READY"} for scene in plan.scenes)
     assert all(scene["evidenceLabel"] for scene in plan.scenes)
     assert all(scene["storyPoint"] for scene in plan.scenes)
     assert all(scene["visualMetaphor"] for scene in plan.scenes)
@@ -137,6 +137,21 @@ def test_vertical_director_rewrites_price_bump_title_for_vertical_layout():
 
     assert plan.scenes[0]["title"] == "$1 Price Bump"
     assert plan.scenes[0]["subtitle"] == ""
+
+
+def test_vertical_director_rewrites_russian_3d_copy_for_vertical_layout():
+    plan = build_montage_plan(
+        _record(),
+        duration_seconds=14,
+        max_scenes=1,
+        content_language="ru",
+        transcript_words=_words("Вы вложили тысячи в вылизанные 3D модели, а клиенты всё равно уходят?"),
+    )
+
+    scene = plan.scenes[0]
+    assert scene["title"] == "3D не удерживает клиентов"
+    assert scene["subtitle"] == "Клиенту нужен понятный результат"
+    assert scene["metricValue"] == ""
 
 
 def test_vertical_fallback_keeps_russian_copy_and_generates_image_prompts():
