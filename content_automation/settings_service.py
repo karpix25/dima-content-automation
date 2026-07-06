@@ -11,6 +11,7 @@ from .storage import Storage
 from .vizard_models import VizardUserSettings, normalize_vizard_setting_value, normalize_vizard_settings
 from .voice_char_profile import clear_voice_chars_profile
 from .voice_speed_profile import clear_voice_wpm
+from .zapcap_models import ZapCapUserSettings, normalize_zapcap_setting_value, normalize_zapcap_settings
 
 
 TEXT_SETTING_KEYS = {
@@ -40,6 +41,24 @@ TEXT_SETTING_KEYS = {
     "vizard_auto_broll_switch",
     "vizard_remove_silence_switch",
     "vizard_template_id",
+    "postprocess_provider",
+    "zapcap_subtitles_enabled",
+    "zapcap_template_id",
+    "zapcap_language",
+    "zapcap_emoji",
+    "zapcap_emoji_animation",
+    "zapcap_emphasize_keywords",
+    "zapcap_animation",
+    "zapcap_punctuation",
+    "zapcap_display_words",
+    "zapcap_font_uppercase",
+    "zapcap_font_size",
+    "zapcap_font_color",
+    "zapcap_stroke",
+    "zapcap_stroke_color",
+    "zapcap_top",
+    "zapcap_highlight_color",
+    "zapcap_broll_percent",
 }
 OVERLAY_FORMATS = {"short", "youtube", "instagram", "shorts", "reels"}
 
@@ -93,6 +112,7 @@ class UserSettingsState:
     reddit_timeframe: str
     reddit_subreddits: str
     vizard: VizardUserSettings
+    zapcap: ZapCapUserSettings
     overlays: list[OverlayState]
 
 
@@ -128,6 +148,7 @@ def get_user_settings(storage: Storage, settings: Settings, user_id: str) -> Use
         reddit_timeframe=get_reddit_timeframe(storage, settings, user_id),
         reddit_subreddits=", ".join(get_reddit_subreddits(storage, settings, user_id)),
         vizard=get_vizard_settings(storage, user_id),
+        zapcap=get_zapcap_settings(storage, user_id),
         overlays=[get_overlay_state(storage, user_id, item) for item in ("youtube", "shorts", "reels")],
     )
 
@@ -241,6 +262,8 @@ def normalize_text_setting(key: str, value: str) -> str:
         return ", ".join(normalize_reddit_subreddits(stripped))
     if key.startswith("vizard_"):
         return normalize_vizard_setting_value(key, stripped)
+    if key == "postprocess_provider" or key.startswith("zapcap_"):
+        return normalize_zapcap_setting_value(key, stripped)
     return stripped
 
 
@@ -280,6 +303,30 @@ def get_vizard_settings(storage: Storage, user_id: str) -> VizardUserSettings:
         "vizard_template_id",
     )
     return normalize_vizard_settings({key: storage.get_setting(user_id, key) for key in keys})
+
+
+def get_zapcap_settings(storage: Storage, user_id: str) -> ZapCapUserSettings:
+    keys = (
+        "postprocess_provider",
+        "zapcap_subtitles_enabled",
+        "zapcap_template_id",
+        "zapcap_language",
+        "zapcap_emoji",
+        "zapcap_emoji_animation",
+        "zapcap_emphasize_keywords",
+        "zapcap_animation",
+        "zapcap_punctuation",
+        "zapcap_display_words",
+        "zapcap_font_uppercase",
+        "zapcap_font_size",
+        "zapcap_font_color",
+        "zapcap_stroke",
+        "zapcap_stroke_color",
+        "zapcap_top",
+        "zapcap_highlight_color",
+        "zapcap_broll_percent",
+    )
+    return normalize_zapcap_settings({key: storage.get_setting(user_id, key) for key in keys})
 
 
 def get_duration_mode(storage: Storage, user_id: str) -> str:

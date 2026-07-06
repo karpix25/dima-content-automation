@@ -197,6 +197,32 @@ class VizardSettingsOut(BaseModel):
     template_id: int | None = None
 
 
+class ZapCapSettingsOut(BaseModel):
+    postprocess_provider: str
+    subtitles_enabled: bool
+    template_id: str
+    language: str
+    emoji: bool
+    emoji_animation: bool
+    emphasize_keywords: bool
+    animation: bool
+    punctuation: bool
+    display_words: int
+    font_uppercase: bool
+    font_size: int
+    font_color: str
+    stroke: int
+    stroke_color: str
+    top: int
+    highlight_color: str
+    broll_percent: int
+
+
+class ZapCapTemplateOut(BaseModel):
+    id: str
+    name: str
+
+
 class UserSettingsOut(BaseModel):
     notebook_id: str | None = None
     author_style: str
@@ -228,6 +254,7 @@ class UserSettingsOut(BaseModel):
     reddit_timeframe: str
     reddit_subreddits: str
     vizard: VizardSettingsOut
+    zapcap: ZapCapSettingsOut
     overlays: list[OverlayOut]
 
 

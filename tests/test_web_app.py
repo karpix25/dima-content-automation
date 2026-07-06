@@ -327,6 +327,18 @@ def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
             },
         },
     )
+    zapcap_section = client.patch(
+        "/api/settings/section",
+        json={
+            "user_id": "42",
+            "values": {
+                "postprocess_provider": "zapcap",
+                "zapcap_template_id": "template-1",
+                "zapcap_broll_percent": "55",
+                "zapcap_font_color": "#12abEF",
+            },
+        },
+    )
     overlay = client.patch(
         "/api/settings/overlay",
         json={"user_id": "42", "format": "short", "start_percent": 55},
@@ -341,11 +353,29 @@ def test_settings_flow_uses_same_storage(tmp_path, monkeypatch):
     assert vizard_section.json()["vizard"]["ratio_of_clip"] == 4
     assert vizard_section.json()["vizard"]["prefer_length"] == [4]
     assert vizard_section.json()["vizard"]["remove_silence_switch"] is True
+    assert zapcap_section.json()["zapcap"]["postprocess_provider"] == "zapcap"
+    assert zapcap_section.json()["zapcap"]["template_id"] == "template-1"
+    assert zapcap_section.json()["zapcap"]["broll_percent"] == 55
+    assert zapcap_section.json()["zapcap"]["font_color"] == "#12ABEF"
     assert overlay.status_code == 200
     assert overlay.json()["start_percent"] == 55
     assert settings.status_code == 200
     shorts_overlay = next(item for item in settings.json()["overlays"] if item["format"] == "shorts")
     assert shorts_overlay["start_percent"] == 55
+
+
+def test_zapcap_templates_endpoint_returns_options(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        web_app,
+        "list_zapcap_template_options",
+        lambda settings: [SimpleNamespace(id="tpl-1", name="Bold Pop")],
+    )
+    client = TestClient(web_app.app)
+
+    response = client.get("/api/settings/zapcap-templates")
+
+    assert response.status_code == 200
+    assert response.json() == [{"id": "tpl-1", "name": "Bold Pop"}]
 
 
 def test_overlay_upload_and_preview(tmp_path, monkeypatch):

@@ -30,6 +30,8 @@ from .voice_speed_profile import calibrated_voice_wpm
 from .voiceover_text import normalize_voiceover_for_tts
 from .voiceover_fit import fit_voiceover_for_duration
 from .visual_assets import generate_post_heygen_assets
+from .zapcap_models import ZAPCAP_POSTPROCESS_OFF, ZAPCAP_POSTPROCESS_ZAPCAP
+from .zapcap_postprocess import process_video_with_zapcap, zapcap_runtime_from_settings
 
 logger = logging.getLogger(__name__)
 
@@ -304,10 +306,22 @@ def _post_heygen_visuals(
     kie_client: KieImageClient,
     video_path: Path,
 ) -> Path:
+    state = get_user_settings(storage, settings, user_id)
+    if state.zapcap.postprocess_provider == ZAPCAP_POSTPROCESS_OFF:
+        logger.info("Post-HeyGen postprocess provider is off for script %s format=%s", record.id, record.format)
+        return video_path
+    if state.zapcap.postprocess_provider == ZAPCAP_POSTPROCESS_ZAPCAP:
+        logger.info("Starting ZapCap postprocess for script %s format=%s", record.id, record.format)
+        return process_video_with_zapcap(
+            record=record,
+            video_path=video_path,
+            output_dir=settings.video_output_directory,
+            runtime=zapcap_runtime_from_settings(settings),
+            user_settings=state.zapcap,
+        )
     if not settings.post_heygen_visuals_enabled:
         logger.info("Post-HeyGen visuals disabled for script %s format=%s", record.id, record.format)
         return video_path
-    state = get_user_settings(storage, settings, user_id)
     montage_error: VideoOverlayError | None = None
     try:
         logger.info("Starting post-HeyGen montage for script %s format=%s", record.id, record.format)

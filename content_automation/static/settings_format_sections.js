@@ -4,12 +4,14 @@ import { commonCoverSummaryChips, coverSummaryChips, renderCoverAssetsSection } 
 import { renderVizardTab } from "/static/settings_vizard.js?v=20260617-plan-buttons";
 import { renderVoiceSelector } from "/static/settings_voices.js?v=20260619-auto-voices-ui";
 import { renderIdeasTab } from "/static/settings_ideas.js?v=20260619-ideas-actions";
+import { renderZapcapTab } from "/static/settings_zapcap.js?v=20260706-zapcap";
 
 const FORMAT_TABS = [
   { key: "youtube", label: "YouTube", hint: "Горизонтальный" },
   { key: "shorts", label: "Instagram", hint: "Вертикальный" },
   { key: "five", label: "5 секунд", hint: "Инфографика" },
   { key: "vizard", label: "Vizard", hint: "YouTube clips" },
+  { key: "zapcap", label: "ZapCap", hint: "Subtitles" },
   { key: "ideas", label: "Идеи", hint: "Reddit" },
   { key: "common", label: "Общие", hint: "База" },
 ];
@@ -53,6 +55,7 @@ function renderActiveFormatTab(active, deps) {
   if (active === "shorts") return renderShortsTab(deps);
   if (active === "five") return renderFiveSecondTab(deps);
   if (active === "vizard") return renderVizardTab(deps);
+  if (active === "zapcap") return renderZapcapTab(deps);
   if (active === "ideas") return renderIdeasTab(deps);
   if (active === "common") return renderCommonTab(deps);
   return renderYoutubeTab(deps);

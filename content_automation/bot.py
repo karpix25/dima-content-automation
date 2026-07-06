@@ -87,6 +87,8 @@ from .vizard_youtube import extract_youtube_url
 from .voice_speed_profile import calibrated_voice_wpm, calibrate_voice_wpm, clear_voice_wpm, has_voice_wpm_profile
 from .voiceover_fit import fit_voiceover_for_duration
 from .visual_assets import generate_post_heygen_assets
+from .zapcap_models import ZAPCAP_POSTPROCESS_OFF, ZAPCAP_POSTPROCESS_ZAPCAP
+from .zapcap_postprocess import ZapCapPostprocessError, process_video_with_zapcap, zapcap_runtime_from_settings
 
 
 logging.basicConfig(level=logging.INFO)
@@ -1219,9 +1221,20 @@ async def process_overlay_if_configured(user_id: str, record: ScriptRecord, vide
 
 
 async def process_post_heygen_visuals_if_enabled(record: ScriptRecord, video_path: Path) -> Path:
+    user_settings = get_user_settings(storage, settings, record.user_id)
+    if user_settings.zapcap.postprocess_provider == ZAPCAP_POSTPROCESS_OFF:
+        return video_path
+    if user_settings.zapcap.postprocess_provider == ZAPCAP_POSTPROCESS_ZAPCAP:
+        return await asyncio.to_thread(
+            process_video_with_zapcap,
+            record=record,
+            video_path=video_path,
+            output_dir=settings.video_output_directory,
+            runtime=zapcap_runtime_from_settings(settings),
+            user_settings=user_settings.zapcap,
+        )
     if not settings.post_heygen_visuals_enabled:
         return video_path
-    user_settings = get_user_settings(storage, settings, record.user_id)
     asset_dir = settings.video_output_directory / "visual_assets" / str(record.id)
     montage_dir = settings.video_output_directory / "montage" / str(record.id)
     try:
@@ -1336,6 +1349,10 @@ async def send_final_video(chat_id: int, thread_id: int | None, user_id: str, re
     final_path = raw_path
     try:
         final_path = await process_post_heygen_visuals_if_enabled(record, final_path)
+    except ZapCapPostprocessError as exc:
+        logger.exception("Failed to process video with ZapCap")
+        await send_to_chat_thread(chat_id, f"⚠️ ZapCap не собрал видео: {exc}", thread_id=thread_id)
+        return
     except VideoOverlayError as exc:
         logger.exception("Failed to apply post-HeyGen visuals")
         await send_to_chat_thread(chat_id, f"⚠️ Cover/перебивки не наложил: {exc}", thread_id=thread_id)
@@ -1379,7 +1396,11 @@ async def render_existing_heygen_video(
     cleanup_old_videos(settings.video_output_directory, keep_days=settings.video_keep_days)
     raw_path = settings.video_output_directory / f"existing_heygen_{record.id}_{heygen_video_id}.mp4"
     await download_video(ready.video_url, raw_path)
-    montage_path = await process_post_heygen_visuals_if_enabled(record, raw_path)
+    try:
+        montage_path = await process_post_heygen_visuals_if_enabled(record, raw_path)
+    except ZapCapPostprocessError as exc:
+        await status_msg.edit_text(f"⚠️ ZapCap не собрал видео: {exc}")
+        return
     if not montage_path:
         raise VideoOverlayError("Post-HeyGen renderer не вернул файл.")
 

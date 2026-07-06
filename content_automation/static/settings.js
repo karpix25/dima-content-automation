@@ -18,13 +18,14 @@ export async function loadSettingsData(deps, render = true) {
     if (render) renderSettingsPanel(deps);
     return;
   }
-  const [refs, faces, inserts, fiveSecond, voices, members] = await Promise.all([
+  const [refs, faces, inserts, fiveSecond, voices, members, zapcapTemplates] = await Promise.all([
     optionalSettingsApi(deps, "thumbnail references", `/api/settings/thumbnail-references?user_id=${userQuery}`, []),
     optionalSettingsApi(deps, "thumbnail face references", `/api/settings/thumbnail-face-references?user_id=${userQuery}`, []),
     optionalSettingsApi(deps, "avatar inserts", `/api/settings/avatar-inserts?user_id=${userQuery}`, []),
     optionalSettingsApi(deps, "5-second settings", `/api/settings/instagram-post-5s?user_id=${userQuery}`, null),
     optionalSettingsApi(deps, "ElevenLabs voices", "/api/settings/elevenlabs-voices", state.voices || []),
     optionalSettingsApi(deps, "project members", `/api/projects/${encodeURIComponent(state.userId)}/members?user_id=${encodeURIComponent(state.actorUserId || state.userId)}`, []),
+    optionalSettingsApi(deps, "ZapCap templates", "/api/settings/zapcap-templates", state.zapcapTemplates || []),
   ]);
   state.thumbnailReferences = refs;
   state.thumbnailFaces = faces;
@@ -32,6 +33,7 @@ export async function loadSettingsData(deps, render = true) {
   state.fiveSecondSettings = fiveSecond;
   state.voices = voices;
   state.projectMembers = members;
+  state.zapcapTemplates = zapcapTemplates;
   state.settingsFormatTab = activeSettingsTab(state);
   if (render) renderSettingsPanel(deps);
 }

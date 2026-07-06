@@ -70,6 +70,7 @@ from .web_models import (
     SettingsSectionIn,
     TextSettingIn,
     UserSettingsOut,
+    ZapCapTemplateOut,
 )
 from .web_notebooklm import build_notebooklm_router
 from .web_auth import install_miniapp_auth
@@ -77,6 +78,7 @@ from .web_projects import build_projects_router
 from .web_serializers import format_to_out, job_to_out, script_to_out
 from .web_script_review import build_script_review_router
 from .voice_char_profile import calibrate_voice_chars_per_second
+from .zapcap_templates import list_zapcap_template_options
 
 settings = load_settings()
 storage = Storage(settings.data_dir / "content_automation.sqlite3")
@@ -205,6 +207,15 @@ def format_jobs(
 @app.get("/api/settings", response_model=UserSettingsOut)
 def user_settings(user_id: str = Query(..., min_length=1)) -> UserSettingsOut:
     return settings_to_out(user_id)
+
+
+@app.get("/api/settings/zapcap-templates", response_model=list[ZapCapTemplateOut])
+def zapcap_templates() -> list[ZapCapTemplateOut]:
+    try:
+        templates = list_zapcap_template_options(settings)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return [ZapCapTemplateOut(id=item.id, name=item.name) for item in templates]
 
 
 @app.patch("/api/settings/text", response_model=UserSettingsOut)

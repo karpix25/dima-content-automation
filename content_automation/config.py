@@ -87,6 +87,16 @@ class Settings:
     vizard_poll_seconds: int
     vizard_timeout_seconds: int
     vizard_request_timeout_seconds: int
+    zapcap_api_key: str | None
+    zapcap_api_base_url: str
+    zapcap_enabled: bool
+    zapcap_poll_seconds: int
+    zapcap_timeout_seconds: int
+    zapcap_request_timeout_seconds: int
+    zapcap_ttl: str | None
+    zapcap_output_mode: str
+    zapcap_quality: str
+    zapcap_export_speed: str
     scrapecreators_api_key: str | None
     scrapecreators_api_base_url: str
     scrapecreators_mcp_url: str
@@ -257,6 +267,16 @@ def load_settings() -> Settings:
         vizard_poll_seconds=max(5, get_int_env("VIZARD_POLL_SECONDS", 30)),
         vizard_timeout_seconds=max(60, get_int_env("VIZARD_TIMEOUT_SECONDS", 3600)),
         vizard_request_timeout_seconds=max(10, get_int_env("VIZARD_REQUEST_TIMEOUT_SECONDS", 60)),
+        zapcap_api_key=(os.getenv("ZAPCAP_API_KEY") or "").strip() or None,
+        zapcap_api_base_url=(os.getenv("ZAPCAP_API_BASE_URL") or "https://api.zapcap.ai").strip().rstrip("/"),
+        zapcap_enabled=get_bool_env("ZAPCAP_ENABLED", True),
+        zapcap_poll_seconds=max(3, get_int_env("ZAPCAP_POLL_SECONDS", 5)),
+        zapcap_timeout_seconds=max(60, get_int_env("ZAPCAP_TIMEOUT_SECONDS", 1800)),
+        zapcap_request_timeout_seconds=max(10, get_int_env("ZAPCAP_REQUEST_TIMEOUT_SECONDS", 120)),
+        zapcap_ttl=(os.getenv("ZAPCAP_TTL") or "7d").strip() or None,
+        zapcap_output_mode=normalize_zapcap_output_mode(os.getenv("ZAPCAP_OUTPUT_MODE")),
+        zapcap_quality=normalize_zapcap_quality(os.getenv("ZAPCAP_QUALITY")),
+        zapcap_export_speed=(os.getenv("ZAPCAP_EXPORT_SPEED") or "fast").strip() or "fast",
         scrapecreators_api_key=(os.getenv("SCRAPECREATORS_API_KEY") or "").strip() or None,
         scrapecreators_api_base_url=(os.getenv("SCRAPECREATORS_API_BASE_URL") or "https://api.scrapecreators.com").strip().rstrip("/"),
         scrapecreators_mcp_url=(os.getenv("SCRAPECREATORS_MCP_URL") or "https://api.scrapecreators.com/mcp").strip(),
@@ -274,3 +294,13 @@ def load_settings() -> Settings:
 def normalize_scrapecreators_timeframe(value: str | None) -> str:
     timeframe = (value or "week").strip().lower()
     return timeframe if timeframe in {"day", "week", "month", "year", "all"} else "week"
+
+
+def normalize_zapcap_output_mode(value: str | None) -> str:
+    mode = (value or "composited").strip()
+    return mode if mode in {"composited", "greenScreen", "transparent"} else "composited"
+
+
+def normalize_zapcap_quality(value: str | None) -> str:
+    quality = (value or "standard").strip()
+    return quality if quality in {"standard", "quadHD", "ultraHD"} else "standard"
