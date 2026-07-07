@@ -81,6 +81,18 @@ def test_zapcap_client_lists_templates(monkeypatch):
     assert templates[0].name == "Bold Pop"
 
 
+def test_zapcap_client_lists_templates_from_array_response(monkeypatch):
+    def fake_request(method, url, **kwargs):
+        return _json_response([{"id": "tpl-1", "name": "Celine"}])
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+
+    templates = ZapCapApiClient(api_key="key").list_templates()
+
+    assert templates[0].id == "tpl-1"
+    assert templates[0].name == "Celine"
+
+
 def test_zapcap_client_requires_api_key(tmp_path: Path):
     video_path = tmp_path / "source.mp4"
     video_path.write_bytes(b"video")

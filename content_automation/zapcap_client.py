@@ -73,8 +73,8 @@ class ZapCapApiClient:
 
     def list_templates(self) -> list[ZapCapTemplate]:
         data = self._request("GET", "/templates")
-        raw_items = data.get("templates") or data.get("items") or data.get("data") or []
-        if not isinstance(raw_items, list):
+        raw_items = _template_items(data)
+        if raw_items is None:
             raise ZapCapApiError(f"ZapCap returned unexpected templates response: {data}")
         templates: list[ZapCapTemplate] = []
         for item in raw_items:
@@ -119,7 +119,7 @@ class ZapCapApiClient:
         *,
         json: dict[str, Any] | None = None,
         params: dict[str, str] | None = None,
-    ) -> dict[str, Any]:
+    ) -> Any:
         if not self.api_key:
             raise ZapCapApiError("ZAPCAP_API_KEY is not configured")
         try:
@@ -135,15 +135,13 @@ class ZapCapApiClient:
             raise ZapCapApiError(f"ZapCap request failed: {exc}") from exc
         return self._json_response(response)
 
-    def _json_response(self, response: httpx.Response) -> dict[str, Any]:
+    def _json_response(self, response: httpx.Response) -> Any:
         if response.status_code >= 400:
             raise ZapCapApiError(f"ZapCap HTTP {response.status_code}: {response.text[:1000]}")
         try:
             data = response.json()
         except ValueError as exc:
             raise ZapCapApiError(f"ZapCap returned non-JSON response: {response.text[:1000]}") from exc
-        if not isinstance(data, dict):
-            raise ZapCapApiError(f"ZapCap returned unexpected response: {data}")
         return data
 
     def _task_from_response(self, data: dict[str, Any]) -> ZapCapTask:
@@ -173,3 +171,12 @@ def _first_text(data: dict[str, Any], *keys: str) -> str | None:
     if isinstance(nested, dict):
         return _first_text(nested, *keys)
     return None
+
+
+def _template_items(data: Any) -> list[Any] | None:
+    if isinstance(data, list):
+        return data
+    if not isinstance(data, dict):
+        return None
+    raw_items = data.get("templates") or data.get("items") or data.get("data") or []
+    return raw_items if isinstance(raw_items, list) else None
