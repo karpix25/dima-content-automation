@@ -30,6 +30,7 @@ def test_build_zapcap_task_payload_uses_auto_transcription():
     assert payload["language"] == "ru"
     assert "transcript" not in payload
     assert payload["renderOptions"]["subsOptions"]["displayWords"] == 3
+    assert payload["renderOptions"]["styleOptions"]["fontSize"] <= 70
     assert payload["renderOptions"]["styleOptions"]["fontShadow"] == "m"
     assert payload["renderOptions"]["styleOptions"]["stroke"] == "m"
     assert payload["renderOptions"]["highlightOptions"]["randomColourOne"] == "#FFE45C"

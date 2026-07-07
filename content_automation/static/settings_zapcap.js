@@ -42,7 +42,7 @@ export function renderZapcapTab({ state, escapeHtml }) {
         </div>
         <div class="settings-three">
           ${numberSetting("zapcap_display_words", "Слов на экране", settings.display_words || 3, 1, 8)}
-          ${numberSetting("zapcap_font_size", "Размер", settings.font_size || 72, 24, 140)}
+          ${numberSetting("zapcap_font_size", "Размер", settings.font_size || 70, 24, 70)}
           ${numberSetting("zapcap_top", "Позиция сверху, %", settings.top || 62, 0, 100)}
           ${numberSetting("zapcap_stroke", "Обводка", settings.stroke || 8, 0, 24)}
           ${colorSetting("zapcap_font_color", "Цвет текста", settings.font_color || "#FFFFFF", escapeHtml)}

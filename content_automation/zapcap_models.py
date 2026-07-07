@@ -65,7 +65,7 @@ def default_zapcap_user_settings() -> ZapCapUserSettings:
         punctuation=True,
         display_words=3,
         font_uppercase=False,
-        font_size=72,
+        font_size=70,
         font_color="#FFFFFF",
         stroke=8,
         stroke_color="#000000",
@@ -89,7 +89,7 @@ def normalize_zapcap_settings(values: dict[str, str | None]) -> ZapCapUserSettin
         punctuation=normalize_bool(values.get("zapcap_punctuation"), defaults.punctuation),
         display_words=normalize_int(values.get("zapcap_display_words"), minimum=1, maximum=8, default=defaults.display_words),
         font_uppercase=normalize_bool(values.get("zapcap_font_uppercase"), defaults.font_uppercase),
-        font_size=normalize_int(values.get("zapcap_font_size"), minimum=24, maximum=140, default=defaults.font_size),
+        font_size=normalize_int(values.get("zapcap_font_size"), minimum=24, maximum=70, default=defaults.font_size),
         font_color=normalize_color(values.get("zapcap_font_color"), defaults.font_color),
         stroke=normalize_int(values.get("zapcap_stroke"), minimum=0, maximum=24, default=defaults.stroke),
         stroke_color=normalize_color(values.get("zapcap_stroke_color"), defaults.stroke_color),
@@ -117,7 +117,7 @@ def normalize_zapcap_setting_value(key: str, value: str) -> str:
     if key == "zapcap_display_words":
         return str(normalize_int(value, minimum=1, maximum=8, default=3))
     if key == "zapcap_font_size":
-        return str(normalize_int(value, minimum=24, maximum=140, default=72))
+        return str(normalize_int(value, minimum=24, maximum=70, default=70))
     if key == "zapcap_stroke":
         return str(normalize_int(value, minimum=0, maximum=24, default=8))
     if key == "zapcap_top":

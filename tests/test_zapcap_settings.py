@@ -23,7 +23,7 @@ def test_zapcap_settings_clamps_numbers_and_colors():
 
     assert settings.postprocess_provider == "zapcap"
     assert settings.broll_percent == 100
-    assert settings.font_size == 140
+    assert settings.font_size == 70
     assert settings.top == 0
     assert settings.font_color == "#12ABEF"
     assert settings.stroke_color == "#000000"
