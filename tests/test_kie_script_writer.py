@@ -1,6 +1,8 @@
 from pathlib import Path
 import json
 
+import pytest
+
 from content_automation.idea_bank import ContentIdea
 from content_automation.notebooklm_idea_scripts import create_script_from_idea
 from content_automation.storage import Storage
@@ -34,29 +36,29 @@ def test_create_script_from_idea_uses_kie_without_notebooklm(tmp_path: Path):
     assert "NotebookLM factual packet" in kie.calls[0]["user"]
 
 
-def test_create_script_from_idea_falls_back_to_notebooklm_when_kie_fails(tmp_path: Path):
+def test_create_script_from_idea_does_not_fallback_to_notebooklm_when_kie_fails(tmp_path: Path):
     storage = Storage(tmp_path / "scripts.sqlite3")
     notebooklm = NotebookLMAnswer(_script_json())
 
-    record = _run(
-        create_script_from_idea(
-            storage=storage,
-            user_id="42",
-            idea=_idea(),
-            notebook_ref="notebook-1",
-            notebooklm=notebooklm,
-            author_style="Direct expert",
-            offer_context="Amazon profit audit",
-            cta_mix="no CTA",
-            content_language="en",
-            vertical_duration_mode="original",
-            script_writer_backend="kie",
-            kie_text_client=FailingKieTextClient(),
+    with pytest.raises(ValueError, match="KIE не смог написать сценарий"):
+        _run(
+            create_script_from_idea(
+                storage=storage,
+                user_id="42",
+                idea=_idea(),
+                notebook_ref="notebook-1",
+                notebooklm=notebooklm,
+                author_style="Direct expert",
+                offer_context="Amazon profit audit",
+                cta_mix="no CTA",
+                content_language="en",
+                vertical_duration_mode="original",
+                script_writer_backend="kie",
+                kie_text_client=FailingKieTextClient(),
+            )
         )
-    )
 
-    assert record.title == "Fee leak"
-    assert notebooklm.calls == 1
+    assert notebooklm.calls == 0
 
 
 def _run(coro):

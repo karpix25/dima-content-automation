@@ -35,7 +35,9 @@ async def create_script_from_idea(
     kie_text_client: KieTextClient | None = None,
 ) -> ScriptRecord:
     budget = vertical_word_budget(vertical_duration_mode, wpm=DEFAULT_SPOKEN_WORDS_PER_MINUTE)
-    if script_writer_backend == "kie" and kie_text_client and kie_text_client.is_configured():
+    if script_writer_backend == "kie":
+        if not kie_text_client or not kie_text_client.is_configured():
+            raise ValueError("KIE script writer is selected, but KIE text client is not configured.")
         try:
             item = write_script_with_kie(
                 client=kie_text_client,
@@ -50,7 +52,7 @@ async def create_script_from_idea(
                 return storage.add_script(user_id, "short", item, enforce_unique=True)
             raise ValueError("Kie написал сценарий вне нужной длины озвучки.")
         except (DuplicateScriptError, KieTextError, ValueError) as exc:
-            logger.warning("Kie script writer failed, falling back to NotebookLM: idea_id=%s error=%s", idea.id, exc)
+            raise ValueError(f"KIE не смог написать сценарий: {exc}") from exc
 
     prompt = build_short_scripts_prompt(
         count=1,
