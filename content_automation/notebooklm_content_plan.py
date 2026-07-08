@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
+import re
 from typing import Any
 
 from .content_language import normalize_content_language, prompt_language_name, viewer_text_language_instruction
 from .idea_bank import ContentIdea, IdeaBank
+from .kie_text import KieTextClient, KieTextError
 from .notebooklm import extract_json
 from .notebooklm_mcp import notebook_ref_to_url
 from .notebooklm_runtime import NotebookLMAskClient
@@ -14,8 +17,9 @@ from .viral_prompt_rules import viral_angle_prompt
 
 logger = logging.getLogger(__name__)
 
-MAX_PRODUCER_PLAN_BATCH_SIZE = 1
-MAX_PRODUCER_PLAN_ATTEMPT_MULTIPLIER = 3
+MAX_PRODUCER_PLAN_BATCH_SIZE = 6
+MIN_PRODUCER_PLAN_BATCH_SIZE = 4
+MAX_PRODUCER_PLAN_ATTEMPT_MULTIPLIER = 2
 MAX_EMPTY_PRODUCER_PLAN_ATTEMPTS = 5
 
 
@@ -30,8 +34,9 @@ async def generate_notebooklm_content_plan(
     offer_context: str | None = None,
     existing_ideas: list[ContentIdea] | None = None,
     extension: bool = False,
+    kie_text_client: KieTextClient | None = None,
 ) -> list[ContentIdea]:
-    if count > MAX_PRODUCER_PLAN_BATCH_SIZE:
+    if count > 1:
         return await generate_notebooklm_content_plan_batches(
             user_id=user_id,
             notebook_ref=notebook_ref,
@@ -42,18 +47,54 @@ async def generate_notebooklm_content_plan(
             offer_context=offer_context,
             existing_ideas=existing_ideas,
             extension=extension,
+            kie_text_client=kie_text_client,
         )
+    return await generate_notebooklm_content_plan_once(
+        user_id=user_id,
+        notebook_ref=notebook_ref,
+        notebooklm=notebooklm,
+        idea_bank=idea_bank,
+        count=count,
+        content_language=content_language,
+        offer_context=offer_context,
+        existing_ideas=existing_ideas,
+        extension=extension,
+        kie_text_client=kie_text_client,
+    )
+
+
+async def generate_notebooklm_content_plan_once(
+    *,
+    user_id: str,
+    notebook_ref: str,
+    notebooklm: NotebookLMAskClient,
+    idea_bank: IdeaBank,
+    count: int,
+    content_language: str,
+    offer_context: str | None,
+    existing_ideas: list[ContentIdea] | None,
+    extension: bool,
+    kie_text_client: KieTextClient | None = None,
+) -> list[ContentIdea]:
+    focus = producer_plan_focus(extension=extension)
     prompt = build_producer_plan_prompt(
         count=count,
         content_language=content_language,
         offer_context=offer_context,
         existing_ideas=existing_ideas,
         extension=extension,
+        focus=focus,
     )
     logger.info("Generating NotebookLM producer plan: count=%s user=%s", count, user_id)
     result = await asyncio.to_thread(notebooklm.ask, prompt, notebook_url=notebook_ref_to_url(notebook_ref))
     answer = str(getattr(result, "answer", result) or "")
-    payload = extract_json(answer)
+    payload = structure_producer_plan_answer(
+        answer=answer,
+        count=count,
+        content_language=content_language,
+        offer_context=offer_context,
+        kie_text_client=kie_text_client,
+    )
     ideas = normalize_producer_plan(payload, notebook_ref=notebook_ref)
     inserted = idea_bank.add_many(user_id, ideas[:count])
     logger.info("NotebookLM producer plan generated=%s inserted=%s user=%s", len(ideas), len(inserted), user_id)
@@ -71,6 +112,7 @@ async def generate_notebooklm_content_plan_batches(
     offer_context: str | None,
     existing_ideas: list[ContentIdea] | None,
     extension: bool,
+    kie_text_client: KieTextClient | None = None,
 ) -> list[ContentIdea]:
     inserted: list[ContentIdea] = []
     context = list(existing_ideas or [])
@@ -80,7 +122,7 @@ async def generate_notebooklm_content_plan_batches(
     max_attempts = max(count * MAX_PRODUCER_PLAN_ATTEMPT_MULTIPLIER, count + MAX_EMPTY_PRODUCER_PLAN_ATTEMPTS)
     while remaining > 0 and batch_index < max_attempts:
         batch_index += 1
-        batch_count = min(MAX_PRODUCER_PLAN_BATCH_SIZE, remaining)
+        batch_count = min(random.randint(MIN_PRODUCER_PLAN_BATCH_SIZE, MAX_PRODUCER_PLAN_BATCH_SIZE), remaining)
         logger.info(
             "Generating NotebookLM producer plan batch %s/%s: batch_count=%s remaining=%s user=%s",
             batch_index,
@@ -89,7 +131,7 @@ async def generate_notebooklm_content_plan_batches(
             remaining,
             user_id,
         )
-        batch = await generate_notebooklm_content_plan(
+        batch = await generate_notebooklm_content_plan_once(
             user_id=user_id,
             notebook_ref=notebook_ref,
             notebooklm=notebooklm,
@@ -99,6 +141,7 @@ async def generate_notebooklm_content_plan_batches(
             offer_context=offer_context,
             existing_ideas=context,
             extension=extension or batch_index > 1,
+            kie_text_client=kie_text_client,
         )
         if not batch:
             empty_attempts += 1
@@ -132,6 +175,7 @@ def build_producer_plan_prompt(
     offer_context: str | None = None,
     existing_ideas: list[ContentIdea] | None = None,
     extension: bool = False,
+    focus: str | None = None,
 ) -> str:
     language = normalize_content_language(content_language)
     language_name = prompt_language_name(language)
@@ -143,27 +187,178 @@ def build_producer_plan_prompt(
         else "Build the first monthly plan from scratch."
     )
     existing_section = format_existing_plan_context(existing_ideas or [])
+    focus_line = focus or producer_plan_focus(extension=extension)
     viral_rules = viral_angle_prompt()
     return f"""
-Return ONLY valid JSON, no markdown.
-Act as a senior social media producer. Use NotebookLM sources as truth.
-Create {count} fresh content episode(s) in {language_name}. {mode_instruction}
+Act as a senior social media producer reviewing the source notebook.
+Give me {count} fresh content episode ideas in {language_name}. {mode_instruction}
 
 Language rule: {language_rule}
 Offer: {offer}
-Avoid repeating these saved topics:
+Today's editorial focus: {focus_line}
+
+Avoid repeating these saved topics, but use them to understand what has already been covered:
 {existing_section}
 
-Return an array of objects with exactly these keys:
-day, pillar, format, title, pain, angle, viral_angle, hook_pattern, mechanism, first_frame_text, summary, visual_note, visual_proof, source_basis.
+Please answer naturally as a numbered editorial list, not JSON and not a table.
+For each idea include:
+- title
+- seller pain
+- angle
+- mechanism or proof from the sources
+- first-frame text
+- visual idea
+- source basis
 
-Rules:
-- title: 3-8 words, thesis-style
-- format: vertical_short, infographic, or youtube_segment
-- angle and visual_note must be specific enough for a video editor
-- choose a source-backed hidden mistake, money leak, diagnostic, framework, or proof story
+Keep each item concise. Choose source-backed hidden mistakes, money leaks, diagnostics, frameworks, or proof stories.
 {viral_rules}
 """.strip()
+
+
+def producer_plan_focus(*, extension: bool = False) -> str:
+    base = [
+        "profit leaks and hidden margin killers",
+        "operational mistakes that get Amazon sellers stuck",
+        "PPC, ranking, and cash-flow traps",
+        "compliance, account risk, and blocked-growth stories",
+        "premium-brand positioning and ways to sell ordinary products for more",
+        "inventory, logistics, FBA limits, and stockout risk",
+        "counterintuitive lessons from failed Amazon growth attempts",
+    ]
+    if extension:
+        base.extend(
+            [
+                "new angles that do not repeat the existing plan",
+                "deeper second-layer topics behind the previous ideas",
+            ]
+        )
+    return random.choice(base)
+
+
+def structure_producer_plan_answer(
+    *,
+    answer: str,
+    count: int,
+    content_language: str,
+    offer_context: str | None,
+    kie_text_client: KieTextClient | None,
+) -> Any:
+    if kie_text_client and kie_text_client.is_configured():
+        try:
+            structured = kie_text_client.complete(
+                system=producer_plan_structurer_system_prompt(),
+                user=producer_plan_structurer_user_prompt(
+                    answer=answer,
+                    count=count,
+                    content_language=content_language,
+                    offer_context=offer_context,
+                ),
+            )
+            return extract_json(structured)
+        except (KieTextError, ValueError) as exc:
+            logger.warning("KIE failed to structure NotebookLM text plan; falling back to direct parsing: %s", exc)
+    try:
+        return extract_json(answer)
+    except ValueError:
+        return {"plan": heuristic_text_plan_items(answer, count=count)}
+
+
+def producer_plan_structurer_system_prompt() -> str:
+    return (
+        "You structure editorial research notes into clean JSON. "
+        "Do not invent facts, numbers, source names, or proof. "
+        "Return ONLY valid JSON. No markdown."
+    )
+
+
+def producer_plan_structurer_user_prompt(
+    *,
+    answer: str,
+    count: int,
+    content_language: str,
+    offer_context: str | None,
+) -> str:
+    language = normalize_content_language(content_language)
+    offer = _short_prompt_value(offer_context or DEFAULT_OFFER_CONTEXT, 360)
+    return f"""
+Turn this natural NotebookLM answer into up to {count} structured content ideas.
+
+Language:
+- {viewer_text_language_instruction(language)}
+
+Offer/context:
+{offer}
+
+NotebookLM answer:
+{answer[:12000]}
+
+Return ONLY JSON:
+{{
+  "plan": [
+    {{
+      "day": 1,
+      "pillar": "",
+      "format": "vertical_short",
+      "title": "",
+      "pain": "",
+      "angle": "",
+      "viral_angle": "",
+      "hook_pattern": "",
+      "mechanism": "",
+      "first_frame_text": "",
+      "summary": "",
+      "visual_note": "",
+      "visual_proof": "",
+      "source_basis": ""
+    }}
+  ]
+}}
+""".strip()
+
+
+def heuristic_text_plan_items(answer: str, *, count: int) -> list[dict[str, Any]]:
+    chunks = split_numbered_items(answer)
+    items: list[dict[str, Any]] = []
+    for index, chunk in enumerate(chunks[:count], start=1):
+        title = first_nonempty_line(chunk)
+        body = " ".join(line.strip("-• ").strip() for line in chunk.splitlines() if line.strip())
+        if not title or len(title) > 180:
+            title = f"NotebookLM idea {index}"
+        items.append(
+            {
+                "day": index,
+                "pillar": "Source insight",
+                "format": "vertical_short",
+                "title": clean_heading(title),
+                "pain": "",
+                "angle": body[:500],
+                "summary": body[:900],
+                "visual_note": "",
+                "source_basis": body[:700],
+            }
+        )
+    return items
+
+
+def split_numbered_items(answer: str) -> list[str]:
+    text = (answer or "").strip()
+    if not text:
+        return []
+    parts = re.split(r"(?:^|\n)\s*(?:\d+[\).:-]|\-\s+)\s+", text)
+    chunks = [part.strip() for part in parts if part.strip()]
+    return chunks or [text]
+
+
+def first_nonempty_line(text: str) -> str:
+    for line in text.splitlines():
+        stripped = line.strip(" -*#\t")
+        if stripped:
+            return stripped
+    return ""
+
+
+def clean_heading(value: str) -> str:
+    return re.sub(r"^[\"'«»\s]+|[\"'«»\s]+$", "", value).strip()[:120]
 
 
 def format_existing_plan_context(ideas: list[ContentIdea], *, limit: int = 12) -> str:

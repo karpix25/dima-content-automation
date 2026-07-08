@@ -70,7 +70,8 @@ class IdeaBank:
     def add_if_new(self, user_id: str, idea: dict[str, Any]) -> ContentIdea | None:
         source = str(idea.get("source") or "reddit")
         fingerprint = idea_fingerprint(idea)
-        if source != "notebooklm_plan" and self._has_similar(user_id, fingerprint):
+        threshold = 0.86 if source == "notebooklm_plan" else 0.68
+        if self._has_similar(user_id, fingerprint, threshold=threshold):
             return None
         with self._connect() as conn:
             cursor = conn.execute(
@@ -131,7 +132,7 @@ class IdeaBank:
             )
         return self.get(user_id, idea_id)
 
-    def _has_similar(self, user_id: str, fingerprint: str) -> bool:
+    def _has_similar(self, user_id: str, fingerprint: str, *, threshold: float = 0.68) -> bool:
         if not fingerprint:
             return False
         with self._connect() as conn:
@@ -145,7 +146,7 @@ class IdeaBank:
                 """,
                 (user_id,),
             ).fetchall()
-        return any(token_overlap(fingerprint, str(row["fingerprint"] or "")) >= 0.68 for row in rows)
+        return any(token_overlap(fingerprint, str(row["fingerprint"] or "")) >= threshold for row in rows)
 
 
 def idea_fingerprint(idea: dict[str, Any]) -> str:

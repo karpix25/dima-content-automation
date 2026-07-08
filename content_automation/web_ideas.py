@@ -34,7 +34,7 @@ def build_ideas_router(
         return [idea_to_out(item) for item in idea_bank.list_new(user_id, limit=limit)]
 
     @router.post("/api/ideas/notebooklm", response_model=GenerateIdeasOut)
-    async def notebooklm_ideas(payload: GenerateIdeasIn) -> GenerateIdeasOut:
+    async def notebooklm_ideas(payload: GenerateIdeasIn, background_tasks: BackgroundTasks) -> GenerateIdeasOut:
         state = get_user_settings(storage, settings, payload.user_id)
         notebook_ref = state.notebook_id or settings.default_notebook_id
         if not notebook_ref:
@@ -48,19 +48,23 @@ def build_ideas_router(
                 count=payload.count,
                 content_language=state.content_language,
                 offer_context=state.offer_context,
+                kie_text_client=build_kie_text_client(settings),
             )
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        schedule_auto_scripts_for_inserted(payload.user_id, inserted, background_tasks)
         return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted])
 
     @router.post("/api/ideas/notebooklm-plan", response_model=GenerateIdeasOut)
-    async def notebooklm_content_plan(payload: GenerateIdeasIn) -> GenerateIdeasOut:
+    async def notebooklm_content_plan(payload: GenerateIdeasIn, background_tasks: BackgroundTasks) -> GenerateIdeasOut:
         inserted, message = await generate_plan(payload, extension=False)
+        schedule_auto_scripts_for_inserted(payload.user_id, inserted, background_tasks)
         return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted], message=message)
 
     @router.post("/api/ideas/notebooklm-plan/extend", response_model=GenerateIdeasOut)
-    async def extend_notebooklm_content_plan(payload: GenerateIdeasIn) -> GenerateIdeasOut:
+    async def extend_notebooklm_content_plan(payload: GenerateIdeasIn, background_tasks: BackgroundTasks) -> GenerateIdeasOut:
         inserted, message = await generate_plan(payload, extension=True)
+        schedule_auto_scripts_for_inserted(payload.user_id, inserted, background_tasks)
         return GenerateIdeasOut(inserted=len(inserted), ideas=[idea_to_out(item) for item in inserted], message=message)
 
     async def generate_plan(payload: GenerateIdeasIn, *, extension: bool) -> tuple[list[ContentIdea], str]:
@@ -81,6 +85,7 @@ def build_ideas_router(
                 offer_context=state.offer_context,
                 existing_ideas=existing_ideas,
                 extension=extension,
+                kie_text_client=build_kie_text_client(settings),
             )
             return inserted, f"Готово: добавлено {len(inserted)} тем."
         except Exception as exc:
@@ -160,6 +165,37 @@ def build_ideas_router(
         return AutoIdeaScriptsOut(
             accepted=len(reserved),
             message=f"Запустил написание сценариев: {len(reserved)}",
+        )
+
+    def schedule_auto_scripts_for_inserted(user_id: str, inserted: list[ContentIdea], background_tasks: BackgroundTasks) -> None:
+        if not inserted:
+            return
+        state = get_user_settings(storage, settings, user_id)
+        notebook_ref = state.notebook_id or settings.default_notebook_id
+        if not notebook_ref:
+            return
+        reserved: list[ContentIdea] = []
+        for idea in inserted:
+            updated = idea_bank.update_status(user_id, idea.id, "selected")
+            if updated:
+                reserved.append(updated)
+        if not reserved:
+            return
+        background_tasks.add_task(
+            create_scripts_for_reserved_ideas,
+            storage=storage,
+            idea_bank=idea_bank,
+            user_id=user_id,
+            idea_ids=[idea.id for idea in reserved],
+            notebook_ref=notebook_ref,
+            notebooklm=notebooklm,
+            author_style=state.author_style,
+            offer_context=state.offer_context,
+            cta_mix=state.cta_mix,
+            content_language=state.content_language,
+            vertical_duration_mode=state.vertical_avatar_duration_mode,
+            script_writer_backend=settings.script_writer_backend,
+            kie_text_client=build_kie_text_client(settings),
         )
 
     return router

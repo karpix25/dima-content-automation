@@ -257,14 +257,19 @@ def test_auto_scripts_from_ideas_creates_pending_scripts(tmp_path: Path):
     idea_bank = IdeaBank(tmp_path / "app.sqlite3")
     storage.set_setting("42", "notebook_id", "notebook-1")
     for index in range(2):
+        title, pain, angle = (
+            ("Inventory Stockout Risk", "Stockouts kill ranking", "Forecast launch inventory")
+            if index == 0
+            else ("Packaging Fee Leak", "Margins vanish in FBA fees", "Measure box tier before production")
+        )
         idea_bank.add_if_new(
             "42",
             {
                 "source": "notebooklm_plan",
                 "source_url": f"notebooklm://notebook-1/topic-{index}",
-                "title": f"Topic {index}",
-                "pain": "Conversion is weak",
-                "angle": "Audit trust signals",
+                "title": title,
+                "pain": pain,
+                "angle": angle,
                 "summary": "Notebook source",
             },
         )

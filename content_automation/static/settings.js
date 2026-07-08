@@ -2,7 +2,7 @@ import { bindAvatarEvents } from "/static/settings_avatars.js?v=20260617-plan-bu
 import { bindVoiceEvents } from "/static/settings_voices.js?v=20260619-auto-voices-ui";
 import { activeSettingsTab, renderSettingsContent } from "/static/settings_format_sections.js?v=20260701-common-cover-inline";
 import { pendingLabelForAction, withButtonPending, withUploadPending } from "/static/action_feedback.js?v=20260618-auto-scripts";
-import { startAutoIdeaScripts } from "/static/idea_auto_scripts.js?v=20260618-auto-scripts";
+import { scheduleAutoRefresh } from "/static/idea_auto_scripts.js?v=20260618-auto-scripts";
 
 export async function loadSettingsData(deps, render = true) {
   const { state, api } = deps;
@@ -212,7 +212,8 @@ async function generateNotebookLMIdeas(deps) {
     body: JSON.stringify({ user_id: deps.state.userId, count: 8 }),
   });
   deps.state.ideaGenerationMessage = result.message || `Добавлено тем: ${result.inserted || 0}.`;
-  await startAutoIdeaScripts(deps, { count: 30 });
+  deps.state.autoScriptMessage = result.inserted ? "Пишу сценарии по новым темам. Карточки будут появляться здесь." : "";
+  scheduleAutoRefresh(deps);
   deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
   await loadSettingsData(deps, false);
   renderSettingsPanel(deps);
@@ -226,7 +227,8 @@ async function generateNotebookLMPlan(deps) {
     body: JSON.stringify({ user_id: deps.state.userId, count: 30 }),
   });
   deps.state.ideaGenerationMessage = result.message || `Добавлено тем: ${result.inserted || 0}.`;
-  await startAutoIdeaScripts(deps, { count: 30 });
+  deps.state.autoScriptMessage = result.inserted ? "Пишу сценарии по новым темам. Карточки будут появляться здесь." : "";
+  scheduleAutoRefresh(deps);
   deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
   await loadSettingsData(deps, false);
   renderSettingsPanel(deps);
@@ -240,7 +242,8 @@ async function extendNotebookLMPlan(deps) {
     body: JSON.stringify({ user_id: deps.state.userId, count: 30 }),
   });
   deps.state.ideaGenerationMessage = result.message || `Добавлено тем: ${result.inserted || 0}.`;
-  await startAutoIdeaScripts(deps, { count: 30 });
+  deps.state.autoScriptMessage = result.inserted ? "Пишу сценарии по новым темам. Карточки будут появляться здесь." : "";
+  scheduleAutoRefresh(deps);
   deps.state.ideas = await loadIdeas(deps).catch(() => result.ideas || []);
   await loadSettingsData(deps, false);
   renderSettingsPanel(deps);

@@ -23,9 +23,10 @@ def test_notebooklm_ideas_prompt_can_force_russian():
     assert "5 strong Russian content topic ideas" in prompt
     assert "natural Russian" in prompt
     assert "Viral angle requirements" in prompt
-    assert '"hook_pattern": ""' in prompt
-    assert '"mechanism": ""' in prompt
-    assert '"first_frame_text": ""' in prompt
+    assert "numbered editorial list, not JSON" in prompt
+    assert "viral angle or hook pattern" in prompt
+    assert "mechanism or proof from the sources" in prompt
+    assert "first-frame text" in prompt
 
 
 def test_normalize_notebooklm_ideas_marks_source():
@@ -87,11 +88,12 @@ def test_producer_plan_prompt_uses_social_producer_role_and_language():
     prompt = build_producer_plan_prompt(count=30, content_language="ru", offer_context="Amazon mentorship")
 
     assert "senior social media producer" in prompt
-    assert "Create 30 fresh content episode(s)" in prompt
+    assert "Give me 30 fresh content episode ideas" in prompt
     assert "natural Russian" in prompt
     assert "Amazon mentorship" in prompt
     assert "Viral angle requirements" in prompt
-    assert "viral_angle, hook_pattern, mechanism, first_frame_text" in prompt
+    assert "numbered editorial list, not JSON" in prompt
+    assert "first-frame text" in prompt
 
 
 def test_producer_plan_extension_prompt_includes_saved_topics():
@@ -180,10 +182,13 @@ async def test_generate_notebooklm_content_plan_saves_to_idea_bank(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_generate_notebooklm_content_plan_splits_large_plan_into_batches(tmp_path):
+async def test_generate_notebooklm_content_plan_splits_large_plan_into_batches(tmp_path, monkeypatch):
+    monkeypatch.setattr("content_automation.notebooklm_content_plan.random.randint", lambda _start, _end: 5)
+
     class FakeNotebookLM:
         def __init__(self):
             self.questions = []
+            self.topic_index = 0
             self.topic_words = [
                 ("Fees", "tier audit", "fee table"),
                 ("Inventory", "stockout forecast", "inventory calendar"),
@@ -219,21 +224,24 @@ async def test_generate_notebooklm_content_plan_splits_large_plan_into_batches(t
 
         def ask(self, question, *, notebook_url=None, notebook_id=None):
             self.questions.append(question)
-            call = len(self.questions)
-            word, angle, visual = self.topic_words[call - 1]
-            items = [
-                {
-                    "day": call,
-                    "pillar": "Operations",
-                    "format": "vertical_short",
-                    "title": f"{word} system",
-                    "pain": f"Problem around {angle}",
-                    "angle": f"Show {angle}",
-                    "summary": f"Teach {word.lower()} with a concrete operator example.",
-                    "visual_note": visual,
-                    "source_basis": f"{word} source note",
-                }
-            ]
+            items = []
+            requested_count = int(question.split("Give me ", 1)[1].split(" fresh", 1)[0])
+            for _ in range(requested_count):
+                self.topic_index += 1
+                word, angle, visual = self.topic_words[self.topic_index - 1]
+                items.append(
+                    {
+                        "day": self.topic_index,
+                        "pillar": "Operations",
+                        "format": "vertical_short",
+                        "title": f"{word} system",
+                        "pain": f"Problem around {angle}",
+                        "angle": f"Show {angle}",
+                        "summary": f"Teach {word.lower()} with a concrete operator example.",
+                        "visual_note": visual,
+                        "source_basis": f"{word} source note",
+                    }
+                )
             return SimpleNamespace(answer=json.dumps({"plan": items}))
 
     notebooklm = FakeNotebookLM()
@@ -249,10 +257,10 @@ async def test_generate_notebooklm_content_plan_splits_large_plan_into_batches(t
     )
 
     assert len(inserted) == 25
-    assert len(notebooklm.questions) == 25
-    assert "Create 1 fresh content episode(s)" in notebooklm.questions[0]
+    assert len(notebooklm.questions) == 5
+    assert "Give me 5 fresh content episode ideas" in notebooklm.questions[0]
     assert "Fees system | Show tier audit" in notebooklm.questions[1]
-    assert "Analytics system | Show metric blindspot" in notebooklm.questions[20]
+    assert "Analytics system | Show metric blindspot" in notebooklm.questions[4]
 
 
 @pytest.mark.asyncio

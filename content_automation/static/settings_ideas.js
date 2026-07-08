@@ -11,6 +11,7 @@ export function renderIdeasTab({ state, escapeHtml }) {
   const subreddits = state.settings.reddit_subreddits || "";
   const ideas = state.ideas || [];
   const generationMessage = state.ideaGenerationMessage || "";
+  const autoScriptMessage = state.autoScriptMessage || "";
   const notebookLabel = state.settings.notebook_id ? "база задана" : "проверю серверную базу";
   return `
     ${formatHeader("Идеи", "Собирай темы из NotebookLM и внешних источников, потом бери их в сценарии.", [chip(timeframeLabel(timeframe)), chip(subredditCount(subreddits)), chip(`${ideas.length} тем`)], escapeHtml)}
@@ -46,6 +47,7 @@ export function renderIdeasTab({ state, escapeHtml }) {
       `, escapeHtml)}
       ${settingsDisclosure("Банк тем", [chip(`${ideas.length} новых`)], `
         ${generationMessage ? `<p class="muted">${escapeHtml(generationMessage)}</p>` : ""}
+        ${autoScriptMessage ? `<p class="muted">${escapeHtml(autoScriptMessage)}</p>` : ""}
         <p class="muted">Новые темы автоматически уходят в написание сценариев, когда в проекте нет готовых карточек.</p>
         <div class="idea-list">
           ${ideas.length ? ideas.map((idea) => ideaCard(idea, escapeHtml)).join("") : `<p class="muted">Пока нет новых тем. Собери их из NotebookLM или через Reddit Radar.</p>`}

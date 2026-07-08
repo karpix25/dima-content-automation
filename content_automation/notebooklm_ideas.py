@@ -6,7 +6,8 @@ from typing import Any
 
 from .content_language import normalize_content_language, prompt_language_name, viewer_text_language_instruction
 from .idea_bank import ContentIdea, IdeaBank
-from .notebooklm import extract_json
+from .kie_text import KieTextClient
+from .notebooklm_content_plan import producer_plan_focus, structure_producer_plan_answer
 from .notebooklm_mcp import notebook_ref_to_url
 from .notebooklm_runtime import NotebookLMAskClient
 from .prompts import DEFAULT_OFFER_CONTEXT, _short_prompt_value
@@ -24,6 +25,7 @@ async def generate_notebooklm_ideas(
     count: int = 8,
     content_language: str = "auto",
     offer_context: str | None = None,
+    kie_text_client: KieTextClient | None = None,
 ) -> list[ContentIdea]:
     prompt = build_notebooklm_ideas_prompt(
         count=count,
@@ -33,7 +35,13 @@ async def generate_notebooklm_ideas(
     logger.info("Generating %s NotebookLM idea(s) for user %s", count, user_id)
     result = await asyncio.to_thread(notebooklm.ask, prompt, notebook_url=notebook_ref_to_url(notebook_ref))
     answer = str(getattr(result, "answer", result) or "")
-    payload = extract_json(answer)
+    payload = structure_producer_plan_answer(
+        answer=answer,
+        count=count,
+        content_language=content_language,
+        offer_context=offer_context,
+        kie_text_client=kie_text_client,
+    )
     ideas = normalize_notebooklm_ideas(payload, notebook_ref=notebook_ref)
     inserted = idea_bank.add_many(user_id, ideas[:count])
     logger.info("NotebookLM ideas generated=%s inserted=%s user=%s", len(ideas), len(inserted), user_id)
@@ -51,8 +59,9 @@ def build_notebooklm_ideas_prompt(
     language_rule = viewer_text_language_instruction(language)
     offer = _short_prompt_value(offer_context or DEFAULT_OFFER_CONTEXT, 520)
     viral_rules = viral_angle_prompt()
+    focus = producer_plan_focus(extension=False)
     return f"""
-Return ONLY valid JSON. Use the NotebookLM sources.
+Act as a senior social media producer reviewing this NotebookLM source.
 Find {count} strong {language_name} content topic ideas for an expert creator in this niche.
 
 Output language:
@@ -62,31 +71,37 @@ Output language:
 Offer/context:
 {offer}
 
+Today's editorial focus: {focus}
+
 Pick ideas that are specific enough to become short vertical videos or YouTube scripts.
 Avoid broad beginner topics. Prefer hidden mistakes, money leaks, operational bottlenecks, contrarian warnings, and specific Amazon/ecommerce mechanisms.
 {viral_rules}
 
-[
-  {{
-    "title": "",
-    "pain": "",
-    "angle": "",
-    "viral_angle": "",
-    "hook_pattern": "",
-    "mechanism": "",
-    "first_frame_text": "",
-    "visual_proof": "",
-    "summary": "",
-    "source_basis": "which NotebookLM materials or knowledge-base idea this came from"
-  }}
-]
+Please answer naturally as a numbered editorial list, not JSON and not a table.
+For each idea include:
+- title
+- seller pain
+- angle
+- viral angle or hook pattern
+- mechanism or proof from the sources
+- first-frame text
+- visual proof idea
+- source basis
 """.strip()
 
 
 def normalize_notebooklm_ideas(payload: Any, *, notebook_ref: str) -> list[dict[str, Any]]:
-    raw_items = payload.get("ideas") or payload.get("items") if isinstance(payload, dict) else payload
+    if isinstance(payload, dict):
+        raw_items = None
+        for key in ("ideas", "items", "plan", "content_plan", "episodes"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                raw_items = value
+                break
+    else:
+        raw_items = payload
     if not isinstance(raw_items, list):
-        raise ValueError("NotebookLM topics JSON must be a list or contain ideas/items")
+        raise ValueError("NotebookLM topics must be a list or contain ideas/items")
     ideas: list[dict[str, Any]] = []
     for index, item in enumerate(raw_items, start=1):
         if not isinstance(item, dict):
