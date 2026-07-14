@@ -18,6 +18,8 @@ from .storage import DuplicateScriptError, ScriptRecord, Storage
 
 logger = logging.getLogger(__name__)
 
+MAX_KIE_SCRIPT_ATTEMPTS = 4
+
 
 async def create_script_from_idea(
     *,
@@ -38,21 +40,39 @@ async def create_script_from_idea(
     if script_writer_backend == "kie":
         if not kie_text_client or not kie_text_client.is_configured():
             raise ValueError("KIE script writer is selected, but KIE text client is not configured.")
-        try:
-            item = write_script_with_kie(
-                client=kie_text_client,
-                idea=idea,
-                author_style=author_style,
-                offer_context=offer_context,
-                cta_mix=cta_mix,
-                content_language=content_language,
-                word_budget=budget,
-            )
-            if script_payload_matches_word_budget(item, budget):
+        revision_instruction: str | None = None
+        last_error: Exception | None = None
+        for attempt in range(1, MAX_KIE_SCRIPT_ATTEMPTS + 1):
+            try:
+                item = write_script_with_kie(
+                    client=kie_text_client,
+                    idea=idea,
+                    author_style=author_style,
+                    offer_context=offer_context,
+                    cta_mix=cta_mix,
+                    content_language=content_language,
+                    word_budget=budget,
+                    revision_instruction=revision_instruction,
+                )
+                if not script_payload_matches_word_budget(item, budget):
+                    raise ValueError("Kie написал сценарий вне нужной длины озвучки.")
                 return storage.add_script(user_id, "short", item, enforce_unique=True)
-            raise ValueError("Kie написал сценарий вне нужной длины озвучки.")
-        except (DuplicateScriptError, KieTextError, ValueError) as exc:
-            raise ValueError(f"KIE не смог написать сценарий: {exc}") from exc
+            except KieTextError as exc:
+                raise ValueError(f"KIE не смог написать сценарий: {exc}") from exc
+            except DuplicateScriptError as exc:
+                last_error = exc
+                revision_instruction = (
+                    "The previous draft duplicated an existing unique script key. "
+                    "Write a fresh hook, title, topic_fingerprint, and opening angle that do not resemble prior drafts."
+                )
+            except ValueError as exc:
+                last_error = exc
+                revision_instruction = (
+                    f"The previous draft failed validation: {exc}. "
+                    f"Rewrite the voiceover to fit {budget.min_words}-{budget.max_words} spoken words and keep all fields unique."
+                )
+            logger.info("Retrying KIE script writer: idea_id=%s attempt=%s", idea.id, attempt + 1)
+        raise ValueError(f"KIE не смог написать сценарий: {last_error}") from last_error
 
     prompt = build_short_scripts_prompt(
         count=1,

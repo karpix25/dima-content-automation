@@ -33,6 +33,7 @@ def write_script_with_kie(
     cta_mix: str,
     content_language: str,
     word_budget: WordBudget,
+    revision_instruction: str | None = None,
 ) -> dict[str, Any]:
     answer = client.complete(
         system=kie_script_system_prompt(),
@@ -43,6 +44,7 @@ def write_script_with_kie(
             cta_mix=cta_mix,
             content_language=content_language,
             word_budget=word_budget,
+            revision_instruction=revision_instruction,
         ),
     )
     for item in as_script_list(extract_json(answer)):
@@ -66,6 +68,7 @@ def kie_script_user_prompt(
     cta_mix: str,
     content_language: str,
     word_budget: WordBudget,
+    revision_instruction: str | None = None,
 ) -> str:
     language = normalize_content_language(content_language)
     packet = factual_packet_from_idea(idea)
@@ -90,6 +93,7 @@ Rules:
 - Hook must create tension in 1-2 seconds.
 - first_frame_text: max 4 words.
 - source_basis must cite the packet source_basis or topic title.
+{revision_block(revision_instruction)}
 
 Return ONLY this JSON array:
 [
@@ -119,6 +123,12 @@ Return ONLY this JSON array:
   }}
 ]
 """.strip()
+
+
+def revision_block(instruction: str | None) -> str:
+    if not instruction:
+        return ""
+    return f"\nRevision requirement:\n- {instruction.strip()}"
 
 
 def factual_packet_from_idea(idea: ContentIdea) -> dict[str, Any]:
