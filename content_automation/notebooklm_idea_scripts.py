@@ -61,7 +61,7 @@ async def create_script_from_idea(
                     "short",
                     item,
                     enforce_unique=True,
-                    unique_kinds=("hook", "voiceover"),
+                    unique_kinds=("voiceover",),
                 )
             except KieTextError as exc:
                 raise ValueError(f"KIE не смог написать сценарий: {exc}") from exc
