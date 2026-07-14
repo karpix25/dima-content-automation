@@ -352,6 +352,59 @@ def test_auto_scripts_from_ideas_uses_kie_writer(tmp_path: Path, monkeypatch):
     assert records[0].raw["writer_backend"] == "kie"
 
 
+def test_auto_scripts_from_ideas_notifies_kie_balance(tmp_path: Path, monkeypatch):
+    storage = Storage(tmp_path / "app.sqlite3")
+    idea_bank = IdeaBank(tmp_path / "app.sqlite3")
+    storage.set_setting("42", "notebook_id", "notebook-1")
+    idea = idea_bank.add_if_new(
+        "42",
+        {
+            "source": "notebooklm_plan",
+            "source_url": "notebooklm://notebook-1/kie-balance",
+            "title": "Fee leak",
+            "pain": "Margins vanish",
+            "angle": "Audit fee tiers",
+            "summary": "Notebook source",
+        },
+    )
+
+    class FailingKieTextClient:
+        def is_configured(self):
+            return True
+
+        def complete(self, *, system: str, user: str) -> str:
+            raise RuntimeError("KIE text response has no content: {'code': 402, 'msg': 'Credits insufficient'}")
+
+    class FakeAlertNotifier:
+        def __init__(self):
+            self.errors = []
+
+        async def notify_kie_balance_if_needed(self, error):
+            self.errors.append(str(error))
+            return True
+
+    alerts = FakeAlertNotifier()
+    monkeypatch.setattr("content_automation.kie_script_writer.KieTextClient", lambda config: FailingKieTextClient())
+    app = FastAPI()
+    app.include_router(
+        build_ideas_router(
+            storage=storage,
+            idea_bank=idea_bank,
+            settings=_settings(tmp_path, script_writer_backend="kie", kie_api_key="key"),
+            notebooklm=FailingNotebookLM(),
+            service_alert_notifier=alerts,
+        )
+    )
+    client = TestClient(app)
+
+    response = client.post("/api/ideas/scripts/auto", json={"user_id": "42", "count": 1})
+
+    assert response.status_code == 200
+    assert alerts.errors
+    assert "Credits insufficient" in alerts.errors[0]
+    assert idea_bank.get("42", idea.id).status == "new"
+
+
 def _settings(tmp_path: Path, *, script_writer_backend: str = "notebooklm", kie_api_key: str | None = None) -> Settings:
     return Settings(
         telegram_bot_token="token",
@@ -369,6 +422,8 @@ def _settings(tmp_path: Path, *, script_writer_backend: str = "notebooklm", kie_
         notebooklm_auth_notify_cooldown_seconds=300,
         notebooklm_auth_start_command=None,
         notebooklm_auth_start_timeout_seconds=5,
+        service_alert_chat_ids=(),
+        service_alert_cooldown_seconds=300,
         script_writer_backend=script_writer_backend,
         default_notebook_id=None,
         elevenlabs_api_key=None,

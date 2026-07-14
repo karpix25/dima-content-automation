@@ -35,6 +35,7 @@ from .settings_service import (
     set_overlay_start_percent,
     set_text_setting,
 )
+from .service_alerts import ServiceAlertNotifier
 from .storage import Storage
 from .turan_formats import list_turan_formats
 from .turan_service import TuranServiceError, list_approved_scripts
@@ -95,6 +96,11 @@ notebooklm_auth_notifier = NotebookLMAuthNotifier(
         start_command=settings.notebooklm_auth_start_command,
         start_timeout_seconds=settings.notebooklm_auth_start_timeout_seconds,
     )
+)
+service_alert_notifier = ServiceAlertNotifier(
+    telegram_bot_token=settings.telegram_bot_token,
+    chat_ids=settings.service_alert_chat_ids,
+    cooldown_seconds=settings.service_alert_cooldown_seconds,
 )
 notebooklm_keepalive = NotebookLMKeepAlive(
     notebooklm,
@@ -161,7 +167,15 @@ install_miniapp_auth(
     project_store=project_store,
 )
 app.include_router(build_job_actions_router(storage=storage, asset_store=asset_store, settings=settings))
-app.include_router(build_ideas_router(storage=storage, idea_bank=idea_bank, settings=settings, notebooklm=notebooklm))
+app.include_router(
+    build_ideas_router(
+        storage=storage,
+        idea_bank=idea_bank,
+        settings=settings,
+        notebooklm=notebooklm,
+        service_alert_notifier=service_alert_notifier,
+    )
+)
 app.include_router(build_notebooklm_router(notebooklm_keepalive))
 app.include_router(build_script_review_router(storage=storage))
 app.include_router(build_projects_router(project_store))

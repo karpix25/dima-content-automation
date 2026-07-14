@@ -13,6 +13,7 @@ from .notebooklm_idea_scripts import create_script_from_idea
 from .notebooklm_runtime import NotebookLMAskClient
 from .kie_script_writer import build_kie_text_client
 from .settings_service import get_user_settings
+from .service_alerts import ServiceAlertNotifier
 from .storage import Storage
 from .web_models import AutoIdeaScriptsOut, ContentIdeaOut, GenerateIdeasIn, GenerateIdeasOut, ScriptOut
 from .web_serializers import script_to_out
@@ -26,6 +27,7 @@ def build_ideas_router(
     idea_bank: IdeaBank,
     settings: Settings,
     notebooklm: NotebookLMAskClient,
+    service_alert_notifier: ServiceAlertNotifier | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -161,6 +163,7 @@ def build_ideas_router(
                 vertical_duration_mode=state.vertical_avatar_duration_mode,
                 script_writer_backend=settings.script_writer_backend,
                 kie_text_client=build_kie_text_client(settings),
+                service_alert_notifier=service_alert_notifier,
             )
         return AutoIdeaScriptsOut(
             accepted=len(reserved),
@@ -196,6 +199,7 @@ def build_ideas_router(
             vertical_duration_mode=state.vertical_avatar_duration_mode,
             script_writer_backend=settings.script_writer_backend,
             kie_text_client=build_kie_text_client(settings),
+            service_alert_notifier=service_alert_notifier,
         )
 
     return router
@@ -229,6 +233,7 @@ async def create_scripts_for_reserved_ideas(
     vertical_duration_mode: str,
     script_writer_backend: str,
     kie_text_client,
+    service_alert_notifier: ServiceAlertNotifier | None = None,
 ) -> None:
     for idea_id in idea_ids:
         idea = idea_bank.get(user_id, idea_id)
@@ -250,6 +255,8 @@ async def create_scripts_for_reserved_ideas(
                 kie_text_client=kie_text_client,
             )
             idea_bank.update_status(user_id, idea_id, "used_for_script")
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to auto-create script from idea: user=%s idea_id=%s", user_id, idea_id)
+            if service_alert_notifier:
+                await service_alert_notifier.notify_kie_balance_if_needed(exc)
             idea_bank.update_status(user_id, idea_id, "new")

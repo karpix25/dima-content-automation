@@ -24,6 +24,8 @@ class Settings:
     notebooklm_auth_notify_cooldown_seconds: int
     notebooklm_auth_start_command: str | None
     notebooklm_auth_start_timeout_seconds: int
+    service_alert_chat_ids: tuple[str, ...]
+    service_alert_cooldown_seconds: int
     script_writer_backend: str
     default_notebook_id: str | None
     elevenlabs_api_key: str | None
@@ -201,6 +203,8 @@ def load_settings() -> Settings:
             5,
             get_int_env("NOTEBOOKLM_AUTH_START_TIMEOUT_SECONDS", 30),
         ),
+        service_alert_chat_ids=get_csv_env("SERVICE_ALERT_CHAT_IDS") or get_csv_env("NOTEBOOKLM_AUTH_NOTIFY_CHAT_IDS"),
+        service_alert_cooldown_seconds=max(60, get_int_env("SERVICE_ALERT_COOLDOWN_SECONDS", 3600)),
         script_writer_backend=normalize_script_writer_backend(os.getenv("SCRIPT_WRITER_BACKEND")),
         default_notebook_id=(os.getenv("DEFAULT_NOTEBOOK_ID") or "").strip() or None,
         elevenlabs_api_key=(os.getenv("ELEVENLABS_API_KEY") or "").strip() or None,
