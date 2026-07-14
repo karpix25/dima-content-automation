@@ -56,7 +56,13 @@ async def create_script_from_idea(
                 )
                 if not script_payload_matches_word_budget(item, budget):
                     raise ValueError("Kie написал сценарий вне нужной длины озвучки.")
-                return storage.add_script(user_id, "short", item, enforce_unique=True)
+                return storage.add_script(
+                    user_id,
+                    "short",
+                    item,
+                    enforce_unique=True,
+                    unique_kinds=("hook", "voiceover"),
+                )
             except KieTextError as exc:
                 raise ValueError(f"KIE не смог написать сценарий: {exc}") from exc
             except DuplicateScriptError as exc:

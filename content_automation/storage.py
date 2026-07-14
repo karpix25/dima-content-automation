@@ -150,9 +150,20 @@ class Storage:
                 (user_id, key, value),
             )
 
-    def add_script(self, user_id: str, format: str, payload: dict[str, Any], *, enforce_unique: bool = False) -> ScriptRecord:
+    def add_script(
+        self,
+        user_id: str,
+        format: str,
+        payload: dict[str, Any],
+        *,
+        enforce_unique: bool = False,
+        unique_kinds: tuple[str, ...] | None = None,
+    ) -> ScriptRecord:
         normalized = normalize_script_payload(payload)
         unique_keys = unique_script_keys(payload, normalized) if enforce_unique else []
+        if unique_kinds is not None:
+            allowed_kinds = set(unique_kinds)
+            unique_keys = [(kind, key) for kind, key in unique_keys if kind in allowed_kinds]
         with self._connect() as conn:
             claim_script_unique_keys(conn, user_id=user_id, format=format, keys=unique_keys)
             cursor = conn.execute(
