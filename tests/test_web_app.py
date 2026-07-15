@@ -141,6 +141,33 @@ def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     assert storage.get_script(record.user_id, record.id).status == "used_for_video"
 
 
+def test_avatar_format_job_rejects_active_avatar_job(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
+    record = add_approved_script(storage)
+    active = storage.add_format_job(
+        "42",
+        script_id=record.id,
+        format_key="avatar_reels",
+        task_type="avatar_instagram",
+        title="Active avatar",
+        output_text="queued",
+    )
+    storage.update_format_job_delivery("42", active.id, status="queued")
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+    client = TestClient(web_app.app)
+
+    response = client.post(
+        f"/api/scripts/{record.id}/format-jobs",
+        json={"user_id": "42", "format_key": "avatar_horizontal"},
+    )
+
+    assert response.status_code == 400
+    assert "Уже идет генерация видео" in response.json()["detail"]
+    assert len(storage.list_format_jobs("42")) == 1
+
+
 def test_existing_heygen_job_reuses_video_id(tmp_path, monkeypatch):
     storage = make_storage(tmp_path)
     asset_store = make_asset_store(tmp_path)

@@ -8,6 +8,7 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from .active_format_jobs import ActiveFormatJobError
 from .config import load_settings
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError
 from .elevenlabs_mcp import ElevenLabsMCPClient
@@ -589,7 +590,7 @@ def create_script_format_job(
             user_id=payload.user_id,
             job_id=job.id,
         )
-    except TuranServiceError as exc:
+    except (ActiveFormatJobError, TuranServiceError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ScriptNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -623,7 +624,7 @@ def create_existing_heygen_format_job(
             job_id=job.id,
             heygen_video_id=payload.heygen_video_id,
         )
-    except TuranServiceError as exc:
+    except (ActiveFormatJobError, TuranServiceError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -285,6 +285,7 @@ function formatButtonStateFor(scriptId, formatKey) {
     scriptId,
     formatKey,
     creating: state.creating,
+    activeJob: liveJob(),
   });
 }
 

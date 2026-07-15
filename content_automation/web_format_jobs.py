@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from .active_format_jobs import assert_no_active_avatar_job
 from .config import Settings
 from .format_reference_paths import delivery_face_reference_paths
 from .infographic_delivery import build_kie_client, create_and_send_infographic_reels
@@ -41,6 +42,7 @@ def create_queued_format_job(
     format_key: str,
     delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
+    assert_no_active_avatar_job(storage, user_id, format_key)
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
     logger.info(
         "Queued format job created: user_id=%s script_id=%s job_id=%s format_key=%s",
@@ -75,6 +77,7 @@ def create_queued_existing_heygen_job(
         raise ValueError("HeyGen video id is required")
     if format_key not in {"avatar_reels", "avatar_horizontal"}:
         raise ValueError("Existing HeyGen video can be used only with avatar formats")
+    assert_no_active_avatar_job(storage, user_id, format_key)
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
     return storage.update_format_job_delivery(
         user_id,
@@ -200,6 +203,7 @@ def create_and_deliver_format_job(
             script_id=script_id,
             delivery_actor_user_id=delivery_actor_user_id,
         )
+    assert_no_active_avatar_job(storage, user_id, format_key)
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
     if job.format_key == "infographic_reels":
         return _deliver_infographic_job(
