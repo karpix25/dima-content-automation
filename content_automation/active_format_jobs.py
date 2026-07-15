@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .storage import FormatJob, Storage, row_to_format_job
 
-ACTIVE_FORMAT_JOB_STATUSES = ("ready", "queued", "processing", "submitted")
+ACTIVE_FORMAT_JOB_STATUSES = ("queued", "processing", "submitted")
 AVATAR_FORMAT_KEYS = {"avatar_reels", "avatar_horizontal"}
 
 
