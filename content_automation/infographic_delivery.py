@@ -7,7 +7,6 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-import httpx
 from PIL import Image, ImageDraw, ImageFont
 
 from .config import Settings
@@ -16,6 +15,7 @@ from .delivery_destination import telegram_delivery_chat_id
 from .kie_image import KieImageClient, KieImageConfig
 from .media_assets import MediaAssetStore
 from .storage import ScriptRecord, Storage
+from .telegram_file_delivery import send_video_document_to_telegram
 from .turan_infographic_prompt import build_turan_infographic_prompt
 
 
@@ -73,7 +73,7 @@ def create_and_send_infographic_reels(
     render_five_second_video(image_path=image_path, video_path=video_path, audio_path=audio_path)
     chat_id = telegram_delivery_chat_id(storage, user_id, delivery_actor_user_id)
     logger.info("Sending gold card video to Telegram: script_id=%s chat_id=%s video=%s", record.id, chat_id, video_path)
-    message_id = send_video_to_telegram(
+    message_id = send_video_document_to_telegram(
         token=settings.telegram_bot_token,
         chat_id=chat_id,
         video_path=video_path,
@@ -276,22 +276,6 @@ def render_five_second_video(*, image_path: Path, video_path: Path, audio_path: 
     if proc.returncode != 0:
         raise RuntimeError(f"ffmpeg failed: {proc.stderr[-1600:]}")
     logger.info("ffmpeg rendered video: %s", video_path)
-
-
-def send_video_to_telegram(*, token: str, chat_id: str, video_path: Path, caption: str) -> str | None:
-    if not token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN не задан")
-    with video_path.open("rb") as video_file:
-        response = httpx.post(
-            f"https://api.telegram.org/bot{token}/sendVideo",
-            data={"chat_id": chat_id, "caption": caption},
-            files={"video": (video_path.name, video_file, "video/mp4")},
-            timeout=120,
-        )
-    if response.status_code >= 400:
-        raise RuntimeError(f"Telegram sendVideo error {response.status_code}: {response.text[:1000]}")
-    payload = response.json()
-    return str(payload.get("result", {}).get("message_id") or "") or None
 
 
 def choose_audio_track(asset_store: MediaAssetStore, user_id: str) -> Path | None:

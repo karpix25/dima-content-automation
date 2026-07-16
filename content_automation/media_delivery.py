@@ -6,8 +6,6 @@ import os
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-import httpx
-
 from .config import Settings
 from .deepgram_transcription import DeepgramConfig
 from .delivered_video_cleanup import cleanup_delivered_video_files
@@ -24,6 +22,7 @@ from .reference_paths import selected_thumbnail_style_reference_paths, target_fr
 from .script_length import WordBudget, count_spoken_words, vertical_word_budget, youtube_word_budget
 from .settings_service import get_overlay_start_percent, get_random_overlay_path, get_user_settings
 from .storage import ScriptRecord, Storage
+from .telegram_file_delivery import send_video_document_to_telegram
 from .video_overlay import VideoOverlayError, apply_overlay, cleanup_old_videos, download_video
 from .video_geometry import video_size_for_format
 from .voice_speed_profile import calibrated_voice_wpm
@@ -430,22 +429,6 @@ def output_format_for_job(format_key: str) -> str:
     if format_key == "avatar_reels":
         return "reels"
     return "short"
-
-
-def send_video_document_to_telegram(*, token: str, chat_id: str, video_path: Path, caption: str) -> str | None:
-    if not token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN не задан")
-    with video_path.open("rb") as video_file:
-        response = httpx.post(
-            f"https://api.telegram.org/bot{token}/sendDocument",
-            data={"chat_id": chat_id, "caption": caption},
-            files={"document": (video_path.name, video_file, "video/mp4")},
-            timeout=180,
-        )
-    if response.status_code >= 400:
-        raise RuntimeError(f"Telegram sendDocument error {response.status_code}: {response.text[:1000]}")
-    payload = response.json()
-    return str(payload.get("result", {}).get("message_id") or "") or None
 
 
 def _motion_prompt() -> str:

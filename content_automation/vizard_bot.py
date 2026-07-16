@@ -170,7 +170,7 @@ async def deliver_vizard_project_clips(
                 format=cover_format,
                 target_size=target_size,
             )
-            await bot.send_photo(
+            await bot.send_document(
                 chat_id,
                 FSInputFile(assets.cover_path),
                 caption=cover_caption(index, item.clip.title, item.clip.viral_score, item.clip.clip_editor_url),
@@ -206,7 +206,7 @@ async def deliver_vizard_project_clips(
             platforms=platforms,
         )
         for variant in variants:
-            await bot.send_video(
+            await bot.send_document(
                 chat_id,
                 FSInputFile(variant.path),
                 caption=clip_caption(index, variant.label, item.clip.title, item.clip.viral_score, item.clip.clip_editor_url),
