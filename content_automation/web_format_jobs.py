@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from .active_format_jobs import assert_no_active_avatar_job
+from .active_format_jobs import assert_no_active_format_job
 from .config import Settings
 from .format_reference_paths import delivery_face_reference_paths
 from .infographic_delivery import build_kie_client, create_and_send_infographic_reels
@@ -42,7 +42,7 @@ def create_queued_format_job(
     format_key: str,
     delivery_actor_user_id: str | None = None,
 ) -> FormatJob:
-    assert_no_active_avatar_job(storage, user_id, format_key)
+    assert_no_active_format_job(storage, user_id)
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
     logger.info(
         "Queued format job created: user_id=%s script_id=%s job_id=%s format_key=%s",
@@ -77,7 +77,7 @@ def create_queued_existing_heygen_job(
         raise ValueError("HeyGen video id is required")
     if format_key not in {"avatar_reels", "avatar_horizontal"}:
         raise ValueError("Existing HeyGen video can be used only with avatar formats")
-    assert_no_active_avatar_job(storage, user_id, format_key)
+    assert_no_active_format_job(storage, user_id)
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
     return storage.update_format_job_delivery(
         user_id,
@@ -192,6 +192,7 @@ def create_and_deliver_format_job(
     script_id: int,
     format_key: str,
     delivery_actor_user_id: str | None = None,
+    skip_active_guard: bool = False,
 ) -> FormatJob:
     logger.info("Creating format job: user_id=%s script_id=%s format_key=%s", user_id, script_id, format_key)
     if format_key == "all":
@@ -203,7 +204,8 @@ def create_and_deliver_format_job(
             script_id=script_id,
             delivery_actor_user_id=delivery_actor_user_id,
         )
-    assert_no_active_avatar_job(storage, user_id, format_key)
+    if not skip_active_guard:
+        assert_no_active_format_job(storage, user_id)
     job = create_format_job(storage, user_id, script_id, format_key, asset_store=asset_store, settings=settings)
     if job.format_key == "infographic_reels":
         return _deliver_infographic_job(
@@ -302,6 +304,7 @@ def _deliver_existing_all_formats(
             script_id=script_id,
             format_key=spec.key,
             delivery_actor_user_id=delivery_actor_user_id,
+            skip_active_guard=True,
         )
         if child.status == "failed":
             failed.append(f"{spec.label}: {child.error or child.output_text}")
@@ -337,6 +340,7 @@ def _deliver_all_formats(
             script_id=script_id,
             format_key=spec.key,
             delivery_actor_user_id=delivery_actor_user_id,
+            skip_active_guard=True,
         )
         if child.status == "failed":
             failed.append(f"{spec.label}: {child.error or child.output_text}")

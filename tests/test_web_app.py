@@ -141,7 +141,7 @@ def test_format_job_flow_uses_temp_storage(tmp_path, monkeypatch):
     assert storage.get_script(record.user_id, record.id).status == "used_for_video"
 
 
-def test_avatar_format_job_rejects_active_avatar_job(tmp_path, monkeypatch):
+def test_format_job_rejects_when_any_format_job_is_active(tmp_path, monkeypatch):
     storage = make_storage(tmp_path)
     asset_store = make_asset_store(tmp_path)
     record = add_approved_script(storage)
@@ -160,11 +160,11 @@ def test_avatar_format_job_rejects_active_avatar_job(tmp_path, monkeypatch):
 
     response = client.post(
         f"/api/scripts/{record.id}/format-jobs",
-        json={"user_id": "42", "format_key": "avatar_horizontal"},
+        json={"user_id": "42", "format_key": "infographic_reels"},
     )
 
     assert response.status_code == 400
-    assert "Уже идет генерация видео" in response.json()["detail"]
+    assert "Уже идет генерация формата" in response.json()["detail"]
     assert len(storage.list_format_jobs("42")) == 1
 
 

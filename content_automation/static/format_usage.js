@@ -1,6 +1,5 @@
 const USED_STATUSES = new Set(["draft", "submitted", "queued", "processing", "delivered"]);
 const LIVE_STATUSES = new Set(["submitted", "queued", "processing"]);
-const AVATAR_FORMAT_KEYS = new Set(["avatar_reels", "avatar_horizontal"]);
 
 export function formatButtonState({ jobs, formats, scriptId, formatKey, creating, activeJob }) {
   const usage = usageForScript(jobs, formats, scriptId);
@@ -9,16 +8,16 @@ export function formatButtonState({ jobs, formats, scriptId, formatKey, creating
       && String(creating.scriptId) === String(scriptId)
       && creating.formatKey === formatKey,
   );
-  const blockedByActiveAvatar = isAvatarRequest(formatKey) && isLiveAvatarJob(activeJob);
+  const blockedByActiveJob = isLiveJob(activeJob);
   const used = formatKey === "all" ? usage.hasAnyUsed : usage.usedKeys.has(formatKey) || usage.usedKeys.has("all");
   const live = formatKey === "all" ? usage.hasAnyLive : usage.liveKeys.has(formatKey) || usage.liveKeys.has("all");
   return {
-    disabled: creatingThis || used || blockedByActiveAvatar,
+    disabled: creatingThis || used || blockedByActiveJob,
     creating: creatingThis,
     used,
     live,
-    blockedByActiveAvatar,
-    label: buttonLabel(formats, formatKey, { creating: creatingThis, used, live, blockedByActiveAvatar }),
+    blockedByActiveJob,
+    label: buttonLabel(formats, formatKey, { creating: creatingThis, used, live, blockedByActiveJob }),
   };
 }
 
@@ -52,7 +51,7 @@ function usageForScript(jobs, formats, scriptId) {
 
 function buttonLabel(formats, formatKey, state) {
   if (state.creating) return "Создаю...";
-  if (state.blockedByActiveAvatar) return "Видео уже в работе";
+  if (state.blockedByActiveJob) return "Формат уже в работе";
   if (state.live) return "Уже в работе";
   if (state.used) return "Уже использовано";
   return formatLabel(formats, formatKey);
@@ -63,10 +62,6 @@ function formatLabel(formats, formatKey) {
   return formats.find((item) => item.key === formatKey)?.label || formatKey;
 }
 
-function isAvatarRequest(formatKey) {
-  return formatKey === "all" || AVATAR_FORMAT_KEYS.has(formatKey);
-}
-
-function isLiveAvatarJob(job) {
-  return Boolean(job && LIVE_STATUSES.has(job.status) && AVATAR_FORMAT_KEYS.has(job.format_key));
+function isLiveJob(job) {
+  return Boolean(job && LIVE_STATUSES.has(job.status));
 }
