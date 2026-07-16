@@ -17,7 +17,7 @@ from .web_format_jobs import (
 from .web_serializers import job_to_out
 
 
-LIVE_STATUSES = {"queued", "processing", "submitted", "ready"}
+LIVE_STATUSES = {"queued", "processing", "submitted"}
 RETRYABLE_STATUSES = {"failed", "submit_failed"}
 STALE_AFTER = timedelta(minutes=30)
 

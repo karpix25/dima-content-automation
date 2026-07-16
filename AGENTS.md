@@ -5,3 +5,4 @@
 - Before calling a UI generation button safe, verify backend concurrency guards for long-running video jobs, not only successful single-job execution.
 - Do not treat stale format jobs with status `ready` as active video renders; only queued, processing, and submitted should block new long-running video jobs.
 - If the product expects one explicit format request at a time, block every new format job while any format job is queued, processing, or submitted.
+- Do not infer that a human clicked just because a web POST exists; verify frontend automation, bot callbacks, retry paths, stale live statuses, and backend child-job paths first.

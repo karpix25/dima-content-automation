@@ -1,4 +1,4 @@
-const LIVE_STATUSES = new Set(["queued", "processing", "submitted", "ready"]);
+const LIVE_STATUSES = new Set(["queued", "processing", "submitted"]);
 const ERROR_STATUSES = new Set(["failed", "submit_failed"]);
 const STALE_AFTER_MS = 30 * 60 * 1000;
 
