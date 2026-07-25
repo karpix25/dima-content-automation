@@ -5,6 +5,7 @@ import logging
 from .active_format_jobs import assert_no_active_format_job
 from .config import Settings
 from .format_reference_paths import delivery_face_reference_paths
+from .heygen_job_recovery import keep_heygen_submitted_after_timeout, mark_heygen_submitted
 from .infographic_delivery import build_kie_client, create_and_send_infographic_reels
 from .media_delivery import create_and_send_avatar_video, create_and_send_existing_heygen_video
 from .media_assets import MediaAssetStore
@@ -399,6 +400,7 @@ def _deliver_avatar_job(
                 asset_store=asset_store,
                 kie_client=build_kie_client(settings),
                 delivery_actor_user_id=delivery_actor_user_id,
+                on_heygen_video_created=lambda video_id: mark_heygen_submitted(storage, user_id, job, video_id),
             )
         heygen_line = f"HeyGen video id: {existing_heygen_video_id}\n" if existing_heygen_video_id else ""
         job = storage.update_format_job_delivery(
@@ -417,6 +419,9 @@ def _deliver_avatar_job(
         logger.info("Avatar format job delivered: job_id=%s script_id=%s file=%s", job.id, script_id, result.video_path)
         return job
     except Exception as exc:
+        pending = keep_heygen_submitted_after_timeout(storage, user_id, job, exc)
+        if pending:
+            return pending
         logger.exception("Avatar format job failed: job_id=%s", job.id)
         return storage.update_format_job_delivery(
             user_id,
@@ -425,7 +430,6 @@ def _deliver_avatar_job(
             error=str(exc),
             output_text=f"⚠️ Не удалось создать avatar формат: {exc}",
         )
-
 
 def _deliver_infographic_job(
     *,

@@ -13,6 +13,7 @@ from .config import load_settings
 from .elevenlabs_api import ElevenLabsAPIClient, ElevenLabsAPIError
 from .elevenlabs_mcp import ElevenLabsMCPClient
 from .heygen import HeyGenClient, HeyGenError
+from .heygen_job_recovery import refresh_submitted_avatar_job
 from .idea_bank import IdeaBank
 from .media_assets import (
     AUDIO_EXTENSIONS,
@@ -516,6 +517,16 @@ def format_job(job_id: int, user_id: str = Query(..., min_length=1)) -> FormatJo
     job = storage.get_format_job(user_id, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Format job not found")
+    try:
+        job = refresh_submitted_avatar_job(
+            storage=storage,
+            asset_store=asset_store,
+            settings=settings,
+            user_id=user_id,
+            job=job,
+        )
+    except TuranServiceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return job_to_out(job)
 
 

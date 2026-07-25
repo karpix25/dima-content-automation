@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -53,6 +54,7 @@ def create_and_send_avatar_video(
     asset_store: MediaAssetStore,
     kie_client: KieImageClient,
     delivery_actor_user_id: str | None = None,
+    on_heygen_video_created: Callable[[str], None] | None = None,
 ) -> AvatarDeliveryResult:
     target = "horizontal" if format_key == "avatar_horizontal" else "vertical"
     output_record = replace(record, format=output_format_for_job(format_key))
@@ -82,7 +84,17 @@ def create_and_send_avatar_video(
     if not heygen.is_configured():
         raise RuntimeError("HEYGEN_API_KEY не задан")
 
-    ready = asyncio.run(_create_heygen_video(heygen, output_record, Path(audio_path), avatar_id, state.heygen_video_api_version, state.heygen_avatar_engine))
+    ready = asyncio.run(
+        _create_heygen_video(
+            heygen,
+            output_record,
+            Path(audio_path),
+            avatar_id,
+            state.heygen_video_api_version,
+            state.heygen_avatar_engine,
+            on_created=on_heygen_video_created,
+        )
+    )
     if not ready.video_url:
         raise RuntimeError(f"HeyGen не вернул ссылку на видео: {ready.raw}")
 
@@ -254,7 +266,21 @@ def _heygen_client(settings: Settings, target: str) -> HeyGenClient:
     )
 
 
-async def _create_heygen_video(heygen: HeyGenClient, record: ScriptRecord, audio_path: Path, avatar_id: str, api_version: str, engine: str):
+def get_existing_heygen_video_status(*, settings: Settings, format_key: str, heygen_video_id: str):
+    target = "horizontal" if format_key == "avatar_horizontal" else "vertical"
+    heygen = _heygen_client(settings, target)
+    return asyncio.run(heygen.get_video(heygen_video_id.strip()))
+
+
+async def _create_heygen_video(
+    heygen: HeyGenClient,
+    record: ScriptRecord,
+    audio_path: Path,
+    avatar_id: str,
+    api_version: str,
+    engine: str,
+    on_created: Callable[[str], None] | None = None,
+):
     asset_id = await heygen.upload_audio_file(audio_path)
     motion_prompt = _motion_prompt() if api_version == "v3" and engine == "avatar_iv" else None
     expressiveness = (os.getenv("HEYGEN_PHOTO_AVATAR_EXPRESSIVENESS") or "high").strip().lower() if motion_prompt else None
@@ -267,6 +293,8 @@ async def _create_heygen_video(heygen: HeyGenClient, record: ScriptRecord, audio
         motion_prompt=motion_prompt,
         expressiveness=expressiveness,
     )
+    if on_created:
+        on_created(created.video_id)
     return await heygen.wait_for_video(created.video_id)
 
 

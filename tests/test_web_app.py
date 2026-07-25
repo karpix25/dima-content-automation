@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
-from content_automation import web_app, web_format_jobs
+from content_automation import heygen_job_recovery, web_app, web_format_jobs
 from content_automation.media_assets import MediaAssetStore
 from content_automation.storage import Storage
 
@@ -230,6 +230,70 @@ def test_existing_heygen_job_hides_output_url_when_video_deleted(tmp_path, monke
     assert opened.json()["status"] == "delivered"
     assert opened.json()["output_url"] is None
     assert "Файл удален с сервера после отправки в Telegram" in opened.json()["output_text"]
+
+
+def test_avatar_timeout_keeps_heygen_job_submitted(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
+    record = add_approved_script(storage)
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+
+    def fake_avatar_delivery(**kwargs):
+        kwargs["on_heygen_video_created"]("heygen-pending")
+        raise RuntimeError("HeyGen video timeout: still processing")
+
+    monkeypatch.setattr(web_format_jobs, "create_and_send_avatar_video", fake_avatar_delivery)
+    client = TestClient(web_app.app)
+
+    created = client.post(
+        f"/api/scripts/{record.id}/format-jobs",
+        json={"user_id": record.user_id, "format_key": "avatar_reels"},
+    )
+    opened = client.get(f"/api/format-jobs/{created.json()['id']}", params={"user_id": record.user_id})
+
+    assert opened.json()["status"] == "submitted"
+    assert opened.json()["external_task_id"] == "heygen-pending"
+    assert "Повторный запуск не нужен" in opened.json()["output_text"]
+
+
+def test_refresh_submitted_avatar_job_delivers_existing_heygen_video(tmp_path, monkeypatch):
+    storage = make_storage(tmp_path)
+    asset_store = make_asset_store(tmp_path)
+    record = add_approved_script(storage)
+    job = storage.add_format_job(
+        record.user_id,
+        script_id=record.id,
+        format_key="avatar_reels",
+        task_type="avatar_instagram",
+        title="Avatar",
+        output_text="waiting",
+    )
+    storage.update_format_job_delivery(record.user_id, job.id, status="submitted", external_task_id="heygen-ready")
+    monkeypatch.setattr(web_app, "storage", storage)
+    monkeypatch.setattr(web_app, "asset_store", asset_store)
+
+    monkeypatch.setattr(
+        heygen_job_recovery,
+        "get_existing_heygen_video_status",
+        lambda **_: SimpleNamespace(status="completed", video_url="https://example.test/video.mp4", raw={}),
+    )
+
+    def fake_existing_delivery(**kwargs):
+        return SimpleNamespace(
+            video_path=tmp_path / "existing.mp4",
+            telegram_message_id="tg-existing",
+            heygen_video_id=kwargs["heygen_video_id"],
+        )
+
+    monkeypatch.setattr(heygen_job_recovery, "create_and_send_existing_heygen_video", fake_existing_delivery)
+    client = TestClient(web_app.app)
+
+    opened = client.get(f"/api/format-jobs/{job.id}", params={"user_id": record.user_id})
+
+    assert opened.json()["status"] == "delivered"
+    assert opened.json()["external_task_id"] == "tg-existing"
+    assert opened.json()["output_url"].endswith("existing.mp4")
 
 
 def test_infographic_reels_job_sends_video_instead_of_prompt(tmp_path, monkeypatch):
